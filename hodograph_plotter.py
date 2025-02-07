@@ -7,15 +7,13 @@ class HodographPlotter:
     def __init__(self):
         self.fig = None
         self.ax = None
-        # Updated speed rings to go from 10 to 100 in increments of 10
+        # Speed rings from 10 to 100 in increments of 10
         self.speed_rings = list(range(10, 101, 10))  # [10, 20, 30, ..., 100]
+        self.max_speed = 100  # Fixed maximum speed at 100 knots
 
-    def setup_plot(self, max_speed: float = 100) -> None:
+    def setup_plot(self) -> None:
         """
-        Initialize the hodograph plot.
-
-        Args:
-            max_speed: Maximum wind speed to show on plot (default 100 knots)
+        Initialize the hodograph plot with fixed 100kt maximum range.
         """
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
 
@@ -28,17 +26,17 @@ class HodographPlotter:
             circle = plt.Circle((0, 0), speed, fill=False, color='gray', linestyle='--', alpha=0.5)
             self.ax.add_artist(circle)
 
-        # Set limits and labels
-        self.ax.set_xlim(-max_speed, max_speed)
-        self.ax.set_ylim(-max_speed, max_speed)
+        # Set limits and labels (fixed at 100kts)
+        self.ax.set_xlim(-self.max_speed, self.max_speed)
+        self.ax.set_ylim(-self.max_speed, self.max_speed)
         self.ax.set_xlabel('U-component (knots)')
         self.ax.set_ylabel('V-component (knots)')
 
         # Add cardinal directions
-        self.ax.text(0, max_speed + 2, 'N', ha='center')
-        self.ax.text(max_speed + 2, 0, 'E', va='center')
-        self.ax.text(0, -max_speed - 2, 'S', ha='center')
-        self.ax.text(-max_speed - 2, 0, 'W', va='center')
+        self.ax.text(0, self.max_speed + 2, 'N', ha='center')
+        self.ax.text(self.max_speed + 2, 0, 'E', va='center')
+        self.ax.text(0, -self.max_speed - 2, 'S', ha='center')
+        self.ax.text(-self.max_speed - 2, 0, 'W', va='center')
 
     def plot_profile(self, profile, height_colors: bool = True) -> None:
         """
