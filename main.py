@@ -17,7 +17,8 @@ def main():
 
     # Radar site selection
     sites = get_sorted_sites()
-    site_options = [f"{site.id} - {site.name}, {site.state}" for site in sites]
+    site_options = [f"{site.id} - {site.name}, {site.state} ({site.latitude:.3f}°N, {site.longitude:.3f}°W)" 
+                   for site in sites]
     selected_site = st.sidebar.selectbox(
         "Select Radar Site",
         site_options,

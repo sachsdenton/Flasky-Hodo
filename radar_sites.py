@@ -11,18 +11,41 @@ class RadarSite:
     state: str
     latitude: float
     longitude: float
+    region: int
 
-# Standard list of NEXRAD sites
+# NEXRAD site information mapping
+_SITE_LOCATIONS = {
+    # WSR-88Ds
+    'KABR': {'name': 'Aberdeen', 'state': 'SD', 'lat': 45.456, 'lon': -98.413, 'region': 3},
+    'KBIS': {'name': 'Bismarck', 'state': 'ND', 'lat': 46.771, 'lon': -100.760, 'region': 3},
+    'KFTG': {'name': 'Denver/Boulder', 'state': 'CO', 'lat': 39.786, 'lon': -104.546, 'region': 5},
+    'KDMX': {'name': 'Des Moines', 'state': 'IA', 'lat': 41.731, 'lon': -93.723, 'region': 3},
+    'KDTX': {'name': 'Detroit', 'state': 'MI', 'lat': 42.700, 'lon': -83.472, 'region': 3},
+    'KDDC': {'name': 'Dodge City', 'state': 'KS', 'lat': 37.761, 'lon': -99.969, 'region': 3},
+    'KDLH': {'name': 'Duluth', 'state': 'MN', 'lat': 46.837, 'lon': -92.210, 'region': 3},
+    'KCYS': {'name': 'Cheyenne', 'state': 'WY', 'lat': 41.152, 'lon': -104.806, 'region': 5},
+    'KLOT': {'name': 'Chicago', 'state': 'IL', 'lat': 41.604, 'lon': -88.085, 'region': 3},
+    'KICT': {'name': 'Wichita', 'state': 'KS', 'lat': 37.654, 'lon': -97.443, 'region': 3},
+    'KTLX': {'name': 'Oklahoma City', 'state': 'OK', 'lat': 35.333, 'lon': -97.278, 'region': 4},
+    'KINX': {'name': 'Tulsa', 'state': 'OK', 'lat': 36.175, 'lon': -95.564, 'region': 4},
+    'KVNX': {'name': 'Vance AFB', 'state': 'OK', 'lat': 36.741, 'lon': -98.128, 'region': 4},
+    'KFDR': {'name': 'Frederick', 'state': 'OK', 'lat': 34.362, 'lon': -98.977, 'region': 4},
+    'KAMA': {'name': 'Amarillo', 'state': 'TX', 'lat': 35.233, 'lon': -101.709, 'region': 4},
+    'KLBB': {'name': 'Lubbock', 'state': 'TX', 'lat': 33.654, 'lon': -101.814, 'region': 4},
+    # Add more sites as needed based on wsr88d.py
+}
+
+# Create radar sites mapping
 RADAR_SITES: Dict[str, RadarSite] = {
-    "KTLX": RadarSite("KTLX", "Oklahoma City", "OK", 35.333, -97.278),
-    "KINX": RadarSite("KINX", "Tulsa", "OK", 36.175, -95.564),
-    "KVNX": RadarSite("KVNX", "Vance AFB", "OK", 36.741, -98.128),
-    "KFDR": RadarSite("KFDR", "Frederick", "OK", 34.362, -98.977),
-    "KDDC": RadarSite("KDDC", "Dodge City", "KS", 37.761, -99.969),
-    "KICT": RadarSite("KICT", "Wichita", "KS", 37.654, -97.443),
-    "KAMA": RadarSite("KAMA", "Amarillo", "TX", 35.233, -101.709),
-    "KLBB": RadarSite("KLBB", "Lubbock", "TX", 33.654, -101.814),
-    # Add more radar sites as needed
+    site_id: RadarSite(
+        id=site_id,
+        name=info['name'],
+        state=info['state'],
+        latitude=info['lat'],
+        longitude=info['lon'],
+        region=info['region']
+    )
+    for site_id, info in _SITE_LOCATIONS.items()
 }
 
 def get_sorted_sites() -> List[RadarSite]:
@@ -31,4 +54,6 @@ def get_sorted_sites() -> List[RadarSite]:
 
 def get_site_by_id(site_id: str) -> RadarSite:
     """Get radar site information by ID."""
-    return RADAR_SITES.get(site_id)
+    if site_id not in RADAR_SITES:
+        raise ValueError(f"Invalid radar site ID: {site_id}")
+    return RADAR_SITES[site_id]
