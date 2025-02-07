@@ -6,14 +6,25 @@ from hodograph_plotter import HodographPlotter
 from data_processor import WindProfile
 from radar_sites import get_sorted_sites, get_site_by_id
 import io
+import time
 
 def main():
     st.title("Hodograph Analysis Tool")
     st.sidebar.header("Data Source")
 
-    # Initialize session state for wind profile
+    # Initialize session state for wind profile and auto-refresh
     if 'wind_profile' not in st.session_state:
         st.session_state.wind_profile = WindProfile()
+    if 'last_update_time' not in st.session_state:
+        st.session_state.last_update_time = None
+
+    # Auto-refresh control
+    auto_refresh = st.sidebar.checkbox("Enable Auto-refresh", value=True)
+    if auto_refresh:
+        st.sidebar.text("Updates every 30 seconds")
+        # Show last update time if available
+        if st.session_state.last_update_time:
+            st.sidebar.text(f"Last update: {st.session_state.last_update_time.strftime('%H:%M:%S')}")
 
     # Radar site selection
     sites = get_sorted_sites()
@@ -27,8 +38,16 @@ def main():
     # Extract site ID from selection
     site_id = selected_site.split(" - ")[0] if selected_site else None
 
-    # Fetch data button
-    if st.sidebar.button("Fetch Latest Data"):
+    # Auto-refresh logic
+    current_time = datetime.now()
+    should_refresh = (
+        auto_refresh and 
+        (st.session_state.last_update_time is None or 
+        (current_time - st.session_state.last_update_time).total_seconds() >= 30)
+    )
+
+    # Fetch data button or auto-refresh
+    if st.sidebar.button("Fetch Latest Data") or should_refresh:
         if site_id:
             with st.spinner(f'Fetching latest data from {site_id}...'):
                 try:
@@ -40,6 +59,7 @@ def main():
                         st.session_state.wind_profile.speeds = vad['wind_spd']
                         st.session_state.wind_profile.directions = vad['wind_dir']
                         st.session_state.wind_profile.times = [vad['time']] * len(vad['altitude'])
+                        st.session_state.last_update_time = current_time
                         st.success(f"Successfully loaded data from {site_id}")
                     else:
                         st.error("Could not fetch radar data")
@@ -88,10 +108,16 @@ def main():
         # Clear data button
         if st.button("Clear Data"):
             st.session_state.wind_profile.clear_data()
+            st.session_state.last_update_time = None
             st.experimental_rerun()
 
     else:
         st.info("Select a radar site and click 'Fetch Latest Data' to generate a hodograph.")
+
+    # Trigger auto-refresh if enabled
+    if auto_refresh:
+        time.sleep(1)  # Small delay to prevent excessive CPU usage
+        st.experimental_rerun()
 
 if __name__ == "__main__":
     main()
