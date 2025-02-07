@@ -25,7 +25,7 @@ def main():
             "Refresh Interval (seconds)",
             min_value=10,
             max_value=300,
-            value=30,
+            value=120,
             step=5
         )
         st.sidebar.text(f"Updates every {refresh_interval} seconds")
@@ -53,7 +53,7 @@ def main():
         auto_refresh and 
         site_id and  # Only refresh if a site is selected
         (st.session_state.last_update_time is None or 
-        (current_time - st.session_state.last_update_time).total_seconds() >= refresh_interval)
+         (current_time - st.session_state.last_update_time).total_seconds() >= refresh_interval)
     ) if auto_refresh else False
 
     # Fetch data button or auto-refresh
