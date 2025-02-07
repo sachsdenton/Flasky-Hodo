@@ -2,12 +2,98 @@ import streamlit as st
 import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 from hodograph_plotter import HodographPlotter
 from data_processor import WindProfile
 from radar_sites import get_sorted_sites, get_site_by_id
+from utils import calculate_wind_components
 import io
 import time
-import os  # Add os import
+import os
+
+def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_time=None):
+    # Calculate u and v components
+    u_comp = []
+    v_comp = []
+    for speed, direction in zip(wind_profile.speeds, wind_profile.directions):
+        u, v = calculate_wind_components(speed, direction)
+        u_comp.append(u)
+        v_comp.append(v)
+
+    # Create hover text
+    hover_text = [
+        f'Height: {h*1000:.0f}m / {h*1000*3.28084:.0f}ft<br>'
+        f'Speed: {s:.0f}kts<br>'
+        f'Direction: {d:.0f}°'
+        for h, s, d in zip(wind_profile.heights, wind_profile.speeds, wind_profile.directions)
+    ]
+
+    # Create the figure
+    fig = go.Figure()
+
+    # Add speed rings
+    for speed in range(10, 101, 10):
+        circle_points = np.linspace(0, 2*np.pi, 100)
+        x = speed * np.cos(circle_points)
+        y = speed * np.sin(circle_points)
+        fig.add_trace(go.Scatter(
+            x=x, y=y,
+            mode='lines',
+            line=dict(color='gray', dash='dash', width=1),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+
+    # Add the wind profile line and points
+    fig.add_trace(go.Scatter(
+        x=u_comp,
+        y=v_comp,
+        mode='lines+markers',
+        line=dict(color='blue', width=2),
+        marker=dict(
+            color=wind_profile.heights,
+            colorscale='Viridis',
+            size=8,
+            showscale=True,
+            colorbar=dict(title='Height (km)')
+        ),
+        text=hover_text,
+        hoverinfo='text',
+        name='Wind Profile'
+    ))
+
+    # Configure the layout
+    max_speed = 100
+    fig.update_layout(
+        title=f"{site_id} - {site_name}<br>Valid: {valid_time.strftime('%Y-%m-%d %H:%M UTC')}" if all([site_id, site_name, valid_time]) else None,
+        xaxis=dict(
+            title='U-component (knots)',
+            range=[-max_speed, max_speed],
+            zeroline=True,
+            gridcolor='lightgray'
+        ),
+        yaxis=dict(
+            title='V-component (knots)',
+            range=[-max_speed, max_speed],
+            zeroline=True,
+            gridcolor='lightgray',
+            scaleanchor='x',
+            scaleratio=1
+        ),
+        showlegend=False,
+        hovermode='closest'
+    )
+
+    # Add cardinal directions
+    annotations = [
+        dict(x=0, y=max_speed+2, text="N", showarrow=False),
+        dict(x=max_speed+2, y=0, text="E", showarrow=False),
+        dict(x=0, y=-max_speed-2, text="S", showarrow=False),
+        dict(x=-max_speed-2, y=0, text="W", showarrow=False)
+    ]
+    fig.update_layout(annotations=annotations)
+
+    return fig
 
 def main():
     # Create temp_data directory if it doesn't exist
@@ -96,36 +182,49 @@ def main():
         st.subheader("Wind Profile Visualization")
 
         # Plot controls
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
-            pass
+            plot_type = st.radio("Plot Type", ["Matplotlib", "Plotly"], key="plot_type")
         with col2:
             height_colors = st.checkbox("Color code by height", value=True)
+        with col3:
+            pass
 
         # Clear any existing matplotlib figures
         plt.close('all')
 
-        # Create hodograph plot
-        plotter = HodographPlotter()
-        # Get site information
-        site = get_site_by_id(site_id) if site_id else None
-        # Get the time from the profile (first time in the list)
-        valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
+        if plot_type == "Matplotlib":
+            # Create hodograph plot (existing matplotlib code)
+            plotter = HodographPlotter()
+            site = get_site_by_id(site_id) if site_id else None
+            valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
 
-        plotter.setup_plot(
-            site_id=site_id,
-            site_name=site.name if site else None,
-            valid_time=valid_time
-        )
-        plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
+            plotter.setup_plot(
+                site_id=site_id,
+                site_name=site.name if site else None,
+                valid_time=valid_time
+            )
+            plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
 
-        # Convert plot to Streamlit
-        buf = io.BytesIO()
-        fig, ax = plotter.get_plot()
-        fig.savefig(buf, format='png', bbox_inches='tight')
-        buf.seek(0)
-        st.image(buf)
-        plt.close(fig)  # Close the figure after saving
+            # Convert plot to Streamlit
+            buf = io.BytesIO()
+            fig, ax = plotter.get_plot()
+            fig.savefig(buf, format='png', bbox_inches='tight')
+            buf.seek(0)
+            st.image(buf)
+            plt.close(fig)
+        else:
+            # Create and display Plotly hodograph
+            site = get_site_by_id(site_id) if site_id else None
+            valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
+
+            fig = create_plotly_hodograph(
+                st.session_state.wind_profile,
+                site_id=site_id,
+                site_name=site.name if site else None,
+                valid_time=valid_time
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
         # Display data table below the plot
         st.subheader("Current Observations")
