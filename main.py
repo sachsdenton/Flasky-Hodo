@@ -17,8 +17,9 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
     v_comp = []
     for speed, direction in zip(wind_profile.speeds, wind_profile.directions):
         u, v = calculate_wind_components(speed, direction)
-        u_comp.append(u)
-        v_comp.append(v)
+        # Negate the components to flip the data to the correct side
+        u_comp.append(-u)
+        v_comp.append(-v)
 
     # Create hover text
     hover_text = [
