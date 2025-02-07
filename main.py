@@ -71,7 +71,10 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             title='U-component (knots)',
             range=[max_speed, -max_speed],  # Inverted x-axis (East on left)
             zeroline=True,
-            gridcolor='lightgray'
+            gridcolor='lightgray',
+            scaleanchor='y',  # Lock aspect ratio
+            scaleratio=1,     # Equal scaling
+            constrain='domain'  # Maintain aspect ratio when resizing
         ),
         yaxis=dict(
             title='V-component (knots)',
@@ -79,10 +82,14 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             zeroline=True,
             gridcolor='lightgray',
             scaleanchor='x',
-            scaleratio=1
+            scaleratio=1,
+            constrain='domain'
         ),
         showlegend=False,
-        hovermode='closest'
+        hovermode='closest',
+        width=600,   # Fixed width
+        height=600,  # Fixed height (equal to width for square plot)
+        autosize=False  # Disable autosize to maintain square shape
     )
 
     # Add cardinal directions in meteorological convention
