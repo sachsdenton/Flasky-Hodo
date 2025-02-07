@@ -7,8 +7,12 @@ from data_processor import WindProfile
 from radar_sites import get_sorted_sites, get_site_by_id
 import io
 import time
+import os  # Add os import
 
 def main():
+    # Create temp_data directory if it doesn't exist
+    os.makedirs("temp_data", exist_ok=True)
+
     st.title("Hodograph Analysis Tool")
     st.sidebar.header("Data Source")
 
