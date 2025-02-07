@@ -66,14 +66,14 @@ class WindProfile:
         Returns:
             Dictionary containing mean speed and direction
         """
-        if not self.heights:
+        if len(self.heights) == 0:
             return {"speed": 0.0, "direction": 0.0}
 
         # Find data points within the layer
-        mask = np.logical_and(np.array(self.heights) >= bottom, 
-                            np.array(self.heights) <= top)
+        heights_array = np.array(self.heights)
+        mask = np.logical_and(heights_array >= bottom, heights_array <= top)
 
-        if not any(mask):
+        if not np.any(mask):
             return {"speed": 0.0, "direction": 0.0}
 
         # Calculate mean wind components
@@ -84,19 +84,23 @@ class WindProfile:
 
     def validate(self) -> bool:
         """Validate the stored wind profile data."""
-        if not self.heights:
+        if len(self.heights) == 0:
             return False
 
         # Basic validation checks
         if not (len(self.heights) == len(self.speeds) == len(self.directions)):
             return False
 
+        heights_array = np.array(self.heights)
+        speeds_array = np.array(self.speeds)
+        directions_array = np.array(self.directions)
+
         # Check value ranges
-        if not all(0 <= s <= 200 for s in self.speeds):  # Max reasonable wind speed
+        if not np.all((speeds_array >= 0) & (speeds_array <= 200)):  # Max reasonable wind speed
             return False
-        if not all(0 <= d <= 360 for d in self.directions):
+        if not np.all((directions_array >= 0) & (directions_array <= 360)):
             return False
-        if not all(h >= 0 for h in self.heights):
+        if not np.all(heights_array >= 0):
             return False
 
         return True
