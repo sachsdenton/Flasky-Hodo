@@ -107,6 +107,9 @@ def main():
         with col2:
             height_colors = st.checkbox("Color code by height", value=True)
 
+        # Create single plot container
+        plot_container = st.empty()
+
         # Clear any existing matplotlib figures
         plt.close('all')
 
@@ -129,8 +132,9 @@ def main():
         fig, ax = plotter.get_plot()
         fig.savefig(buf, format='png', bbox_inches='tight')
         buf.seek(0)
-        st.image(buf)
+        plot_container.image(buf)  # Use the container instead of st.image
         plt.close(fig)  # Close the figure after saving
+        buf.close()  # Close the buffer
 
         # Clear data button
         if st.button("Clear Data"):
