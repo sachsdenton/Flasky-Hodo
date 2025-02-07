@@ -58,30 +58,41 @@ def main():
     data_updated = False
     if fetch_clicked or should_refresh:
         if site_id:
-            with st.spinner(f'Fetching latest data from {site_id}...'):
-                try:
-                    from vad_reader import download_vad
-                    vad = download_vad(site_id, cache_path="temp_data")
-
-                    if vad:
-                        # Check if the data timestamp is different
-                        new_data_time = vad['time']
-                        if fetch_clicked or st.session_state.last_data_timestamp != new_data_time:
+            try:
+                from vad_reader import download_vad
+                # First just check if new data is available
+                if fetch_clicked:
+                    # If manual refresh, always fetch new data
+                    with st.spinner(f'Fetching latest data from {site_id}...'):
+                        vad = download_vad(site_id, cache_path="temp_data")
+                        if vad:
                             st.session_state.wind_profile.heights = vad['altitude']
                             st.session_state.wind_profile.speeds = vad['wind_spd']
                             st.session_state.wind_profile.directions = vad['wind_dir']
                             st.session_state.wind_profile.times = [vad['time']] * len(vad['altitude'])
-                            st.session_state.last_data_timestamp = new_data_time
+                            st.session_state.last_data_timestamp = vad['time']
                             data_updated = True
                             st.success(f"New data loaded from {site_id}")
-                        else:
-                            st.info("No new data available yet")
+                else:
+                    # For auto-refresh, first check if new data exists
+                    vad = download_vad(site_id, cache_path="temp_data", check_only=True)
+                    if vad and vad['time'] != st.session_state.last_data_timestamp:
+                        # Only if new data exists, fetch the full dataset
+                        with st.spinner(f'New data available, updating from {site_id}...'):
+                            vad = download_vad(site_id, cache_path="temp_data")
+                            if vad:
+                                st.session_state.wind_profile.heights = vad['altitude']
+                                st.session_state.wind_profile.speeds = vad['wind_spd']
+                                st.session_state.wind_profile.directions = vad['wind_dir']
+                                st.session_state.wind_profile.times = [vad['time']] * len(vad['altitude'])
+                                st.session_state.last_data_timestamp = vad['time']
+                                data_updated = True
+                                st.success(f"New data loaded from {site_id}")
 
-                        st.session_state.last_update_time = current_time
-                    else:
-                        st.error("Could not fetch radar data")
-                except Exception as e:
-                    st.error(f"Error fetching data: {str(e)}")
+                st.session_state.last_update_time = current_time
+
+            except Exception as e:
+                st.error(f"Error fetching data: {str(e)}")
 
     # Display current data
     if len(st.session_state.wind_profile.heights) > 0:

@@ -1,11 +1,12 @@
-
+"""
+Handles fetching VAD data from NEXRAD sites.
+"""
 from __future__ import print_function
 import numpy as np
-
 import struct
 from datetime import datetime, timedelta
-
 from wsr88d import build_has_name
+import re
 
 try:
     from urllib.request import urlopen, URLError
@@ -17,9 +18,62 @@ try:
 except ImportError:
     from BytesIO import BytesIO
 
-import re
-
 _base_url = "ftp://tgftp.nws.noaa.gov/SL.us008001/DF.of/DC.radar/DS.48vwp/"
+
+def download_vad(rid, time=None, file_id=None, cache_path=None, check_only=False):
+    """
+    Download VAD data for a radar site.
+
+    Args:
+        rid: Radar site identifier
+        time: Optional datetime to get data for
+        file_id: Optional specific file ID to download
+        cache_path: Optional path to cache downloaded data
+        check_only: If True, only checks for new data timestamp without downloading full dataset
+
+    Returns:
+        VADFile object or dict with just timestamp if check_only=True
+    """
+    if time is None:
+        if file_id is None:
+            url = "%s/SI.%s/sn.last" % (_base_url, rid.lower())
+        else:
+            url = "%s/SI.%s/sn.%04d" % (_base_url, rid.lower(), file_id)
+    else:
+        file_name = ""
+        for fn, ft in find_file_times(rid):
+            if ft <= time:
+                file_name = fn
+                break
+
+        if file_name == "":
+            raise ValueError("No VAD files before %s." % time.strftime("%d %B %Y %H%M UTC"))
+
+        url = "%s/SI.%s/%s" % (_base_url, rid.lower(), file_name)
+
+    try:
+        frem = urlopen(url)
+
+        if check_only:
+            # For timestamp check, only read enough data to get the scan time
+            bio = BytesIO(frem.read(1024))  # Read first 1KB which contains headers
+            vad = VADFile(bio)
+            return {'time': vad['time']}  # Return just the timestamp
+
+        if cache_path is None:
+            vad = VADFile(frem)
+        else:
+            bio = BytesIO(frem.read())
+            vad = VADFile(bio)
+
+            iname = build_has_name(rid, vad['time'])
+            with open("%s/%s" % (cache_path, iname), 'wb') as floc:
+                floc.write(bio.getvalue())
+
+        return vad
+
+    except URLError:
+        raise ValueError("Could not find radar site '%s'" % rid.upper())
 
 class VADFile(object):
     fields = ['wind_dir', 'wind_spd', 'rms_error', 'divergence', 'slant_range', 'elev_angle']
@@ -285,39 +339,3 @@ def find_file_times(rid):
     file_names[-1] = 'sn.last'
 
     return list(zip(file_names, file_dts))[::-1]
-
-  
-def download_vad(rid, time=None, file_id=None, cache_path=None):
-    if time is None:
-        if file_id is None:
-            url = "%s/SI.%s/sn.last" % (_base_url, rid.lower())
-        else:
-            url = "%s/SI.%s/sn.%04d" % (_base_url, rid.lower(), file_id)
-    else:
-        file_name = ""
-        for fn, ft in find_file_times(rid):
-            if ft <= time:
-                file_name = fn
-                break
-
-        if file_name == "":
-            raise ValueError("No VAD files before %s." % time.strftime("%d %B %Y %H%M UTC"))
-
-        url = "%s/SI.%s/%s" % (_base_url, rid.lower(), file_name)
-
-    try:
-        frem = urlopen(url)
-    except URLError:
-        raise ValueError("Could not find radar site '%s'" % rid.upper())
-
-    if cache_path is None:
-        vad = VADFile(frem)
-    else:
-        bio = BytesIO(frem.read())
-        vad = VADFile(bio)
-
-        iname = build_has_name(rid, vad['time'])
-        with open("%s/%s" % (cache_path, iname), 'wb') as floc:
-            floc.write(bio.getvalue())
-
-    return vad
