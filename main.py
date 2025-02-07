@@ -133,10 +133,12 @@ def main():
         # Create data table with both meters and feet
         METERS_TO_FEET = 3.28084
         data = {
-            "Height (m / ft)": [f"{h:.0f}m / {(h * METERS_TO_FEET):.0f}ft" 
-                               for h in st.session_state.wind_profile.heights],
-            "Speed (kts)": st.session_state.wind_profile.speeds,
-            "Direction (°)": st.session_state.wind_profile.directions
+            "Height (m / ft)": [
+                f"{float(h):.0f} m / {(float(h) * METERS_TO_FEET):.0f} ft" 
+                for h in st.session_state.wind_profile.heights
+            ],
+            "Speed (kts)": [f"{float(s):.0f}" for s in st.session_state.wind_profile.speeds],
+            "Direction (°)": [f"{float(d):.0f}" for d in st.session_state.wind_profile.directions]
         }
         st.dataframe(data)
 
