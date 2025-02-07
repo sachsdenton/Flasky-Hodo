@@ -42,12 +42,15 @@ def main():
     current_time = datetime.now()
     should_refresh = (
         auto_refresh and 
+        site_id and  # Only refresh if a site is selected
         (st.session_state.last_update_time is None or 
         (current_time - st.session_state.last_update_time).total_seconds() >= 30)
     )
 
     # Fetch data button or auto-refresh
-    if st.sidebar.button("Fetch Latest Data") or should_refresh:
+    fetch_clicked = st.sidebar.button("Fetch Latest Data")
+
+    if fetch_clicked or should_refresh:
         if site_id:
             with st.spinner(f'Fetching latest data from {site_id}...'):
                 try:
@@ -109,15 +112,15 @@ def main():
         if st.button("Clear Data"):
             st.session_state.wind_profile.clear_data()
             st.session_state.last_update_time = None
-            st.experimental_rerun()
+            st.rerun()
 
     else:
         st.info("Select a radar site and click 'Fetch Latest Data' to generate a hodograph.")
 
     # Trigger auto-refresh if enabled
-    if auto_refresh:
-        time.sleep(1)  # Small delay to prevent excessive CPU usage
-        st.experimental_rerun()
+    if auto_refresh and site_id:
+        time.sleep(0.1)  # Small delay to prevent excessive CPU usage
+        st.rerun()  # Use st.rerun() instead of deprecated st.experimental_rerun()
 
 if __name__ == "__main__":
     main()
