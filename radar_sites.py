@@ -3,49 +3,70 @@ Contains NEXRAD radar site information and utilities for site selection.
 """
 from dataclasses import dataclass
 from typing import Dict, List
+from wsr88d import _radar_info
 
 @dataclass
 class RadarSite:
     id: str
     name: str
-    state: str
-    latitude: float
-    longitude: float
     region: int
 
-# NEXRAD site information mapping
-_SITE_LOCATIONS = {
+# Standard names for radar sites
+_SITE_NAMES = {
     # WSR-88Ds
-    'KABR': {'name': 'Aberdeen', 'state': 'SD', 'lat': 45.456, 'lon': -98.413, 'region': 3},
-    'KBIS': {'name': 'Bismarck', 'state': 'ND', 'lat': 46.771, 'lon': -100.760, 'region': 3},
-    'KFTG': {'name': 'Denver/Boulder', 'state': 'CO', 'lat': 39.786, 'lon': -104.546, 'region': 5},
-    'KDMX': {'name': 'Des Moines', 'state': 'IA', 'lat': 41.731, 'lon': -93.723, 'region': 3},
-    'KDTX': {'name': 'Detroit', 'state': 'MI', 'lat': 42.700, 'lon': -83.472, 'region': 3},
-    'KDDC': {'name': 'Dodge City', 'state': 'KS', 'lat': 37.761, 'lon': -99.969, 'region': 3},
-    'KDLH': {'name': 'Duluth', 'state': 'MN', 'lat': 46.837, 'lon': -92.210, 'region': 3},
-    'KCYS': {'name': 'Cheyenne', 'state': 'WY', 'lat': 41.152, 'lon': -104.806, 'region': 5},
-    'KLOT': {'name': 'Chicago', 'state': 'IL', 'lat': 41.604, 'lon': -88.085, 'region': 3},
-    'KICT': {'name': 'Wichita', 'state': 'KS', 'lat': 37.654, 'lon': -97.443, 'region': 3},
-    'KTLX': {'name': 'Oklahoma City', 'state': 'OK', 'lat': 35.333, 'lon': -97.278, 'region': 4},
-    'KINX': {'name': 'Tulsa', 'state': 'OK', 'lat': 36.175, 'lon': -95.564, 'region': 4},
-    'KVNX': {'name': 'Vance AFB', 'state': 'OK', 'lat': 36.741, 'lon': -98.128, 'region': 4},
-    'KFDR': {'name': 'Frederick', 'state': 'OK', 'lat': 34.362, 'lon': -98.977, 'region': 4},
-    'KAMA': {'name': 'Amarillo', 'state': 'TX', 'lat': 35.233, 'lon': -101.709, 'region': 4},
-    'KLBB': {'name': 'Lubbock', 'state': 'TX', 'lat': 33.654, 'lon': -101.814, 'region': 4},
-    # Add more sites as needed based on wsr88d.py
+    'KABR': 'Aberdeen',
+    'KBIS': 'Bismarck',
+    'KFTG': 'Denver/Boulder',
+    'KDMX': 'Des Moines',
+    'KDTX': 'Detroit',
+    'KDDC': 'Dodge City',
+    'KDLH': 'Duluth',
+    'KCYS': 'Cheyenne',
+    'KLOT': 'Chicago',
+    'KICT': 'Wichita',
+    'KTLX': 'Oklahoma City',
+    'KINX': 'Tulsa',
+    'KVNX': 'Vance AFB',
+    'KFDR': 'Frederick',
+    'KAMA': 'Amarillo',
+    'KLBB': 'Lubbock',
+    'KFFC': 'Atlanta',
+    'KBMX': 'Birmingham',
+    'KBOX': 'Boston',
+    'KBUF': 'Buffalo',
+    'KCAE': 'Columbia',
+    'KDFW': 'Dallas/Fort Worth',
+    'KDTW': 'Detroit',
+    'KEPZ': 'El Paso',
+    'KGRR': 'Grand Rapids',
+    'KGSP': 'Greenville/Spartanburg',
+    'KHGX': 'Houston/Galveston',
+    'KIND': 'Indianapolis',
+    'KJAX': 'Jacksonville',
+    'KMCI': 'Kansas City',
+    'KMFL': 'Miami',
+    'KMKX': 'Milwaukee',
+    'KMPX': 'Minneapolis',
+    'KOKX': 'New York City',
+    'KPAH': 'Paducah',
+    'KPBZ': 'Pittsburgh',
+    'KPOE': 'Fort Polk',
+    'KRAX': 'Raleigh/Durham',
+    'KRLX': 'Charleston',
+    'KSHV': 'Shreveport',
+    'KSJT': 'San Angelo',
+    'KTBW': 'Tampa Bay'
 }
 
-# Create radar sites mapping
+# Create radar sites mapping from wsr88d._radar_info
 RADAR_SITES: Dict[str, RadarSite] = {
     site_id: RadarSite(
         id=site_id,
-        name=info['name'],
-        state=info['state'],
-        latitude=info['lat'],
-        longitude=info['lon'],
+        name=_SITE_NAMES.get(site_id, site_id),  # Use name from mapping or ID if not found
         region=info['region']
     )
-    for site_id, info in _SITE_LOCATIONS.items()
+    for site_id, info in _radar_info.items()
+    if not site_id.startswith('T')  # Exclude TDWR sites for now
 }
 
 def get_sorted_sites() -> List[RadarSite]:
