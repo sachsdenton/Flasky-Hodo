@@ -146,10 +146,12 @@ def main():
     else:
         st.info("Select a radar site and click 'Fetch Latest Data' to generate a hodograph.")
 
-    # Trigger auto-refresh if enabled
-    if auto_refresh and site_id:
+    # Only trigger auto-refresh if data is stale
+    if (auto_refresh and site_id and 
+        st.session_state.last_update_time and 
+        (datetime.now() - st.session_state.last_update_time).total_seconds() >= refresh_interval):
         time.sleep(0.1)  # Small delay to prevent excessive CPU usage
-        st.rerun()  # Use st.rerun() instead of deprecated st.experimental_rerun()
+        st.rerun()
 
 if __name__ == "__main__":
     main()
