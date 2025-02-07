@@ -4,6 +4,7 @@ from data_processor import WindProfile
 from hodograph_plotter import HodographPlotter
 import io
 import matplotlib.pyplot as plt
+from datetime import datetime
 
 def main():
     st.title("Hodograph Analysis Tool")
@@ -16,7 +17,7 @@ def main():
     # Data input method selection
     input_method = st.sidebar.radio(
         "Choose input method",
-        ["Manual Entry", "File Upload (Coming Soon)"]
+        ["Manual Entry", "NEXRAD Data Upload"]
     )
 
     if input_method == "Manual Entry":
@@ -25,11 +26,23 @@ def main():
             height = st.number_input("Height (meters)", min_value=0.0, step=100.0)
             speed = st.number_input("Wind Speed (knots)", min_value=0.0, max_value=200.0, step=1.0)
             direction = st.number_input("Wind Direction (degrees)", min_value=0.0, max_value=360.0, step=1.0)
-            
+
             submitted = st.form_submit_button("Add Observation")
             if submitted:
                 st.session_state.wind_profile.add_observation(height, speed, direction)
                 st.success("Observation added!")
+
+    else:  # NEXRAD Data Upload
+        uploaded_file = st.sidebar.file_uploader("Upload NEXRAD Level-II file", type=["gz"])
+        if uploaded_file is not None:
+            # Save uploaded file temporarily
+            with open("temp_nexrad.gz", "wb") as f:
+                f.write(uploaded_file.getvalue())
+
+            if st.session_state.wind_profile.load_from_nexrad("temp_nexrad.gz"):
+                st.success("Successfully loaded NEXRAD data!")
+            else:
+                st.error("Error loading NEXRAD data. Please ensure it's a valid Level-II file.")
 
     # Display current data
     if len(st.session_state.wind_profile.heights) > 0:
@@ -37,7 +50,8 @@ def main():
         data = {
             "Height (m)": st.session_state.wind_profile.heights,
             "Speed (kts)": st.session_state.wind_profile.speeds,
-            "Direction (°)": st.session_state.wind_profile.directions
+            "Direction (°)": st.session_state.wind_profile.directions,
+            "Time": st.session_state.wind_profile.times
         }
         st.dataframe(data)
 
@@ -69,7 +83,7 @@ def main():
             st.experimental_rerun()
 
     else:
-        st.info("Add wind observations to generate the hodograph.")
+        st.info("Add wind observations or upload NEXRAD data to generate the hodograph.")
 
 if __name__ == "__main__":
     main()
