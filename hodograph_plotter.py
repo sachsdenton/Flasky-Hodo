@@ -7,14 +7,15 @@ class HodographPlotter:
     def __init__(self):
         self.fig = None
         self.ax = None
-        self.speed_rings = [10, 20, 30, 40, 50]  # Default speed rings in knots
+        # Updated speed rings to go from 10 to 100 in increments of 10
+        self.speed_rings = list(range(10, 101, 10))  # [10, 20, 30, ..., 100]
 
-    def setup_plot(self, max_speed: float = 60) -> None:
+    def setup_plot(self, max_speed: float = 100) -> None:
         """
         Initialize the hodograph plot.
 
         Args:
-            max_speed: Maximum wind speed to show on plot
+            max_speed: Maximum wind speed to show on plot (default 100 knots)
         """
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
 
@@ -24,9 +25,8 @@ class HodographPlotter:
 
         # Draw speed rings
         for speed in self.speed_rings:
-            if speed <= max_speed:
-                circle = plt.Circle((0, 0), speed, fill=False, color='gray', linestyle='--', alpha=0.5)
-                self.ax.add_artist(circle)
+            circle = plt.Circle((0, 0), speed, fill=False, color='gray', linestyle='--', alpha=0.5)
+            self.ax.add_artist(circle)
 
         # Set limits and labels
         self.ax.set_xlim(-max_speed, max_speed)
