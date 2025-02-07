@@ -126,8 +126,11 @@ def main():
 
         # Convert plot to Streamlit
         buf = io.BytesIO()
-        plotter.get_plot()[0].savefig(buf, format='png', bbox_inches='tight')
+        fig, ax = plotter.get_plot()
+        fig.savefig(buf, format='png', bbox_inches='tight')
+        buf.seek(0)
         st.image(buf)
+        plt.close(fig)  # Close the figure after saving
 
         # Clear data button
         if st.button("Clear Data"):

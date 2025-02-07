@@ -21,6 +21,9 @@ class HodographPlotter:
             site_name: Location of the radar site (city, state)
             valid_time: Valid time of the data
         """
+        # Close any existing figures
+        plt.close('all')
+
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
 
         # Add title with site information and time if provided
@@ -111,6 +114,7 @@ class HodographPlotter:
             filename: Output filename
         """
         self.fig.savefig(filename, bbox_inches='tight', dpi=300)
+        plt.close(self.fig)  # Close after saving
 
     def get_plot(self) -> Tuple[plt.Figure, plt.Axes]:
         """
