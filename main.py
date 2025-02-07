@@ -28,7 +28,16 @@ def main():
             value=120,
             step=5
         )
-        st.sidebar.text(f"Updates every {refresh_interval} seconds")
+
+        # Calculate and display countdown
+        if st.session_state.last_update_time:
+            time_since_last = (datetime.now() - st.session_state.last_update_time).total_seconds()
+            time_until_next = max(0, refresh_interval - time_since_last)
+            progress = 1 - (time_until_next / refresh_interval)
+
+            # Display countdown progress bar
+            st.sidebar.progress(float(progress), f"Next update in {int(time_until_next)}s")
+
         # Show last update time if available
         if st.session_state.last_update_time:
             st.sidebar.text(f"Last update: {st.session_state.last_update_time.strftime('%H:%M:%S')}")
@@ -97,6 +106,9 @@ def main():
             pass
         with col2:
             height_colors = st.checkbox("Color code by height", value=True)
+
+        # Clear any existing matplotlib figures
+        plt.close('all')
 
         # Create hodograph plot
         plotter = HodographPlotter()
