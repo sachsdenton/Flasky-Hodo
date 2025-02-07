@@ -60,19 +60,15 @@ def main():
 
         # Plot controls
         st.subheader("Plot Controls")
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2) # This line was missing in the edited code but present in the original.
         with col1:
-            max_speed = st.slider("Maximum Speed (knots)", 
-                                min_value=30, 
-                                max_value=100, 
-                                value=60, 
-                                step=10)
+            pass #Removed the max_speed slider
         with col2:
             height_colors = st.checkbox("Color code by height", value=True)
 
         # Create hodograph plot
         plotter = HodographPlotter()
-        plotter.setup_plot(max_speed=max_speed)
+        plotter.setup_plot()
         plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
 
         # Convert plot to Streamlit
