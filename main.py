@@ -12,6 +12,9 @@ import time
 import os
 
 def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_time=None):
+    # Define max_speed at the start since it's used throughout the function
+    max_speed = 100  # Fixed maximum speed at 100 knots
+
     # Calculate u and v components
     u_comp = []
     v_comp = []
@@ -78,7 +81,6 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
     ))
 
     # Configure the layout
-    max_speed = 100
     fig.update_layout(
         title=f"{site_id} - {site_name}<br>Valid: {valid_time.strftime('%Y-%m-%d %H:%M UTC')}" if all([site_id, site_name, valid_time]) else None,
         xaxis=dict(
