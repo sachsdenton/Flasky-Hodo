@@ -89,58 +89,54 @@ def main():
 
     # Display current data
     if len(st.session_state.wind_profile.heights) > 0:
-        # Create two columns for layout
-        col1, col2 = st.columns([1, 1])
+        st.subheader("Current Observations")
 
+        # Create data table
+        data = {
+            "Height (m)": st.session_state.wind_profile.heights,
+            "Speed (kts)": st.session_state.wind_profile.speeds,
+            "Direction (°)": st.session_state.wind_profile.directions
+        }
+        st.dataframe(data)
+
+        # Plot controls
+        st.subheader("Plot Controls")
+        col1, col2 = st.columns(2)
         with col1:
-            st.subheader("Current Observations")
-            # Create data table
-            data = {
-                "Height (m)": st.session_state.wind_profile.heights,
-                "Speed (kts)": st.session_state.wind_profile.speeds,
-                "Direction (°)": st.session_state.wind_profile.directions
-            }
-            st.dataframe(data)
-
-            # Plot controls
-            st.subheader("Plot Controls")
+            pass
+        with col2:
             height_colors = st.checkbox("Color code by height", value=True)
 
-            # Clear data button
-            if st.button("Clear Data"):
-                st.session_state.wind_profile.clear_data()
-                st.session_state.last_update_time = None
-                st.rerun()
+        # Clear any existing matplotlib figures
+        plt.close('all')
 
-        with col2:
-            # Create single plot container
-            plot_container = st.empty()
+        # Create hodograph plot
+        plotter = HodographPlotter()
+        # Get site information
+        site = get_site_by_id(site_id) if site_id else None
+        # Get the time from the profile (first time in the list)
+        valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
 
-            # Clear any existing matplotlib figures
-            plt.close('all')
+        plotter.setup_plot(
+            site_id=site_id,
+            site_name=site.name if site else None,
+            valid_time=valid_time
+        )
+        plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
 
-            # Create hodograph plot
-            plotter = HodographPlotter()
-            # Get site information
-            site = get_site_by_id(site_id) if site_id else None
-            # Get the time from the profile (first time in the list)
-            valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
+        # Convert plot to Streamlit
+        buf = io.BytesIO()
+        fig, ax = plotter.get_plot()
+        fig.savefig(buf, format='png', bbox_inches='tight')
+        buf.seek(0)
+        st.image(buf)
+        plt.close(fig)  # Close the figure after saving
 
-            plotter.setup_plot(
-                site_id=site_id,
-                site_name=site.name if site else None,
-                valid_time=valid_time
-            )
-            plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
-
-            # Convert plot to Streamlit
-            buf = io.BytesIO()
-            fig, ax = plotter.get_plot()
-            fig.savefig(buf, format='png', bbox_inches='tight')
-            buf.seek(0)
-            plot_container.image(buf)  # Use the container instead of st.image
-            plt.close(fig)  # Close the figure after saving
-            buf.close()  # Close the buffer
+        # Clear data button
+        if st.button("Clear Data"):
+            st.session_state.wind_profile.clear_data()
+            st.session_state.last_update_time = None
+            st.rerun()
 
     else:
         st.info("Select a radar site and click 'Fetch Latest Data' to generate a hodograph.")
