@@ -132,21 +132,16 @@ def main():
 
         # Create data table with both meters and feet
         METERS_TO_FEET = 3.28084
+        KM_TO_METERS = 1000  # Convert kilometers to meters
         data = {
             "Height (m / ft)": [
-                f"{float(h):.0f} m / {(float(h) * METERS_TO_FEET):.0f} ft" 
+                f"{float(h) * KM_TO_METERS:.0f} m / {(float(h) * KM_TO_METERS * METERS_TO_FEET):.0f} ft" 
                 for h in st.session_state.wind_profile.heights
             ],
             "Speed (kts)": [f"{float(s):.0f}" for s in st.session_state.wind_profile.speeds],
             "Direction (°)": [f"{float(d):.0f}" for d in st.session_state.wind_profile.directions]
         }
         st.dataframe(data)
-
-        # Clear data button
-        if st.button("Clear Data"):
-            st.session_state.wind_profile.clear_data()
-            st.session_state.last_update_time = None
-            st.rerun()
 
     else:
         st.info("Select a radar site and click 'Fetch Latest Data' to generate a hodograph.")
