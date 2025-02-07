@@ -54,48 +54,89 @@ def download_vad(rid, time=None, file_id=None, cache_path=None, check_only=False
     try:
         frem = urlopen(url)
 
-        if check_only:
-            # For timestamp check, only read enough data to get the scan time
-            bio = BytesIO(frem.read(1024))  # Read first 1KB which contains headers
+        try:
+            if check_only:
+                # For timestamp check, read the entire file but only process headers
+                data = frem.read()
+                if len(data) < 1024:  # Minimum size for headers
+                    raise ValueError("Incomplete data received")
+                bio = BytesIO(data)
+                vad = VADFile(bio, headers_only=True)
+                return {'time': vad.get_scan_time()}
+
+            # For full processing, read entire file at once
+            data = frem.read()
+            if len(data) < 4000:  # Typical VAD files are larger
+                raise ValueError("Incomplete data received")
+
+            bio = BytesIO(data)
             vad = VADFile(bio)
-            return {'time': vad['time']}  # Return just the timestamp
 
-        if cache_path is None:
-            vad = VADFile(frem)
-        else:
-            bio = BytesIO(frem.read())
-            vad = VADFile(bio)
+            if cache_path is not None:
+                iname = build_has_name(rid, vad['time'])
+                with open("%s/%s" % (cache_path, iname), 'wb') as floc:
+                    floc.write(data)
 
-            iname = build_has_name(rid, vad['time'])
-            with open("%s/%s" % (cache_path, iname), 'wb') as floc:
-                floc.write(bio.getvalue())
+            return vad
 
-        return vad
+        except struct.error as e:
+            raise ValueError(f"Error parsing VAD data: {str(e)}")
 
     except URLError:
         raise ValueError("Could not find radar site '%s'" % rid.upper())
+    except Exception as e:
+        raise ValueError(f"Error downloading VAD data: {str(e)}")
 
 class VADFile(object):
     fields = ['wind_dir', 'wind_spd', 'rms_error', 'divergence', 'slant_range', 'elev_angle']
 
-    def __init__(self, file):
+    def __init__(self, file, headers_only=False):
         self._rpg = file
         self._data = None
+        self._time = None
+        self._headers_read = False
 
-        self._read_headers()
-        has_symbology_block, has_graphic_block, has_tabular_block = self._read_product_description_block()
+        try:
+            self._read_headers()
+            has_symbology_block, has_graphic_block, has_tabular_block = self._read_product_description_block()
 
-        if has_symbology_block:
-            self._read_product_symbology_block()
+            if not headers_only:
+                if has_symbology_block:
+                    self._read_product_symbology_block()
 
-        if has_graphic_block:
-            pass
+                if has_graphic_block:
+                    pass
 
-        if has_tabular_block:
-            self._read_tabular_block()
+                if has_tabular_block:
+                    self._read_tabular_block()
 
-        self._data = self._get_data()
-        return
+                self._data = self._get_data()
+        except Exception as e:
+            if headers_only:
+                # For headers-only read, we only care about scan time
+                pass
+            else:
+                raise ValueError(f"Error reading VAD file: {str(e)}")
+
+    def get_scan_time(self):
+        """Get the scan time even if full parsing fails."""
+        return self._time
+
+    def _read(self, type_string):
+        try:
+            if type_string[0] != 's':
+                size = struct.calcsize(type_string)
+                data = struct.unpack(">%s" % type_string, self._rpg.read(size))
+            else:
+                size = int(type_string[1:])
+                data = tuple([ self._rpg.read(size).strip(b"\0").decode('utf-8') ])
+
+            if len(data) == 1:
+                return data[0]
+            else:
+                return list(data)
+        except Exception as e:
+            raise ValueError(f"Error reading data: {str(e)}")
 
     def _read_headers(self):
         wmo_header = self._read('s30')
@@ -249,19 +290,6 @@ class VADFile(object):
                 num_chars = self._read('h')
 
         return
-
-    def _read(self, type_string):
-        if type_string[0] != 's':
-            size = struct.calcsize(type_string)
-            data = struct.unpack(">%s" % type_string, self._rpg.read(size))
-        else:
-            size = int(type_string[1:])
-            data = tuple([ self._rpg.read(size).strip(b"\0").decode('utf-8') ])
-
-        if len(data) == 1:
-            return data[0]
-        else:
-            return list(data)
 
     def _get_data(self):
         vad_list = []
