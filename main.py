@@ -87,20 +87,11 @@ def main():
                 except Exception as e:
                     st.error(f"Error fetching data: {str(e)}")
 
-    # Display current data
+    # Display current data and plot
     if len(st.session_state.wind_profile.heights) > 0:
-        st.subheader("Current Observations")
-
-        # Create data table
-        data = {
-            "Height (m)": st.session_state.wind_profile.heights,
-            "Speed (kts)": st.session_state.wind_profile.speeds,
-            "Direction (°)": st.session_state.wind_profile.directions
-        }
-        st.dataframe(data)
+        st.subheader("Wind Profile Visualization")
 
         # Plot controls
-        st.subheader("Plot Controls")
         col1, col2 = st.columns(2)
         with col1:
             pass
@@ -131,6 +122,19 @@ def main():
         buf.seek(0)
         st.image(buf)
         plt.close(fig)  # Close the figure after saving
+
+        # Display data table below the plot
+        st.subheader("Current Observations")
+
+        # Create data table with both meters and feet
+        METERS_TO_FEET = 3.28084
+        data = {
+            "Height (m / ft)": [f"{h:.0f}m / {(h * METERS_TO_FEET):.0f}ft" 
+                               for h in st.session_state.wind_profile.heights],
+            "Speed (kts)": st.session_state.wind_profile.speeds,
+            "Direction (°)": st.session_state.wind_profile.directions
+        }
+        st.dataframe(data)
 
         # Clear data button
         if st.button("Clear Data"):
