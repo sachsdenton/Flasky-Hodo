@@ -1,22 +1,19 @@
 import streamlit as st
 import numpy as np
-from data_processor import WindProfile
-from hodograph_plotter import HodographPlotter
-from radar_sites import get_sorted_sites, get_site_by_id
-from nexrad_fetcher import NEXRADFetcher
-import io
-import matplotlib.pyplot as plt
 from datetime import datetime
+import matplotlib.pyplot as plt
+from hodograph_plotter import HodographPlotter
+from data_processor import WindProfile
+from radar_sites import get_sorted_sites, get_site_by_id
+import io
 
 def main():
     st.title("Hodograph Analysis Tool")
-    st.sidebar.header("Radar Site Selection")
+    st.sidebar.header("Data Source")
 
-    # Initialize session state
+    # Initialize session state for wind profile
     if 'wind_profile' not in st.session_state:
         st.session_state.wind_profile = WindProfile()
-    if 'fetcher' not in st.session_state:
-        st.session_state.fetcher = NEXRADFetcher()
 
     # Radar site selection
     sites = get_sorted_sites()
@@ -34,24 +31,30 @@ def main():
     if st.sidebar.button("Fetch Latest Data"):
         if site_id:
             with st.spinner(f'Fetching latest data from {site_id}...'):
-                file_path = st.session_state.fetcher.fetch_latest(site_id)
+                try:
+                    from vad_reader import download_vad
+                    vad = download_vad(site_id, cache_path="temp_data")
 
-                if file_path:
-                    if st.session_state.wind_profile.load_from_nexrad(file_path):
+                    if vad:
+                        st.session_state.wind_profile.heights = vad['altitude']
+                        st.session_state.wind_profile.speeds = vad['wind_spd']
+                        st.session_state.wind_profile.directions = vad['wind_dir']
+                        st.session_state.wind_profile.times = [vad['time']] * len(vad['altitude'])
                         st.success(f"Successfully loaded data from {site_id}")
                     else:
-                        st.error("Error processing NEXRAD data")
-                else:
-                    st.error("Could not fetch radar data. Please try again later.")
+                        st.error("Could not fetch radar data")
+                except Exception as e:
+                    st.error(f"Error fetching data: {str(e)}")
 
     # Display current data
     if len(st.session_state.wind_profile.heights) > 0:
         st.subheader("Current Observations")
+
+        # Create data table
         data = {
             "Height (m)": st.session_state.wind_profile.heights,
             "Speed (kts)": st.session_state.wind_profile.speeds,
-            "Direction (°)": st.session_state.wind_profile.directions,
-            "Time": st.session_state.wind_profile.times
+            "Direction (°)": st.session_state.wind_profile.directions
         }
         st.dataframe(data)
 
@@ -67,7 +70,7 @@ def main():
         with col2:
             height_colors = st.checkbox("Color code by height", value=True)
 
-        # Create and display plot
+        # Create hodograph plot
         plotter = HodographPlotter()
         plotter.setup_plot(max_speed=max_speed)
         plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
@@ -83,7 +86,7 @@ def main():
             st.experimental_rerun()
 
     else:
-        st.info("Select a radar site and click 'Fetch Latest Data' to generate the hodograph.")
+        st.info("Select a radar site and click 'Fetch Latest Data' to generate a hodograph.")
 
 if __name__ == "__main__":
     main()

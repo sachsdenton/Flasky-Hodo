@@ -1,41 +1,19 @@
 import numpy as np
-from typing import List, Tuple, Dict, Optional
-from utils import calculate_wind_components, validate_wind_data
-from vad_reader import VADReader, VADPoint
+from typing import List, Dict, Optional
 from datetime import datetime
+from vad_reader import VADFile, download_vad
 
 class WindProfile:
     def __init__(self):
         self.heights: List[float] = []
         self.speeds: List[float] = []
         self.directions: List[float] = []
-        self.u_components: List[float] = []
-        self.v_components: List[float] = []
         self.times: List[datetime] = []
-        self.vad_reader = VADReader()
-
-    def add_observation(self, height: float, speed: float, direction: float, 
-                       time: Optional[datetime] = None) -> None:
-        """
-        Add a wind observation to the profile.
-
-        Args:
-            height: Height of observation (meters)
-            speed: Wind speed (knots)
-            direction: Wind direction (degrees)
-            time: Time of observation (optional)
-        """
-        self.heights.append(height)
-        self.speeds.append(speed)
-        self.directions.append(direction)
-        u, v = calculate_wind_components(speed, direction)
-        self.u_components.append(u)
-        self.v_components.append(v)
-        self.times.append(time if time else datetime.now())
+        self.vad_file: Optional[VADFile] = None
 
     def load_from_nexrad(self, file_path: str) -> bool:
         """
-        Load wind profile data from a NEXRAD Level-II file.
+        Load wind profile data from a NEXRAD file.
 
         Args:
             file_path: Path to the NEXRAD file
@@ -43,27 +21,39 @@ class WindProfile:
         Returns:
             bool: True if successful, False otherwise
         """
-        if not self.vad_reader.read_nexrad_file(file_path):
-            return False
+        try:
+            with open(file_path, 'rb') as f:
+                self.vad_file = VADFile(f)
 
-        self.clear_data()
-        for point in self.vad_reader.get_profile():
-            self.add_observation(
-                point.height,
-                point.speed,
-                point.direction,
-                point.time
-            )
-        return True
+            # Clear existing data
+            self.clear_data()
+
+            # Extract data from VAD file
+            heights = self.vad_file['altitude']
+            speeds = self.vad_file['wind_spd']
+            directions = self.vad_file['wind_dir']
+            time = self.vad_file['time']
+
+            # Store data
+            for h, s, d in zip(heights, speeds, directions):
+                self.heights.append(float(h))
+                self.speeds.append(float(s))
+                self.directions.append(float(d))
+                self.times.append(time)
+
+            return True
+
+        except Exception as e:
+            print(f"Error reading NEXRAD file: {e}")
+            return False
 
     def clear_data(self) -> None:
         """Clear all stored wind data."""
         self.heights.clear()
         self.speeds.clear()
         self.directions.clear()
-        self.u_components.clear()
-        self.v_components.clear()
         self.times.clear()
+        self.vad_file = None
 
     def get_layer_mean(self, bottom: float, top: float) -> Dict[str, float]:
         """
@@ -76,22 +66,37 @@ class WindProfile:
         Returns:
             Dictionary containing mean speed and direction
         """
+        if not self.heights:
+            return {"speed": 0.0, "direction": 0.0}
+
+        # Find data points within the layer
         mask = np.logical_and(np.array(self.heights) >= bottom, 
                             np.array(self.heights) <= top)
 
         if not any(mask):
             return {"speed": 0.0, "direction": 0.0}
 
-        mean_u = np.mean(np.array(self.u_components)[mask])
-        mean_v = np.mean(np.array(self.v_components)[mask])
+        # Calculate mean wind components
+        mean_speed = np.mean(np.array(self.speeds)[mask])
+        mean_dir = np.mean(np.array(self.directions)[mask])
 
-        speed = np.sqrt(mean_u**2 + mean_v**2)
-        direction = 270 - np.rad2deg(np.arctan2(mean_v, mean_u))
-        if direction < 0:
-            direction += 360
-
-        return {"speed": speed, "direction": direction}
+        return {"speed": mean_speed, "direction": mean_dir}
 
     def validate(self) -> bool:
         """Validate the stored wind profile data."""
-        return validate_wind_data(self.speeds, self.directions, self.heights)
+        if not self.heights:
+            return False
+
+        # Basic validation checks
+        if not (len(self.heights) == len(self.speeds) == len(self.directions)):
+            return False
+
+        # Check value ranges
+        if not all(0 <= s <= 200 for s in self.speeds):  # Max reasonable wind speed
+            return False
+        if not all(0 <= d <= 360 for d in self.directions):
+            return False
+        if not all(h >= 0 for h in self.heights):
+            return False
+
+        return True
