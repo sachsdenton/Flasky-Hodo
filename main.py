@@ -60,15 +60,24 @@ def main():
 
         # Plot controls
         st.subheader("Plot Controls")
-        col1, col2 = st.columns(2) # This line was missing in the edited code but present in the original.
+        col1, col2 = st.columns(2)
         with col1:
-            pass #Removed the max_speed slider
+            pass
         with col2:
             height_colors = st.checkbox("Color code by height", value=True)
 
         # Create hodograph plot
         plotter = HodographPlotter()
-        plotter.setup_plot()
+        # Get site information
+        site = get_site_by_id(site_id)
+        # Get the time from the profile (first time in the list)
+        valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
+
+        plotter.setup_plot(
+            site_id=site_id,
+            site_name=site.name,
+            valid_time=valid_time
+        )
         plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
 
         # Convert plot to Streamlit

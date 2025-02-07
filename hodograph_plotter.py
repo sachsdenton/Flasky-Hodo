@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from typing import Tuple, Optional
 from utils import calculate_wind_components
+from datetime import datetime
 
 class HodographPlotter:
     def __init__(self):
@@ -11,11 +12,22 @@ class HodographPlotter:
         self.speed_rings = list(range(10, 101, 10))  # [10, 20, 30, ..., 100]
         self.max_speed = 100  # Fixed maximum speed at 100 knots
 
-    def setup_plot(self) -> None:
+    def setup_plot(self, site_id: Optional[str] = None, site_name: Optional[str] = None, valid_time: Optional[datetime] = None) -> None:
         """
         Initialize the hodograph plot with fixed 100kt maximum range.
+
+        Args:
+            site_id: Four letter radar site identifier
+            site_name: Location of the radar site (city, state)
+            valid_time: Valid time of the data
         """
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
+
+        # Add title with site information and time if provided
+        if site_id and site_name and valid_time:
+            time_str = valid_time.strftime('%Y-%m-%d %H:%M UTC')
+            title = f"{site_id} - {site_name}\nValid: {time_str}"
+            self.fig.suptitle(title, y=0.95)
 
         # Set up the plot
         self.ax.set_aspect('equal')
