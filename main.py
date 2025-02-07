@@ -18,25 +18,34 @@ def main():
     if 'last_update_time' not in st.session_state:
         st.session_state.last_update_time = None
 
-    # Auto-refresh control
+    # Auto-refresh controls
     auto_refresh = st.sidebar.checkbox("Enable Auto-refresh", value=True)
     if auto_refresh:
-        st.sidebar.text("Updates every 30 seconds")
+        refresh_interval = st.sidebar.number_input(
+            "Refresh Interval (seconds)",
+            min_value=10,
+            max_value=300,
+            value=30,
+            step=5
+        )
+        st.sidebar.text(f"Updates every {refresh_interval} seconds")
         # Show last update time if available
         if st.session_state.last_update_time:
             st.sidebar.text(f"Last update: {st.session_state.last_update_time.strftime('%H:%M:%S')}")
 
-    # Radar site selection
+    # Radar site selection with empty default
     sites = get_sorted_sites()
-    site_options = [f"{site.id} - {site.name}" for site in sites]
+    site_options = ["Select a site..."] + [f"{site.id} - {site.name}" for site in sites]
     selected_site = st.sidebar.selectbox(
         "Select Radar Site",
         site_options,
         format_func=lambda x: x
     )
 
-    # Extract site ID from selection
-    site_id = selected_site.split(" - ")[0] if selected_site else None
+    # Extract site ID from selection, only if a real site is selected
+    site_id = None
+    if selected_site and selected_site != "Select a site...":
+        site_id = selected_site.split(" - ")[0]
 
     # Auto-refresh logic
     current_time = datetime.now()
@@ -44,8 +53,8 @@ def main():
         auto_refresh and 
         site_id and  # Only refresh if a site is selected
         (st.session_state.last_update_time is None or 
-        (current_time - st.session_state.last_update_time).total_seconds() >= 30)
-    )
+        (current_time - st.session_state.last_update_time).total_seconds() >= refresh_interval)
+    ) if auto_refresh else False
 
     # Fetch data button or auto-refresh
     fetch_clicked = st.sidebar.button("Fetch Latest Data")
@@ -92,13 +101,13 @@ def main():
         # Create hodograph plot
         plotter = HodographPlotter()
         # Get site information
-        site = get_site_by_id(site_id)
+        site = get_site_by_id(site_id) if site_id else None
         # Get the time from the profile (first time in the list)
         valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
 
         plotter.setup_plot(
             site_id=site_id,
-            site_name=site.name,
+            site_name=site.name if site else None,
             valid_time=valid_time
         )
         plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
