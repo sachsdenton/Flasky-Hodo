@@ -1,0 +1,104 @@
+import matplotlib.pyplot as plt
+import numpy as np
+from typing import Tuple, Optional
+from data_processor import WindProfile
+
+class HodographPlotter:
+    def __init__(self):
+        self.fig = None
+        self.ax = None
+        self.speed_rings = [10, 20, 30, 40, 50]  # Default speed rings in knots
+        
+    def setup_plot(self, max_speed: float = 60) -> None:
+        """
+        Initialize the hodograph plot.
+        
+        Args:
+            max_speed: Maximum wind speed to show on plot
+        """
+        self.fig, self.ax = plt.subplots(figsize=(8, 8))
+        
+        # Set up the plot
+        self.ax.set_aspect('equal')
+        self.ax.grid(True)
+        
+        # Draw speed rings
+        for speed in self.speed_rings:
+            if speed <= max_speed:
+                circle = plt.Circle((0, 0), speed, fill=False, color='gray', linestyle='--', alpha=0.5)
+                self.ax.add_artist(circle)
+        
+        # Set limits and labels
+        self.ax.set_xlim(-max_speed, max_speed)
+        self.ax.set_ylim(-max_speed, max_speed)
+        self.ax.set_xlabel('U-component (knots)')
+        self.ax.set_ylabel('V-component (knots)')
+        
+        # Add cardinal directions
+        self.ax.text(0, max_speed + 2, 'N', ha='center')
+        self.ax.text(max_speed + 2, 0, 'E', va='center')
+        self.ax.text(0, -max_speed - 2, 'S', ha='center')
+        self.ax.text(-max_speed - 2, 0, 'W', va='center')
+
+    def plot_profile(self, profile: WindProfile, height_colors: bool = True) -> None:
+        """
+        Plot wind profile on the hodograph.
+        
+        Args:
+            profile: WindProfile object containing the data
+            height_colors: Whether to color code by height
+        """
+        if not profile.validate():
+            raise ValueError("Invalid wind profile data")
+
+        u_comp = np.array(profile.u_components)
+        v_comp = np.array(profile.v_components)
+        heights = np.array(profile.heights)
+
+        if height_colors:
+            # Create color gradient based on height
+            colors = plt.cm.viridis(heights / np.max(heights))
+            
+            # Plot segments with color gradient
+            for i in range(len(u_comp) - 1):
+                self.ax.plot(u_comp[i:i+2], v_comp[i:i+2], 
+                           color=colors[i], linewidth=2)
+        else:
+            self.ax.plot(u_comp, v_comp, 'b-', linewidth=2)
+
+        # Plot points
+        self.ax.scatter(u_comp, v_comp, c='red', s=30, zorder=5)
+
+    def add_layer_mean(self, profile: WindProfile, bottom: float, top: float) -> None:
+        """
+        Add layer mean wind vector to plot.
+        
+        Args:
+            profile: WindProfile object
+            bottom: Bottom of layer (meters)
+            top: Top of layer (meters)
+        """
+        mean_wind = profile.get_layer_mean(bottom, top)
+        u, v = calculate_wind_components(mean_wind["speed"], mean_wind["direction"])
+        
+        # Plot mean wind vector
+        self.ax.arrow(0, 0, u, v, color='red', width=0.5, 
+                     head_width=2, head_length=2, zorder=6)
+
+    def save_plot(self, filename: str) -> None:
+        """
+        Save the hodograph plot to a file.
+        
+        Args:
+            filename: Output filename
+        """
+        self.fig.savefig(filename, bbox_inches='tight', dpi=300)
+
+    def get_plot(self) -> Tuple[plt.Figure, plt.Axes]:
+        """
+        Get the current plot figure and axes.
+        
+        Returns:
+            Tuple of (Figure, Axes)
+        """
+        return self.fig, self.ax
