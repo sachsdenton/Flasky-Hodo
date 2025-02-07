@@ -42,8 +42,8 @@ class HodographPlotter:
             self.ax.add_artist(circle)
 
         # Set limits and labels (fixed at 100kts)
-        self.ax.set_xlim(self.max_speed, -self.max_speed)  # Inverted x-axis (East on left)
-        self.ax.set_ylim(-self.max_speed, self.max_speed)  # Standard y-axis (South on top)
+        self.ax.set_xlim(-self.max_speed, self.max_speed)  # Standard x-axis
+        self.ax.set_ylim(-self.max_speed, self.max_speed)  # Standard y-axis
         self.ax.set_xlabel('U-component (knots)')
         self.ax.set_ylabel('V-component (knots)')
 
