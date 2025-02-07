@@ -42,16 +42,16 @@ class HodographPlotter:
             self.ax.add_artist(circle)
 
         # Set limits and labels (fixed at 100kts)
-        self.ax.set_xlim(-self.max_speed, self.max_speed)
-        self.ax.set_ylim(-self.max_speed, self.max_speed)
+        self.ax.set_xlim(self.max_speed, -self.max_speed)  # Inverted x-axis (East on left)
+        self.ax.set_ylim(-self.max_speed, self.max_speed)  # Standard y-axis (South on top)
         self.ax.set_xlabel('U-component (knots)')
         self.ax.set_ylabel('V-component (knots)')
 
-        # Add cardinal directions
-        self.ax.text(0, self.max_speed + 2, 'N', ha='center')
-        self.ax.text(self.max_speed + 2, 0, 'E', va='center')
-        self.ax.text(0, -self.max_speed - 2, 'S', ha='center')
-        self.ax.text(-self.max_speed - 2, 0, 'W', va='center')
+        # Add cardinal directions in meteorological convention
+        self.ax.text(0, -self.max_speed - 2, 'N', ha='center')  # North at bottom
+        self.ax.text(-self.max_speed - 2, 0, 'E', va='center')  # East on left
+        self.ax.text(0, self.max_speed + 2, 'S', ha='center')   # South at top
+        self.ax.text(self.max_speed + 2, 0, 'W', va='center')   # West on right
 
     def plot_profile(self, profile, height_colors: bool = True) -> None:
         """

@@ -68,13 +68,13 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         title=f"{site_id} - {site_name}<br>Valid: {valid_time.strftime('%Y-%m-%d %H:%M UTC')}" if all([site_id, site_name, valid_time]) else None,
         xaxis=dict(
             title='U-component (knots)',
-            range=[-max_speed, max_speed],
+            range=[max_speed, -max_speed],  # Inverted x-axis (East on left)
             zeroline=True,
             gridcolor='lightgray'
         ),
         yaxis=dict(
             title='V-component (knots)',
-            range=[-max_speed, max_speed],
+            range=[-max_speed, max_speed],  # Standard y-axis (South on top)
             zeroline=True,
             gridcolor='lightgray',
             scaleanchor='x',
@@ -84,12 +84,12 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         hovermode='closest'
     )
 
-    # Add cardinal directions
+    # Add cardinal directions in meteorological convention
     annotations = [
-        dict(x=0, y=max_speed+2, text="N", showarrow=False),
-        dict(x=max_speed+2, y=0, text="E", showarrow=False),
-        dict(x=0, y=-max_speed-2, text="S", showarrow=False),
-        dict(x=-max_speed-2, y=0, text="W", showarrow=False)
+        dict(x=0, y=-max_speed-2, text="N", showarrow=False),  # North at bottom
+        dict(x=-max_speed-2, y=0, text="E", showarrow=False),  # East on left
+        dict(x=0, y=max_speed+2, text="S", showarrow=False),   # South at top
+        dict(x=max_speed+2, y=0, text="W", showarrow=False)    # West on right
     ]
     fig.update_layout(annotations=annotations)
 
