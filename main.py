@@ -17,8 +17,6 @@ def main():
         st.session_state.wind_profile = WindProfile()
     if 'last_update_time' not in st.session_state:
         st.session_state.last_update_time = None
-    if 'last_data_timestamp' not in st.session_state:
-        st.session_state.last_data_timestamp = None
 
     # Auto-refresh control
     auto_refresh = st.sidebar.checkbox("Enable Auto-refresh", value=True)
@@ -26,9 +24,7 @@ def main():
         st.sidebar.text("Updates every 30 seconds")
         # Show last update time if available
         if st.session_state.last_update_time:
-            st.sidebar.text(f"Last check: {st.session_state.last_update_time.strftime('%H:%M:%S')}")
-        if st.session_state.last_data_timestamp:
-            st.sidebar.text(f"Data time: {st.session_state.last_data_timestamp.strftime('%H:%M:%S')}")
+            st.sidebar.text(f"Last update: {st.session_state.last_update_time.strftime('%H:%M:%S')}")
 
     # Radar site selection
     sites = get_sorted_sites()
@@ -54,45 +50,24 @@ def main():
     # Fetch data button or auto-refresh
     fetch_clicked = st.sidebar.button("Fetch Latest Data")
 
-    # Update data and plot if needed
-    data_updated = False
     if fetch_clicked or should_refresh:
         if site_id:
-            try:
-                from vad_reader import download_vad
-                # First just check if new data is available
-                if fetch_clicked:
-                    # If manual refresh, always fetch new data
-                    with st.spinner(f'Fetching latest data from {site_id}...'):
-                        vad = download_vad(site_id, cache_path="temp_data")
-                        if vad:
-                            st.session_state.wind_profile.heights = vad['altitude']
-                            st.session_state.wind_profile.speeds = vad['wind_spd']
-                            st.session_state.wind_profile.directions = vad['wind_dir']
-                            st.session_state.wind_profile.times = [vad['time']] * len(vad['altitude'])
-                            st.session_state.last_data_timestamp = vad['time']
-                            data_updated = True
-                            st.success(f"New data loaded from {site_id}")
-                else:
-                    # For auto-refresh, first check if new data exists
-                    vad = download_vad(site_id, cache_path="temp_data", check_only=True)
-                    if vad and vad['time'] != st.session_state.last_data_timestamp:
-                        # Only if new data exists, fetch the full dataset
-                        with st.spinner(f'New data available, updating from {site_id}...'):
-                            vad = download_vad(site_id, cache_path="temp_data")
-                            if vad:
-                                st.session_state.wind_profile.heights = vad['altitude']
-                                st.session_state.wind_profile.speeds = vad['wind_spd']
-                                st.session_state.wind_profile.directions = vad['wind_dir']
-                                st.session_state.wind_profile.times = [vad['time']] * len(vad['altitude'])
-                                st.session_state.last_data_timestamp = vad['time']
-                                data_updated = True
-                                st.success(f"New data loaded from {site_id}")
+            with st.spinner(f'Fetching latest data from {site_id}...'):
+                try:
+                    from vad_reader import download_vad
+                    vad = download_vad(site_id, cache_path="temp_data")
 
-                st.session_state.last_update_time = current_time
-
-            except Exception as e:
-                st.error(f"Error fetching data: {str(e)}")
+                    if vad:
+                        st.session_state.wind_profile.heights = vad['altitude']
+                        st.session_state.wind_profile.speeds = vad['wind_spd']
+                        st.session_state.wind_profile.directions = vad['wind_dir']
+                        st.session_state.wind_profile.times = [vad['time']] * len(vad['altitude'])
+                        st.session_state.last_update_time = current_time
+                        st.success(f"Successfully loaded data from {site_id}")
+                    else:
+                        st.error("Could not fetch radar data")
+                except Exception as e:
+                    st.error(f"Error fetching data: {str(e)}")
 
     # Display current data
     if len(st.session_state.wind_profile.heights) > 0:
@@ -114,37 +89,29 @@ def main():
         with col2:
             height_colors = st.checkbox("Color code by height", value=True)
 
-        # Create hodograph plot only if data was updated or it doesn't exist yet
-        if 'hodograph_plot' not in st.session_state or data_updated:
-            plotter = HodographPlotter()
-            # Get site information
-            site = get_site_by_id(site_id)
-            # Get the time from the profile (first time in the list)
-            valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
+        # Create hodograph plot
+        plotter = HodographPlotter()
+        # Get site information
+        site = get_site_by_id(site_id)
+        # Get the time from the profile (first time in the list)
+        valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
 
-            plotter.setup_plot(
-                site_id=site_id,
-                site_name=site.name,
-                valid_time=valid_time
-            )
-            plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
+        plotter.setup_plot(
+            site_id=site_id,
+            site_name=site.name,
+            valid_time=valid_time
+        )
+        plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
 
-            # Convert plot to bytes and store in session state
-            buf = io.BytesIO()
-            plotter.get_plot()[0].savefig(buf, format='png', bbox_inches='tight')
-            st.session_state.hodograph_plot = buf.getvalue()
-            plt.close()  # Close the plot to free memory
-
-        # Display the stored plot
-        st.image(st.session_state.hodograph_plot)
+        # Convert plot to Streamlit
+        buf = io.BytesIO()
+        plotter.get_plot()[0].savefig(buf, format='png', bbox_inches='tight')
+        st.image(buf)
 
         # Clear data button
         if st.button("Clear Data"):
             st.session_state.wind_profile.clear_data()
             st.session_state.last_update_time = None
-            st.session_state.last_data_timestamp = None
-            if 'hodograph_plot' in st.session_state:
-                del st.session_state.hodograph_plot
             st.rerun()
 
     else:
