@@ -43,7 +43,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         fig.add_trace(go.Scatter(
             x=x, y=y,
             mode='lines',
-            line=dict(color='lightgray', dash='dash', width=1),
+            line=dict(color='rgba(200,200,200,0.5)', width=1),
             showlegend=False,
             hoverinfo='skip'
         ))
@@ -52,13 +52,13 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
     fig.add_shape(
         type="line",
         x0=-max_speed, x1=max_speed, y0=0, y1=0,
-        line=dict(color="black", width=1.5),
+        line=dict(color="black", width=2.5),
         layer='below'
     )
     fig.add_shape(
         type="line",
         x0=0, x1=0, y0=-max_speed, y1=max_speed,
-        line=dict(color="black", width=1.5),
+        line=dict(color="black", width=2.5),
         layer='below'
     )
 
