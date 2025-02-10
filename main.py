@@ -62,8 +62,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             color=wind_profile.heights,
             colorscale='Viridis',
             size=8,
-            showscale=True,
-            colorbar=dict(title='Height (km)')
+            showscale=False  # Remove the height scale
         ),
         text=hover_text,
         hoverinfo='text',
