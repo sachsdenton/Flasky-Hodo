@@ -75,7 +75,8 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             gridcolor='lightgray',
             scaleanchor='y',
             scaleratio=1,
-            constrain='domain'
+            constrain='domain',
+            showgrid=False  # Remove the grid lines
         ),
         yaxis=dict(
             title='V-component (knots)',
@@ -84,7 +85,8 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             gridcolor='lightgray',
             scaleanchor='x',
             scaleratio=1,
-            constrain='domain'
+            constrain='domain',
+            showgrid=False  # Remove the grid lines
         ),
         showlegend=False,
         hovermode='closest',
