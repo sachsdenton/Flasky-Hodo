@@ -12,17 +12,20 @@ import time
 import os
 
 def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_time=None):
-    # Calculate max_speed based on data
+    # Calculate max_speed based on data using the same logic as HodographPlotter
     speeds = wind_profile.speeds
-    max_speed = int(np.ceil(np.max(speeds) if len(speeds) > 0 else 0) / 10.0) * 10 if hasattr(speeds, '__len__') and len(speeds) > 0 else 100
+    if not hasattr(speeds, '__len__') or len(speeds) == 0:
+        max_speed = 100
+    else:
+        max_speed = float(np.max(speeds))  # Convert to float to handle numpy types
+        max_speed = int(np.ceil(max_speed / 10.0)) * 10
 
     # Calculate u and v components
     u_comp = []
     v_comp = []
     for speed, direction in zip(wind_profile.speeds, wind_profile.directions):
         u, v = calculate_wind_components(speed, direction)
-        # Negate the components to flip the data to the correct side
-        u_comp.append(-u)
+        u_comp.append(-u)  # Negate for meteorological convention
         v_comp.append(-v)
 
     # Create hover text
@@ -33,10 +36,10 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         for h, s, d in zip(wind_profile.heights, wind_profile.speeds, wind_profile.directions)
     ]
 
-    # Create the figure
+    # Create the figure with fixed aspect ratio
     fig = go.Figure()
 
-    # Add speed rings
+    # Add speed rings with consistent spacing
     for speed in range(10, max_speed + 1, 10):
         circle_points = np.linspace(0, 2*np.pi, 100)
         x = speed * np.cos(circle_points)
@@ -67,7 +70,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         name='Wind Profile'
     ))
 
-    # Configure the layout with dynamic max_speed
+    # Configure the layout with fixed aspect ratio and matching ranges
     fig.update_layout(
         xaxis=dict(
             title='U-component (knots)',
@@ -76,8 +79,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             gridcolor='lightgray',
             scaleanchor='y',
             scaleratio=1,
-            constrain='domain',
-            showgrid=False
+            constrain='domain'
         ),
         yaxis=dict(
             title='V-component (knots)',
@@ -86,8 +88,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             gridcolor='lightgray',
             scaleanchor='x',
             scaleratio=1,
-            constrain='domain',
-            showgrid=False
+            constrain='domain'
         ),
         showlegend=False,
         hovermode='closest',
@@ -96,7 +97,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         autosize=False
     )
 
-    # Add zero lines (axes)
+    # Add axes lines
     fig.add_shape(
         type="line",
         x0=-max_speed, x1=max_speed,
