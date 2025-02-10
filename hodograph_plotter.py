@@ -12,9 +12,9 @@ class HodographPlotter:
 
     def calculate_max_speed(self, speeds: list) -> int:
         """Calculate the maximum speed rounded up to nearest 10."""
-        if not speeds:
+        if not hasattr(speeds, '__len__') or len(speeds) == 0:
             return 100  # Default if no data
-        max_speed = max(speeds)
+        max_speed = float(np.max(speeds))  # Convert to float to handle numpy types
         return int(np.ceil(max_speed / 10.0)) * 10
 
     def setup_plot(self, site_id: Optional[str] = None, site_name: Optional[str] = None, valid_time: Optional[datetime] = None) -> None:
