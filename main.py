@@ -211,7 +211,7 @@ def main():
         # Plot controls
         col1, col2, col3 = st.columns(3)
         with col1:
-            plot_type = st.radio("Plot Type", ["Matplotlib", "Plotly"], key="plot_type")
+            plot_type = st.radio("Plot Type", ["Standard", "Analyst"], key="plot_type")
         with col2:
             height_colors = st.checkbox("Color code by height", value=True)
         with col3:
@@ -220,7 +220,7 @@ def main():
         # Clear any existing matplotlib figures
         plt.close('all')
 
-        if plot_type == "Matplotlib":
+        if plot_type == "Standard":
             # Create hodograph plot (existing matplotlib code)
             plotter = HodographPlotter()
             site = get_site_by_id(site_id) if site_id else None
