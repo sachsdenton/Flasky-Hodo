@@ -96,15 +96,15 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         autosize=False
     )
 
-    # Add zero lines (axes) - these are now drawn below the data
-    fig.add_shape(  # Horizontal axis (x-axis)
+    # Add zero lines (axes)
+    fig.add_shape(
         type="line",
         x0=-max_speed, x1=max_speed,
         y0=0, y1=0,
         line=dict(color="rgba(200,200,200,1)", width=1),
         layer='below'
     )
-    fig.add_shape(  # Vertical axis (y-axis)
+    fig.add_shape(
         type="line",
         x0=0, x1=0,
         y0=-max_speed, y1=max_speed,
@@ -112,12 +112,12 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         layer='below'
     )
 
-    # Add cardinal directions in meteorological convention
+    # Add cardinal directions
     annotations = [
-        dict(x=0, y=-max_speed-2, text="N", showarrow=False),  # North at bottom
-        dict(x=-max_speed-2, y=0, text="E", showarrow=False),  # East on left
-        dict(x=0, y=max_speed+2, text="S", showarrow=False),   # South at top
-        dict(x=max_speed+2, y=0, text="W", showarrow=False)    # West on right
+        dict(x=0, y=-max_speed-2, text="N", showarrow=False),
+        dict(x=-max_speed-2, y=0, text="E", showarrow=False),
+        dict(x=0, y=max_speed+2, text="S", showarrow=False),
+        dict(x=max_speed+2, y=0, text="W", showarrow=False)
     ]
     fig.update_layout(annotations=annotations)
 
