@@ -76,7 +76,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             title='U-component (knots)',
             range=[max_speed, -max_speed],  # Inverted x-axis (East on left)
             zeroline=False,
-            gridcolor='lightgray',
+            showgrid=False,  # Remove grid lines
             scaleanchor='y',
             scaleratio=1,
             constrain='domain'
@@ -85,7 +85,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             title='V-component (knots)',
             range=[-max_speed, max_speed],
             zeroline=False,
-            gridcolor='lightgray',
+            showgrid=False,  # Remove grid lines
             scaleanchor='x',
             scaleratio=1,
             constrain='domain'
@@ -94,22 +94,23 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         hovermode='closest',
         width=600,
         height=600,
-        autosize=False
+        autosize=False,
+        plot_bgcolor='white'  # White background
     )
 
-    # Add axes lines
-    fig.add_shape(
+    # Add bold center axes lines
+    fig.add_shape(  # Horizontal axis
         type="line",
         x0=-max_speed, x1=max_speed,
         y0=0, y1=0,
-        line=dict(color="rgba(200,200,200,1)", width=1),
+        line=dict(color="black", width=2),  # Bold black line
         layer='below'
     )
-    fig.add_shape(
+    fig.add_shape(  # Vertical axis
         type="line",
         x0=0, x1=0,
         y0=-max_speed, y1=max_speed,
-        line=dict(color="rgba(200,200,200,1)", width=1),
+        line=dict(color="black", width=2),  # Bold black line
         layer='below'
     )
 
