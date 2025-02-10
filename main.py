@@ -48,22 +48,6 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             hoverinfo='skip'
         ))
 
-    # Add zero lines (axes)
-    fig.add_shape(  # Horizontal axis (x-axis)
-        type="line",
-        x0=-max_speed, x1=max_speed,
-        y0=0, y1=0,
-        line=dict(color="black", width=2.5),
-        layer='below'
-    )
-    fig.add_shape(  # Vertical axis (y-axis)
-        type="line",
-        x0=0, x1=0,
-        y0=-max_speed, y1=max_speed,
-        line=dict(color="black", width=2.5),
-        layer='below'
-    )
-
     # Add the wind profile line and points
     fig.add_trace(go.Scatter(
         x=u_comp,
@@ -82,22 +66,25 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         name='Wind Profile'
     ))
 
-    # Configure the layout
+    # Configure the layout first
     fig.update_layout(
-        title=f"{site_id} - {site_name}<br>Valid: {valid_time.strftime('%Y-%m-%d %H:%M UTC')}" if all([site_id, site_name, valid_time]) else None,
         xaxis=dict(
             title='U-component (knots)',
             range=[max_speed, -max_speed],  # Inverted x-axis (East on left)
             zeroline=True,
+            zerolinewidth=2.5,
+            zerolinecolor='black',
             gridcolor='lightgray',
-            scaleanchor='y',  # Lock aspect ratio
-            scaleratio=1,     # Equal scaling
-            constrain='domain'  # Maintain aspect ratio when resizing
+            scaleanchor='y',
+            scaleratio=1,
+            constrain='domain'
         ),
         yaxis=dict(
             title='V-component (knots)',
-            range=[-max_speed, max_speed],  # Standard y-axis (South on top)
+            range=[-max_speed, max_speed],
             zeroline=True,
+            zerolinewidth=2.5,
+            zerolinecolor='black',
             gridcolor='lightgray',
             scaleanchor='x',
             scaleratio=1,
@@ -105,10 +92,27 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         ),
         showlegend=False,
         hovermode='closest',
-        width=600,   # Fixed width
-        height=600,  # Fixed height (equal to width for square plot)
-        autosize=False  # Disable autosize to maintain square shape
+        width=600,
+        height=600,
+        autosize=False
     )
+
+    # Add zero lines (axes) - these are now drawn on top
+    fig.add_shape(  # Horizontal axis (x-axis)
+        type="line",
+        x0=-max_speed, x1=max_speed,
+        y0=0, y1=0,
+        line=dict(color="black", width=2.5),
+        layer='above'
+    )
+    fig.add_shape(  # Vertical axis (y-axis)
+        type="line",
+        x0=0, x1=0,
+        y0=-max_speed, y1=max_speed,
+        line=dict(color="black", width=2.5),
+        layer='above'
+    )
+
 
     # Add cardinal directions in meteorological convention
     annotations = [
