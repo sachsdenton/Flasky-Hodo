@@ -228,13 +228,10 @@ def main():
             valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
 
             speeds = st.session_state.wind_profile.speeds
-            max_speed = int(np.ceil(np.max(speeds) if len(speeds) > 0 else 0) / 10.0) * 10 if hasattr(speeds, '__len__') and len(speeds) > 0 else 100
-
             plotter.setup_plot(
                 site_id=site_id,
                 site_name=site.name if site else None,
-                valid_time=valid_time,
-                max_speed=max_speed
+                valid_time=valid_time
             )
             plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
 
