@@ -49,15 +49,17 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         ))
 
     # Add zero lines (axes)
-    fig.add_shape(
+    fig.add_shape(  # Horizontal axis (x-axis)
         type="line",
-        x0=-max_speed, x1=max_speed, y0=0, y1=0,
+        x0=-max_speed, x1=max_speed,
+        y0=0, y1=0,
         line=dict(color="black", width=2.5),
         layer='below'
     )
-    fig.add_shape(
+    fig.add_shape(  # Vertical axis (y-axis)
         type="line",
-        x0=0, x1=0, y0=-max_speed, y1=max_speed,
+        x0=0, x1=0,
+        y0=-max_speed, y1=max_speed,
         line=dict(color="black", width=2.5),
         layer='below'
     )
