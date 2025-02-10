@@ -13,7 +13,8 @@ import os
 
 def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_time=None):
     # Calculate max_speed based on data
-    max_speed = int(np.ceil(max(wind_profile.speeds) / 10.0)) * 10 if wind_profile.speeds else 100
+    speeds = wind_profile.speeds
+    max_speed = int(np.ceil(np.max(speeds) if len(speeds) > 0 else 0) / 10.0) * 10 if hasattr(speeds, '__len__') and len(speeds) > 0 else 100
 
     # Calculate u and v components
     u_comp = []
@@ -205,7 +206,7 @@ def main():
                     st.error(f"Error fetching data: {str(e)}")
 
     # Display current data and plot
-    if len(st.session_state.wind_profile.heights) > 0:
+    if hasattr(st.session_state.wind_profile.speeds, '__len__') and len(st.session_state.wind_profile.speeds) > 0:
         st.subheader("Wind Profile Visualization")
 
         # Plot controls
@@ -226,7 +227,9 @@ def main():
             site = get_site_by_id(site_id) if site_id else None
             valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
 
-            max_speed = int(np.ceil(max(st.session_state.wind_profile.speeds) / 10.0)) * 10 if st.session_state.wind_profile.speeds else 100
+            speeds = st.session_state.wind_profile.speeds
+            max_speed = int(np.ceil(np.max(speeds) if len(speeds) > 0 else 0) / 10.0) * 10 if hasattr(speeds, '__len__') and len(speeds) > 0 else 100
+
             plotter.setup_plot(
                 site_id=site_id,
                 site_name=site.name if site else None,
