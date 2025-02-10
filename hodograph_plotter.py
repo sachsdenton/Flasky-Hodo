@@ -8,13 +8,18 @@ class HodographPlotter:
     def __init__(self):
         self.fig = None
         self.ax = None
-        # Speed rings from 10 to 100 in increments of 10
-        self.speed_rings = list(range(10, 101, 10))  # [10, 20, 30, ..., 100]
-        self.max_speed = 100  # Fixed maximum speed at 100 knots
+        self.max_speed = None  # Will be set dynamically based on data
+
+    def calculate_max_speed(self, speeds: list) -> int:
+        """Calculate the maximum speed rounded up to nearest 10."""
+        if not speeds:
+            return 100  # Default if no data
+        max_speed = max(speeds)
+        return int(np.ceil(max_speed / 10.0)) * 10
 
     def setup_plot(self, site_id: Optional[str] = None, site_name: Optional[str] = None, valid_time: Optional[datetime] = None) -> None:
         """
-        Initialize the hodograph plot with fixed 100kt maximum range.
+        Initialize the hodograph plot with dynamic maximum range.
 
         Args:
             site_id: Four letter radar site identifier
@@ -36,22 +41,24 @@ class HodographPlotter:
         self.ax.set_aspect('equal')
         self.ax.grid(True)
 
-        # Draw speed rings
-        for speed in self.speed_rings:
-            circle = plt.Circle((0, 0), speed, fill=False, color='gray', linestyle='--', alpha=0.5)
-            self.ax.add_artist(circle)
+        # Draw speed rings (will be set when plotting data)
+        if self.max_speed:
+            speed_rings = list(range(10, self.max_speed + 1, 10))
+            for speed in speed_rings:
+                circle = plt.Circle((0, 0), speed, fill=False, color='gray', linestyle='--', alpha=0.5)
+                self.ax.add_artist(circle)
 
-        # Set limits and labels (fixed at 100kts)
-        self.ax.set_xlim(-self.max_speed, self.max_speed)  # Standard x-axis
-        self.ax.set_ylim(-self.max_speed, self.max_speed)  # Standard y-axis
-        self.ax.set_xlabel('U-component (knots)')
-        self.ax.set_ylabel('V-component (knots)')
+            # Set limits and labels
+            self.ax.set_xlim(-self.max_speed, self.max_speed)
+            self.ax.set_ylim(-self.max_speed, self.max_speed)
+            self.ax.set_xlabel('U-component (knots)')
+            self.ax.set_ylabel('V-component (knots)')
 
-        # Add cardinal directions in meteorological convention
-        self.ax.text(0, -self.max_speed - 2, 'N', ha='center')  # North at bottom
-        self.ax.text(-self.max_speed - 2, 0, 'E', va='center')  # East on left
-        self.ax.text(0, self.max_speed + 2, 'S', ha='center')   # South at top
-        self.ax.text(self.max_speed + 2, 0, 'W', va='center')   # West on right
+            # Add cardinal directions in meteorological convention
+            self.ax.text(0, -self.max_speed - 2, 'N', ha='center')
+            self.ax.text(-self.max_speed - 2, 0, 'E', va='center')
+            self.ax.text(0, self.max_speed + 2, 'S', ha='center')
+            self.ax.text(self.max_speed + 2, 0, 'W', va='center')
 
     def plot_profile(self, profile, height_colors: bool = True) -> None:
         """
@@ -63,6 +70,12 @@ class HodographPlotter:
         """
         if not profile.validate():
             raise ValueError("Invalid wind profile data")
+
+        # Set max_speed based on data
+        self.max_speed = self.calculate_max_speed(profile.speeds)
+
+        # Recreate the plot with the new max_speed
+        self.setup_plot()
 
         # Calculate u and v components
         u_comp = []

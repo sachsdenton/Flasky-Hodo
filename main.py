@@ -12,8 +12,8 @@ import time
 import os
 
 def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_time=None):
-    # Define max_speed at the start since it's used throughout the function
-    max_speed = 100  # Fixed maximum speed at 100 knots
+    # Calculate max_speed based on data
+    max_speed = int(np.ceil(max(wind_profile.speeds) / 10.0)) * 10 if wind_profile.speeds else 100
 
     # Calculate u and v components
     u_comp = []
@@ -36,7 +36,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
     fig = go.Figure()
 
     # Add speed rings
-    for speed in range(10, 101, 10):
+    for speed in range(10, max_speed + 1, 10):
         circle_points = np.linspace(0, 2*np.pi, 100)
         x = speed * np.cos(circle_points)
         y = speed * np.sin(circle_points)
@@ -66,27 +66,27 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         name='Wind Profile'
     ))
 
-    # Configure the layout first
+    # Configure the layout with dynamic max_speed
     fig.update_layout(
         xaxis=dict(
             title='U-component (knots)',
             range=[max_speed, -max_speed],  # Inverted x-axis (East on left)
-            zeroline=False,  # Remove default zeroline
+            zeroline=False,
             gridcolor='lightgray',
             scaleanchor='y',
             scaleratio=1,
             constrain='domain',
-            showgrid=False  # Remove the grid lines
+            showgrid=False
         ),
         yaxis=dict(
             title='V-component (knots)',
             range=[-max_speed, max_speed],
-            zeroline=False,  # Remove default zeroline
+            zeroline=False,
             gridcolor='lightgray',
             scaleanchor='x',
             scaleratio=1,
             constrain='domain',
-            showgrid=False  # Remove the grid lines
+            showgrid=False
         ),
         showlegend=False,
         hovermode='closest',
@@ -226,10 +226,12 @@ def main():
             site = get_site_by_id(site_id) if site_id else None
             valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
 
+            max_speed = int(np.ceil(max(st.session_state.wind_profile.speeds) / 10.0)) * 10 if st.session_state.wind_profile.speeds else 100
             plotter.setup_plot(
                 site_id=site_id,
                 site_name=site.name if site else None,
-                valid_time=valid_time
+                valid_time=valid_time,
+                max_speed=max_speed
             )
             plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
 
