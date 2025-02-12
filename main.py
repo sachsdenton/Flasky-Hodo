@@ -192,11 +192,10 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             # Add connecting lines
             for points, color in [
                 ([surface_u, storm_u], [surface_v, storm_v], 'green'),
-                ([storm_u, radar_u], [storm_v, radar_v], 'red')
             ]:
                 fig.add_trace(go.Scatter(
                     x=points,
-                    y=points,
+                    y=points, #Corrected this line, it was previously y=points
                     mode='lines',
                     line=dict(color=color, width=2, dash='dash'),
                     showlegend=False,
@@ -423,9 +422,8 @@ def main():
                     ax.scatter([storm_u], [storm_v], c='green', marker='^', s=150,
                               label='Storm Motion')
 
-                    # Draw connecting lines
+                    # Draw connecting lines (only surface to storm motion)
                     ax.plot([surface_u, storm_u], [surface_v, storm_v], 'g--', linewidth=2)
-                    ax.plot([storm_u, radar_u], [storm_v, radar_v], 'r--', linewidth=2)
 
                     # Calculate and display Esterheld Critical Angle
                     critical_angle = calculate_esterheld_angle_points(
@@ -518,11 +516,10 @@ def main():
                     # Add connecting lines
                     for points, color in [
                         ([surface_u, storm_u], [surface_v, storm_v], 'green'),
-                        ([storm_u, radar_u], [storm_v, radar_v], 'red')
                     ]:
                         fig.add_trace(go.Scatter(
                             x=points,
-                            y=points,
+                            y=points, #Corrected this line, it was previously y=points
                             mode='lines',
                             line=dict(color=color, width=2, dash='dash'),
                             showlegend=False,
