@@ -190,14 +190,17 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             ))
 
             # Add connecting lines
-            for points, color in [
-                ([surface_u, storm_u], [surface_v, storm_v], 'green'),
+            for coord_pair in [
+                dict(
+                    points=([surface_u, storm_u], [surface_v, storm_v]),
+                    color='green'
+                )
             ]:
                 fig.add_trace(go.Scatter(
-                    x=points,
-                    y=points, #Corrected this line, it was previously y=points
+                    x=coord_pair['points'][0],
+                    y=coord_pair['points'][1],
                     mode='lines',
-                    line=dict(color=color, width=2, dash='dash'),
+                    line=dict(color=coord_pair['color'], width=2, dash='dash'),
                     showlegend=False,
                     hoverinfo='skip'
                 ))
@@ -514,14 +517,17 @@ def main():
                     ))
 
                     # Add connecting lines
-                    for points, color in [
-                        ([surface_u, storm_u], [surface_v, storm_v], 'green'),
+                    for coord_pair in [
+                        dict(
+                            points=([surface_u, storm_u], [surface_v, storm_v]),
+                            color='green'
+                        )
                     ]:
                         fig.add_trace(go.Scatter(
-                            x=points,
-                            y=points, #Corrected this line, it was previously y=points
+                            x=coord_pair['points'][0],
+                            y=coord_pair['points'][1],
                             mode='lines',
-                            line=dict(color=color, width=2, dash='dash'),
+                            line=dict(color=coord_pair['color'], width=2, dash='dash'),
                             showlegend=False,
                             hoverinfo='skip'
                         ))
