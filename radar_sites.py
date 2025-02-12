@@ -4,74 +4,60 @@ Contains NEXRAD radar site information and utilities for site selection.
 from dataclasses import dataclass
 from typing import Dict, List
 from wsr88d import _radar_info
+import csv
+import os
 
 @dataclass
 class RadarSite:
     id: str
     name: str
     region: int
+    elevation: float = 0.0  # Added elevation in feet
 
-# Standard names for radar sites
-_SITE_NAMES = {
-    # WSR-88Ds
-    'KABR': 'Aberdeen',
-    'KAMA': 'Amarillo',
-    'KBIS': 'Bismarck',
-    'KBMX': 'Birmingham',
-    'KBOX': 'Boston',
-    'KBUF': 'Buffalo',
-    'KCAE': 'Columbia',
-    'KCYS': 'Cheyenne',
-    'KDFW': 'Dallas/Fort Worth',
-    'KDDC': 'Dodge City',
-    'KDLH': 'Duluth',
-    'KDMX': 'Des Moines',
-    'KDTW': 'Detroit',
-    'KDTX': 'Detroit',
-    'KEPZ': 'El Paso',
-    'KFDR': 'Frederick',
-    'KFFC': 'Atlanta',
-    'KFTG': 'Denver/Boulder',
-    'KGRR': 'Grand Rapids',
-    'KGSP': 'Greenville/Spartanburg',
-    'KHGX': 'Houston/Galveston',
-    'KICT': 'Wichita',
-    'KIND': 'Indianapolis',
-    'KINX': 'Tulsa',
-    'KJAX': 'Jacksonville',
-    'KLBB': 'Lubbock',
-    'KLOT': 'Chicago',
-    'KMCI': 'Kansas City',
-    'KMFL': 'Miami',
-    'KMKX': 'Milwaukee',
-    'KMPX': 'Minneapolis',
-    'KOKX': 'New York City',
-    'KPAH': 'Paducah',
-    'KPBZ': 'Pittsburgh',
-    'KPOE': 'Fort Polk',
-    'KRAX': 'Raleigh/Durham',
-    'KRLX': 'Charleston',
-    'KSHV': 'Shreveport',
-    'KSJT': 'San Angelo',
-    'KTBW': 'Tampa Bay',
-    'KTLX': 'Oklahoma City',
-    'KVNX': 'Vance AFB'
-}
+# Process the CSV files to get location names
+def _load_site_names() -> Dict[str, str]:
+    site_names = {}
 
-# Create radar sites mapping from wsr88d._radar_info
+    # Read WSR-88D sites
+    wsr88d_csv = "attached_assets/wsr88d-radar-list_alphabetically by site ID.csv"
+    if os.path.exists(wsr88d_csv):
+        with open(wsr88d_csv, 'r') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) >= 3 and row[2].strip().startswith('K'):  # Valid WSR-88D row
+                    site_id = row[2].strip()
+                    location = row[0].strip().strip('"')
+                    site_names[site_id] = location
+
+    # Read TDWR sites
+    tdwr_csv = "attached_assets/Copy of tdwr-radar-list_alphabetical by site ID.csv"
+    if os.path.exists(tdwr_csv):
+        with open(tdwr_csv, 'r') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) >= 3 and row[2].strip().startswith('T'):  # Valid TDWR row
+                    site_id = row[2].strip()
+                    location = row[0].strip().strip('"')
+                    site_names[site_id] = location
+
+    return site_names
+
+# Load site names from CSV files
+_SITE_NAMES = _load_site_names()
+
+# Create radar sites mapping from wsr88d._radar_info and include TDWR sites
 RADAR_SITES: Dict[str, RadarSite] = {
     site_id: RadarSite(
         id=site_id,
-        name=_SITE_NAMES.get(site_id, site_id),  # Use name from mapping or ID if not found
+        name=_SITE_NAMES.get(site_id, site_id),  # Use name from CSV mapping or ID if not found
         region=info['region']
     )
     for site_id, info in _radar_info.items()
-    if not site_id.startswith('T')  # Exclude TDWR sites for now
 }
 
 def get_sorted_sites() -> List[RadarSite]:
     """Returns a sorted list of radar sites by ID."""
-    return sorted(RADAR_SITES.values(), key=lambda x: x.id)
+    return sorted(RADAR_SITES.values(), key=lambda x: (not x.id.startswith('K'), x.name))  # WSR-88D sites first, then sort by name
 
 def get_site_by_id(site_id: str) -> RadarSite:
     """Get radar site information by ID."""
