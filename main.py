@@ -92,7 +92,7 @@ def calculate_skoff_angle_points(surface_u, surface_v, storm_u, storm_v, radar_u
     angle_rad = np.arccos(cos_angle)
     return np.rad2deg(angle_rad)
 
-def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_time=None):
+def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_time=None, plot_type="Standard"):
     speeds = wind_profile.speeds
     if not hasattr(speeds, '__len__') or len(speeds) == 0:
         max_speed = 100
@@ -258,13 +258,13 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         ))
 
         # For analyst plot, add critical angle lines and annotations
-        if st.session_state.get('plot_type') == "Analyst" and show_metar and st.session_state.metar_data:
+        if plot_type == "Analyst" and show_metar and st.session_state.metar_data:
             metar = st.session_state.metar_data
             surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
 
             # Get the lowest radar point
-            radar_speed = st.session_state.wind_profile.speeds[0]
-            radar_dir = st.session_state.wind_profile.directions[0]
+            radar_speed = wind_profile.speeds[0]
+            radar_dir = wind_profile.directions[0]
             radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
 
             # Calculate critical angles for both movers
@@ -294,7 +294,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                 showlegend=True
             ))
 
-            # Add critical angle annotations at different positions
+            # Add critical angle annotations
             fig.add_annotation(
                 x=0,
                 y=-max_speed * 0.7,
@@ -450,7 +450,11 @@ def main():
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.session_state.plot_type = st.radio("Plot Type", ["Standard", "Analyst"], key="plot_type")
+            # Initialize plot_type in session state if it doesn't exist
+            if 'plot_type' not in st.session_state:
+                st.session_state.plot_type = "Standard"
+            # Use the radio button value directly
+            plot_type = st.radio("Plot Type", ["Standard", "Analyst"], key="plot_type")
         with col2:
             height_colors = st.checkbox("Color code by height", value=True)
         with col3:
@@ -458,7 +462,7 @@ def main():
 
         plt.close('all')
 
-        if st.session_state.plot_type == "Standard":
+        if plot_type == "Standard":
             plotter = HodographPlotter()
             site = get_site_by_id(site_id) if site_id else None
             valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
@@ -558,7 +562,8 @@ def main():
                 st.session_state.wind_profile,
                 site_id=site_id,
                 site_name=site.name if site else None,
-                valid_time=valid_time
+                valid_time=valid_time,
+                plot_type=plot_type
             )
 
             if show_metar and st.session_state.metar_data:
@@ -679,20 +684,6 @@ def main():
                     )
 
             st.plotly_chart(fig, use_container_width=True)
-
-        st.subheader("Current Observations")
-
-        METERS_TO_FEET = 3.28084
-        KM_TO_METERS = 1000
-        data = {
-            "Height (m / ft)": [
-                f"{float(h) * KM_TO_METERS:.0f} m / {(float(h) * KM_TO_METERS * METERS_TO_FEET):.0f} ft" 
-                for h in st.session_state.wind_profile.heights
-            ],
-            "Speed (kts)": [f"{float(s):.0f}" for s in st.session_state.wind_profile.speeds],
-            "Direction (°)": [f"{float(d):.0f}" for d in st.session_state.wind_profile.directions]
-        }
-        st.dataframe(data)
 
     else:
         st.info("Select a radar site and click 'Fetch Latest Data' to generate a hodograph.")
