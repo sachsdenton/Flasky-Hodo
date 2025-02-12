@@ -12,6 +12,27 @@ import io
 import time
 import os
 
+def calculate_esterheld_angle_points(surface_u, surface_v, storm_u, storm_v, radar_u, radar_v):
+    """Calculate the Esterheld Critical Angle between three points."""
+    # Calculate vectors
+    v1 = [storm_u - surface_u, storm_v - surface_v]  # Surface to Storm vector
+    v2 = [radar_u - surface_u, radar_v - surface_v]  # Surface to Radar vector
+
+    # Calculate dot product
+    dot_product = v1[0]*v2[0] + v1[1]*v2[1]
+
+    # Calculate magnitudes
+    mag1 = np.sqrt(v1[0]**2 + v1[1]**2)
+    mag2 = np.sqrt(v2[0]**2 + v2[1]**2)
+
+    if mag1 == 0 or mag2 == 0:
+        return 0.0
+
+    # Calculate angle
+    cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
+    angle_rad = np.arccos(cos_angle)
+    return np.rad2deg(angle_rad)
+
 def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_time=None):
     speeds = wind_profile.speeds
     if not hasattr(speeds, '__len__') or len(speeds) == 0:
@@ -325,27 +346,6 @@ def main():
         'direction': storm_direction,
         'speed': storm_speed
     } if storm_direction is not None and storm_speed is not None else None
-
-    def calculate_esterheld_angle_points(surface_u, surface_v, storm_u, storm_v, radar_u, radar_v):
-        """Calculate the Esterheld Critical Angle between three points."""
-        # Calculate vectors
-        v1 = [storm_u - surface_u, storm_v - surface_v]  # Surface to Storm vector
-        v2 = [radar_u - surface_u, radar_v - surface_v]  # Surface to Radar vector
-
-        # Calculate dot product
-        dot_product = v1[0]*v2[0] + v1[1]*v2[1]
-
-        # Calculate magnitudes
-        mag1 = np.sqrt(v1[0]**2 + v1[1]**2)
-        mag2 = np.sqrt(v2[0]**2 + v2[1]**2)
-
-        if mag1 == 0 or mag2 == 0:
-            return 0.0
-
-        # Calculate angle
-        cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
-        angle_rad = np.arccos(cos_angle)
-        return np.rad2deg(angle_rad)
 
     if fetch_clicked or should_refresh:
         if site_id:
