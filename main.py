@@ -426,9 +426,13 @@ def main():
         progress = 1 - (time_until_next / st.session_state.refresh_interval)
         progress = max(0, min(1, progress))  # Ensure progress is between 0 and 1
 
-        # Display countdown and progress bar
-        st.sidebar.progress(progress, f"Next update in {int(time_until_next)}s")
-        st.sidebar.text(f"Last update: {st.session_state.last_update_time.strftime('%H:%M:%S')}")
+        # Create containers for dynamic content
+        progress_bar = st.sidebar.empty()
+        last_update_text = st.sidebar.empty()
+
+        # Update the containers
+        progress_bar.progress(progress, f"Next update in {int(time_until_next)}s")
+        last_update_text.text(f"Last update: {st.session_state.last_update_time.strftime('%H:%M:%S')}")
 
         # Check if it's time to refresh
         if time_until_next <= 0:
@@ -438,7 +442,6 @@ def main():
                     st.error(error_message)
             time.sleep(0.1)  # Small delay to prevent too rapid updates
             st.rerun()
-
 
     # Move the plot button right after site selection
     plot_clicked = st.sidebar.button("Plot Hodograph")
@@ -768,18 +771,14 @@ def main():
     else:
         st.info("Select a radar site and click 'Plot Hodograph' to generate a hodograph.")
 
-    # Auto-refresh logic moved inside the auto-refresh conditional block
-    if auto_refresh and site_id and st.session_state.last_update_time:
-        current_time = datetime.now()
-        time_since_last = (current_time - st.session_state.last_update_time).total_seconds()
-        time_until_next = max(0, st.session_state.refresh_interval - time_since_last)
-        if time_until_next <= 0:
-            with st.spinner('Auto-refreshing data...'):
-                success, error_message = refresh_data(site_id, metar_station if 'metar_station' in locals() else None)
-                if not success:
-                    st.error(error_message)
-            time.sleep(0.1)
-            st.rerun()
+    # Remove duplicate auto-refresh logic, as it's now handled above
+    if plot_clicked and site_id:
+        with st.spinner('Refreshing data...'):
+            success, error_message = refresh_data(site_id, metar_station if 'metar_station' in locals() else None)
+            if not success:
+                st.error(error_message)
+            else:
+                st.success("Successfully refreshed data")
 
 if __name__ == "__main__":
     main()
