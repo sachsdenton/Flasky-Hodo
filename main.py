@@ -12,6 +12,7 @@ import io
 import time
 import os
 from typing import Tuple
+from params import compute_bunkers
 
 def calculate_vector_angle(u1: float, v1: float, u2: float, v2: float) -> float:
     """Calculate the angle between two vectors."""
@@ -181,7 +182,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             scaleratio=1,
             constrain='domain'
         ),
-        showlegend=False,
+        showlegend=True,
         hovermode='closest',
         width=600,
         height=600,
@@ -213,6 +214,50 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         dict(x=max_speed+2, y=0, text="W", showarrow=False)
     ]
     fig.update_layout(annotations=annotations)
+
+    # Add Bunkers movers if we have enough data
+    data = {
+        'wind_dir': wind_profile.directions,
+        'wind_spd': wind_profile.speeds,
+        'altitude': wind_profile.heights
+    }
+
+    try:
+        bunkers_right, bunkers_left, mean_wind = compute_bunkers(data)
+
+        # Add Bunkers right mover
+        right_u, right_v = calculate_wind_components(bunkers_right[1], bunkers_right[0])
+        fig.add_trace(go.Scatter(
+            x=[right_u],
+            y=[right_v],
+            mode='markers',
+            marker=dict(
+                symbol='diamond',
+                size=12,
+                color='purple',
+            ),
+            name='RM',
+            showlegend=False,
+            hovertext=f'Right Mover<br>Speed: {bunkers_right[1]:.0f}kts<br>Direction: {bunkers_right[0]:.0f}°'
+        ))
+
+        # Add Bunkers left mover
+        left_u, left_v = calculate_wind_components(bunkers_left[1], bunkers_left[0])
+        fig.add_trace(go.Scatter(
+            x=[left_u],
+            y=[left_v],
+            mode='markers',
+            marker=dict(
+                symbol='diamond',
+                size=12,
+                color='blue',
+            ),
+            name='LM',
+            showlegend=False,
+            hovertext=f'Left Mover<br>Speed: {bunkers_left[1]:.0f}kts<br>Direction: {bunkers_left[0]:.0f}°'
+        ))
+    except Exception as e:
+        print(f"Could not calculate Bunkers movers: {str(e)}")
 
     return fig, max_speed
 
