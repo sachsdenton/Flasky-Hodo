@@ -373,16 +373,12 @@ def main():
     # Initialize session state variables
     if 'wind_profile' not in st.session_state:
         st.session_state.wind_profile = WindProfile()
-    if 'last_update_time' not in st.session_state:
-        st.session_state.last_update_time = None
     if 'metar_data' not in st.session_state:
         st.session_state.metar_data = None
     if 'storm_motion' not in st.session_state:
         st.session_state.storm_motion = None
     if 'plot_type' not in st.session_state:
         st.session_state.plot_type = "Standard"
-    if 'refresh_interval' not in st.session_state:
-        st.session_state.refresh_interval = 120
 
     # Site selection first
     sites = get_sorted_sites()
@@ -407,42 +403,7 @@ def main():
             else:
                 st.success("Successfully refreshed data")
 
-    # Auto-refresh settings
-    auto_refresh = st.sidebar.checkbox("Enable Auto-refresh", value=True)
-    if auto_refresh:
-        st.session_state.refresh_interval = st.sidebar.number_input(
-            "Refresh Interval (seconds)",
-            min_value=10,
-            max_value=300,
-            value=st.session_state.refresh_interval,
-            step=5
-        )
-
-    # Create persistent containers for progress bar and last update text
-    if 'progress_bar' not in st.session_state:
-        st.session_state.progress_bar = st.sidebar.empty()
-    if 'last_update_text' not in st.session_state:
-        st.session_state.last_update_text = st.sidebar.empty()
-
-    # Update progress bar and timer if auto-refresh is enabled
-    if auto_refresh and site_id and st.session_state.last_update_time:
-        current_time = datetime.now()
-        time_since_last = (current_time - st.session_state.last_update_time).total_seconds()
-        time_until_next = max(0, st.session_state.refresh_interval - time_since_last)
-        progress = time_since_last / st.session_state.refresh_interval
-        progress = min(1.0, progress)  # Ensure progress doesn't exceed 1
-
-        # Update the containers
-        st.session_state.progress_bar.progress(progress, f"Next update in {int(time_until_next)}s")
-        st.session_state.last_update_text.text(f"Last update: {st.session_state.last_update_time.strftime('%H:%M:%S')}")
-
-        # Check if it's time to refresh
-        if time_until_next <= 0:
-            with st.spinner('Auto-refreshing data...'):
-                success, error_message = refresh_data(site_id, metar_station if 'metar_station' in locals() else None)
-                if not success:
-                    st.error(error_message)
-            st.rerun()
+    
 
     # Move the plot button right after site selection
     plot_clicked = st.sidebar.button("Plot Hodograph")
@@ -501,17 +462,7 @@ def main():
         st.sidebar.error("Please enter both direction and speed for storm motion")
 
 
-    current_time = datetime.now()
-    should_refresh = (
-        auto_refresh and 
-        site_id and
-        hasattr(st.session_state.wind_profile.speeds, '__len__') and
-        len(st.session_state.wind_profile.speeds) > 0 and
-        (st.session_state.last_update_time is None or 
-         (current_time - st.session_state.last_update_time).total_seconds() >= st.session_state.refresh_interval)
-    )
-
-    if plot_clicked or should_refresh:
+    if plot_clicked:
         with st.spinner('Refreshing data...'):
             success, error_message = refresh_data(site_id, metar_station)
             if not success:
