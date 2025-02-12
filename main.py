@@ -3,6 +3,7 @@ import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+import pandas as pd
 from hodograph_plotter import HodographPlotter
 from data_processor import WindProfile
 from radar_sites import get_sorted_sites, get_site_by_id
@@ -728,12 +729,29 @@ def main():
 
             st.plotly_chart(fig, use_container_width=True)
 
+        # Add wind data table
+        st.subheader("Wind Profile Data")
+        data = {
+            'Height (m)': [h * 1000 for h in st.session_state.wind_profile.heights],
+            'Height (ft)': [h * 1000 * 3.28084 for h in st.session_state.wind_profile.heights],
+            'Speed (kts)': st.session_state.wind_profile.speeds,
+            'Direction (°)': st.session_state.wind_profile.directions
+        }
+        df = pd.DataFrame(data)
+        st.dataframe(df, hide_index=True)
+
     else:
         st.info("Select a radar site and click 'Plot Hodograph' to generate a hodograph.")
 
-    if (auto_refresh and site_id and 
-        st.session_state.last_update_time and 
-        (datetime.now() - st.session_state.last_update_time).total_seconds() >= st.session_state.refresh_interval):
+    # Modify auto-refresh logic to trigger immediately after plotting
+    should_refresh = (
+        auto_refresh and 
+        site_id and
+        (st.session_state.last_update_time is None or 
+         (datetime.now() - st.session_state.last_update_time).total_seconds() >= st.session_state.refresh_interval)
+    )
+
+    if should_refresh or (plot_clicked and auto_refresh):
         time.sleep(0.1)
         st.rerun()
 
