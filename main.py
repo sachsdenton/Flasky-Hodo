@@ -12,8 +12,8 @@ import io
 import time
 import os
 
-def calculate_esterheld_angle_points(surface_u, surface_v, storm_u, storm_v, radar_u, radar_v):
-    """Calculate the Esterheld Critical Angle between three points."""
+def calculate_skoff_angle_points(surface_u, surface_v, storm_u, storm_v, radar_u, radar_v):
+    """Calculate the Skoff Critical Angle between three points."""
     # Calculate vectors
     v1 = [storm_u - surface_u, storm_v - surface_v]  # Surface to Storm vector
     v2 = [radar_u - surface_u, radar_v - surface_v]  # Surface to Radar vector
@@ -341,15 +341,15 @@ def main():
                     # Draw connecting lines (only surface to storm motion)
                     ax.plot([surface_u, storm_u], [surface_v, storm_v], 'g--', linewidth=2)
 
-                    # Calculate and display Esterheld Critical Angle
-                    critical_angle = calculate_esterheld_angle_points(
+                    # Calculate and display Skoff Critical Angle
+                    critical_angle = calculate_skoff_angle_points(
                         surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
                     )
 
                     # Add text annotation for critical angle at the bottom
                     max_speed = plotter.max_speed
                     ax.text(0, -max_speed * 0.8, 
-                           f'Esterheld Critical Angle: {critical_angle:.1f}°',
+                           f'Skoff Critical Angle: {critical_angle:.1f}°',
                            ha='center', va='center',
                            bbox=dict(facecolor='white', edgecolor='blue', alpha=0.8),
                            fontsize=10,
@@ -445,8 +445,8 @@ def main():
                             hoverinfo='skip'
                         ))
 
-                    # Calculate and display Esterheld Critical Angle
-                    critical_angle = calculate_esterheld_angle_points(
+                    # Calculate and display Skoff Critical Angle
+                    critical_angle = calculate_skoff_angle_points(
                         surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
                     )
 
@@ -454,7 +454,7 @@ def main():
                     fig.add_annotation(
                         x=0,
                         y=-max_speed * 0.8,
-                        text=f'Esterheld Critical Angle: {critical_angle:.1f}°',
+                        text=f'Skoff Critical Angle: {critical_angle:.1f}°',
                         showarrow=False,
                         font=dict(size=12, color='blue'),
                         bgcolor='white',

@@ -17,7 +17,7 @@ def calculate_wind_components(speed: float, direction: float) -> Tuple[float, fl
     v = speed * np.sin(direction_rad)
     return u, v
 
-def calculate_esterheld_angle(surface_speed: float, surface_dir: float, 
+def calculate_skoff_angle(surface_speed: float, surface_dir: float, 
                             radar_speed: float, radar_dir: float) -> float:
     """
     Calculate the angle between surface winds and radar winds (Esterheld Critical Angle).
