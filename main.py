@@ -11,6 +11,43 @@ from metar_utils import get_metar
 import io
 import time
 import os
+from typing import Tuple
+
+def calculate_vector_angle(u1: float, v1: float, u2: float, v2: float) -> float:
+    """Calculate the angle between two vectors."""
+    dot_product = u1 * u2 + v1 * v2
+    mag1 = np.sqrt(u1**2 + v1**2)
+    mag2 = np.sqrt(u2**2 + v2**2)
+
+    if mag1 == 0 or mag2 == 0:
+        return 0.0
+
+    cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
+    angle_rad = np.arccos(cos_angle)
+    return np.rad2deg(angle_rad)
+
+def calculate_shear_depth(surface_u: float, surface_v: float, profile: WindProfile) -> Tuple[float, list]:
+    """Calculate shear depth based on points within 10 degrees of the surface-to-lowest vector."""
+    # Get the lowest radar point
+    radar_u, radar_v = calculate_wind_components(profile.speeds[0], profile.directions[0])
+
+    # Calculate reference vector (from surface to lowest radar point)
+    ref_u = radar_u - surface_u
+    ref_v = radar_v - surface_v
+
+    # Find points within 10 degrees of reference vector
+    aligned_heights = []
+    for i in range(len(profile.speeds)):
+        point_u, point_v = calculate_wind_components(profile.speeds[i], profile.directions[i])
+        vector_u = point_u - surface_u
+        vector_v = point_v - surface_v
+
+        angle = calculate_vector_angle(ref_u, ref_v, vector_u, vector_v)
+        if angle <= 10.0:  # Within 10 degrees
+            aligned_heights.append(profile.heights[i])
+
+    # Return the maximum height (shear depth) and list of aligned heights
+    return max(aligned_heights) if aligned_heights else 0.0, aligned_heights
 
 def calculate_skoff_angle_points(surface_u, surface_v, storm_u, storm_v, radar_u, radar_v):
     """Calculate the Skoff Critical Angle between three points."""
@@ -318,6 +355,11 @@ def main():
                 radar_dir = st.session_state.wind_profile.directions[0]
                 radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
 
+                # Calculate shear depth
+                shear_depth, aligned_heights = calculate_shear_depth(
+                    surface_u, surface_v, st.session_state.wind_profile
+                )
+
                 fig, ax = plotter.get_plot()
 
                 # Plot METAR point
@@ -326,6 +368,21 @@ def main():
 
                 # Draw surface to radar line
                 ax.plot([surface_u, radar_u], [surface_v, radar_v], 'b--', linewidth=2)
+
+                # Draw the reference line (light grey dashed)
+                ax.plot([surface_u, radar_u], [surface_v, radar_v], 
+                       color='lightgrey', linestyle='--', linewidth=1.5,
+                       label='Reference Vector')
+
+
+                # Add shear depth annotation
+                max_speed = plotter.max_speed
+                ax.text(0, -max_speed * 0.9,
+                       f'Shear Depth: {shear_depth * 1000:.0f}m',
+                       ha='center', va='center',
+                       bbox=dict(facecolor='white', edgecolor='grey', alpha=0.8),
+                       fontsize=10,
+                       color='grey')
 
                 # Only add storm motion if it's been entered
                 if st.session_state.storm_motion:
@@ -383,6 +440,11 @@ def main():
                 radar_dir = st.session_state.wind_profile.directions[0]
                 radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
 
+                # Calculate shear depth
+                shear_depth, aligned_heights = calculate_shear_depth(
+                    surface_u, surface_v, st.session_state.wind_profile
+                )
+
                 # Add METAR point and surface-to-radar line
                 fig.add_trace(go.Scatter(
                     x=[surface_u, radar_u],
@@ -406,6 +468,29 @@ def main():
                     hoverinfo='text',
                     text=f"METAR {metar['station']}<br>Speed: {metar['speed']}kts<br>Direction: {metar['direction']}°"
                 ))
+
+                # Add reference vector line
+                fig.add_trace(go.Scatter(
+                    x=[surface_u, radar_u],
+                    y=[surface_v, radar_v],
+                    mode='lines',
+                    line=dict(color='lightgrey', width=1.5, dash='dash'),
+                    name='Reference Vector',
+                    showlegend=True
+                ))
+
+                # Add shear depth annotation
+                fig.add_annotation(
+                    x=0,
+                    y=-max_speed * 0.9,
+                    text=f'Shear Depth: {shear_depth * 1000:.0f}m',
+                    showarrow=False,
+                    font=dict(size=12, color='grey'),
+                    bgcolor='white',
+                    bordercolor='grey',
+                    borderwidth=1
+                )
+
 
                 # Only add storm motion if it's been entered
                 if st.session_state.storm_motion:
