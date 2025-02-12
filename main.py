@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from hodograph_plotter import HodographPlotter
 from data_processor import WindProfile
 from radar_sites import get_sorted_sites, get_site_by_id
-from utils import calculate_wind_components
+from utils import calculate_wind_components, calculate_esterheld_angle
 from metar_utils import get_metar
 import io
 import time
@@ -133,6 +133,50 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
     ]
     fig.update_layout(annotations=annotations)
 
+    # After adding all the initial traces, check if we have METAR data to add
+    if st.session_state.metar_data:
+        metar = st.session_state.metar_data
+        surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
+
+        # Get the lowest radar point
+        radar_speed = wind_profile.speeds[0]
+        radar_dir = wind_profile.directions[0]
+        radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
+
+        # Calculate Esterheld Critical Angle
+        critical_angle = calculate_esterheld_angle(
+            metar['speed'], metar['direction'],
+            radar_speed, radar_dir
+        )
+
+        # Add dashed line connecting METAR to lowest radar point
+        fig.add_trace(go.Scatter(
+            x=[surface_u, radar_u],
+            y=[surface_v, radar_v],
+            mode='lines',
+            line=dict(color='blue', width=2, dash='dash'),
+            name='Surface to Radar',
+            hoverinfo='skip'
+        ))
+
+        # Add annotation for the critical angle
+        mid_x = (surface_u + radar_u) / 2
+        mid_y = (surface_v + radar_v) / 2
+        fig.add_annotation(
+            x=mid_x,
+            y=mid_y,
+            text=f'Esterheld Critical Angle: {critical_angle:.1f}°',
+            showarrow=True,
+            arrowhead=2,
+            arrowsize=1,
+            arrowwidth=2,
+            arrowcolor='blue',
+            font=dict(size=12, color='blue'),
+            bgcolor='white',
+            bordercolor='blue',
+            borderwidth=1
+        )
+
     return fig
 
 def main():
@@ -253,7 +297,7 @@ def main():
             # Set site info in wind profile
             st.session_state.wind_profile.site_id = site_id
             st.session_state.wind_profile.site_name = site.name if site else None
-            
+
             speeds = st.session_state.wind_profile.speeds
             plotter.setup_plot(
                 site_id=site_id,
@@ -264,9 +308,41 @@ def main():
 
             if show_metar and st.session_state.metar_data:
                 metar = st.session_state.metar_data
-                u, v = calculate_wind_components(metar['speed'], metar['direction'])
+                surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
+
+                # Get the lowest radar point
+                radar_speed = st.session_state.wind_profile.speeds[0]
+                radar_dir = st.session_state.wind_profile.directions[0]
+                radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
+
+                # Calculate Esterheld Critical Angle
+                critical_angle = calculate_esterheld_angle(
+                    metar['speed'], metar['direction'],
+                    radar_speed, radar_dir
+                )
+
                 fig, ax = plotter.get_plot()
-                ax.scatter([u], [v], c='red', marker='*', s=150, label=f"METAR {metar['station']}")
+
+                # Plot METAR point
+                ax.scatter([surface_u], [surface_v], c='red', marker='*', s=150, 
+                          label=f"METAR {metar['station']}")
+
+                # Draw dashed line from METAR to lowest radar point
+                ax.plot([surface_u, radar_u], [surface_v, radar_v], 
+                       'b--', linewidth=2, label='Surface to Radar')
+
+                # Add text annotation for critical angle
+                mid_x = (surface_u + radar_u) / 2
+                mid_y = (surface_v + radar_v) / 2
+                ax.annotate(
+                    f'Esterheld Critical Angle: {critical_angle:.1f}°',
+                    xy=(mid_x, mid_y),
+                    xytext=(10, 10), textcoords='offset points',
+                    bbox=dict(boxstyle='round,pad=0.5', fc='white', ec='blue', alpha=0.8),
+                    fontsize=10,
+                    color='blue'
+                )
+
                 ax.legend()
 
             buf = io.BytesIO()
