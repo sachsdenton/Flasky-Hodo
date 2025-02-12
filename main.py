@@ -257,8 +257,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             hovertext=f'Left Mover<br>Speed: {bunkers_left[1]:.0f}kts<br>Direction: {bunkers_left[0]:.0f}°'
         ))
 
-        # For analyst plot, add critical angle lines and annotations
-        if plot_type == "Analyst" and show_metar and st.session_state.metar_data:
+        if plot_type == "Analyst" and st.session_state.metar_data:
             metar = st.session_state.metar_data
             surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
 
@@ -565,7 +564,6 @@ def main():
                 valid_time=valid_time,
                 plot_type=plot_type
             )
-
             if show_metar and st.session_state.metar_data:
                 metar = st.session_state.metar_data
                 surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
