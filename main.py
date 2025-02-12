@@ -250,6 +250,10 @@ def main():
             site = get_site_by_id(site_id) if site_id else None
             valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
 
+            # Set site info in wind profile
+            st.session_state.wind_profile.site_id = site_id
+            st.session_state.wind_profile.site_name = site.name if site else None
+            
             speeds = st.session_state.wind_profile.speeds
             plotter.setup_plot(
                 site_id=site_id,
