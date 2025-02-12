@@ -412,6 +412,9 @@ def main():
     if selected_site and selected_site != "Select a site...":
         site_id = selected_site.split(" - ")[0]
 
+    # Move the plot button right after site selection
+    plot_clicked = st.sidebar.button("Plot Hodograph")
+
     st.sidebar.header("METAR Data")
     metar_station = st.sidebar.text_input(
         "METAR Station ID (4-letter ICAO)",
@@ -419,20 +422,8 @@ def main():
         max_chars=4
     ).strip().upper()
 
-    current_time = datetime.now()
-    should_refresh = (
-        auto_refresh and 
-        site_id and
-        st.session_state.wind_profile.speeds is not None and
-        len(st.session_state.wind_profile.speeds) > 0 and
-        (st.session_state.last_update_time is None or 
-         (current_time - st.session_state.last_update_time).total_seconds() >= st.session_state.refresh_interval)
-    )
-
-    fetch_clicked = st.sidebar.button("Fetch Latest Data")
-
     if metar_station:
-        metar_fetch = st.sidebar.button("Fetch METAR Data")
+        metar_fetch = st.sidebar.button("Plot METAR")
         if metar_fetch:
             with st.spinner(f'Fetching METAR data from {metar_station}...'):
                 wind_dir, wind_speed, error = get_metar(metar_station)
@@ -447,35 +438,22 @@ def main():
                     }
                     st.sidebar.success(f"METAR data loaded: {wind_speed}kts @ {wind_dir}°")
 
-    # Add Storm Motion inputs
-    st.sidebar.header("Storm Motion")
-    storm_direction = st.sidebar.number_input(
-        "Storm Direction (degrees)",
-        min_value=0,
-        max_value=360,
-        value=None,
-        help="Enter storm motion direction (0-360 degrees)"
-    )
-    storm_speed = st.sidebar.number_input(
-        "Storm Speed (knots)",
-        min_value=0,
-        max_value=100,
-        value=None,
-        help="Enter storm motion speed in knots"
+    current_time = datetime.now()
+    should_refresh = (
+        auto_refresh and 
+        site_id and
+        st.session_state.wind_profile.speeds is not None and
+        len(st.session_state.wind_profile.speeds) > 0 and
+        (st.session_state.last_update_time is None or 
+         (current_time - st.session_state.last_update_time).total_seconds() >= st.session_state.refresh_interval)
     )
 
-    # Update storm motion in session state
-    st.session_state.storm_motion = {
-        'direction': storm_direction,
-        'speed': storm_speed
-    } if storm_direction is not None and storm_speed is not None else None
-
-    if fetch_clicked or should_refresh:
+    if plot_clicked or should_refresh:
         with st.spinner('Refreshing data...'):
             success, error_message = refresh_data(site_id, metar_station)
             if not success:
                 st.error(error_message)
-            elif fetch_clicked:  # Only show success message for manual refresh
+            elif plot_clicked:  # Only show success message for manual refresh
                 st.success("Successfully refreshed data")
 
     if hasattr(st.session_state.wind_profile.speeds, '__len__') and len(st.session_state.wind_profile.speeds) > 0:
@@ -718,7 +696,7 @@ def main():
             st.plotly_chart(fig, use_container_width=True)
 
     else:
-        st.info("Select a radar site and click 'Fetch Latest Data' to generate a hodograph.")
+        st.info("Select a radar site and click 'Plot Hodograph' to generate a hodograph.")
 
     if (auto_refresh and site_id and 
         st.session_state.last_update_time and 
