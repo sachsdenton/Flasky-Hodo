@@ -321,7 +321,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
 
     return fig, max_speed
 
-def refresh_data(site_id, metar_station):
+def refresh_data(site_id, metar_station=None):
     """Refresh both VWP and METAR data."""
     success = True
     error_message = None
@@ -341,12 +341,12 @@ def refresh_data(site_id, metar_station):
                 success = False
                 error_message = "Could not fetch radar data"
 
-        # Fetch METAR data
+        # Fetch METAR data only if a station is provided
         if metar_station and success:
             wind_dir, wind_speed, error = get_metar(metar_station)
             if error:
-                success = False
-                error_message = f"METAR Error: {error}"
+                # Don't fail the entire refresh for METAR errors
+                st.warning(f"METAR Error: {error}")
             else:
                 st.session_state.metar_data = {
                     'station': metar_station,
@@ -393,13 +393,11 @@ def main():
         )
 
         progress_container = st.sidebar.empty()
-        if st.session_state.last_update_time:
+        if st.session_state.last_update_time and site_id:
             time_since_last = (datetime.now() - st.session_state.last_update_time).total_seconds()
             time_until_next = max(0, st.session_state.refresh_interval - time_since_last)
             progress = 1 - (time_until_next / st.session_state.refresh_interval)
             progress_container.progress(float(progress), f"Next update in {int(time_until_next)}s")
-
-        if st.session_state.last_update_time:
             st.sidebar.text(f"Last update: {st.session_state.last_update_time.strftime('%H:%M:%S')}")
 
     sites = get_sorted_sites()
@@ -425,6 +423,8 @@ def main():
     should_refresh = (
         auto_refresh and 
         site_id and
+        st.session_state.wind_profile.speeds is not None and
+        len(st.session_state.wind_profile.speeds) > 0 and
         (st.session_state.last_update_time is None or 
          (current_time - st.session_state.last_update_time).total_seconds() >= st.session_state.refresh_interval)
     )
