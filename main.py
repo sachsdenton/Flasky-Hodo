@@ -25,8 +25,8 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
     v_comp = []
     for speed, direction in zip(wind_profile.speeds, wind_profile.directions):
         u, v = calculate_wind_components(speed, direction)
-        u_comp.append(-u)  # Negate for meteorological convention
-        v_comp.append(-v)
+        u_comp.append(u)  # Don't negate components - utils.py already handles meteorological convention
+        v_comp.append(v)
 
     # Create hover text
     hover_text = [
@@ -73,7 +73,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
     fig.update_layout(
         xaxis=dict(
             title='U-component (knots)',
-            range=[max_speed, -max_speed],  # Inverted x-axis (East on left)
+            range=[-max_speed, max_speed],  # East (negative) on left, West (positive) on right
             zeroline=False,
             showgrid=False,  # Remove grid lines
             scaleanchor='y',
@@ -82,7 +82,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         ),
         yaxis=dict(
             title='V-component (knots)',
-            range=[-max_speed, max_speed],
+            range=[-max_speed, max_speed],  # South (negative) on bottom, North (positive) on top
             zeroline=False,
             showgrid=False,  # Remove grid lines
             scaleanchor='x',
@@ -113,12 +113,13 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         layer='below'
     )
 
-    # Add cardinal directions
+    # Add cardinal directions in correct positions
+    # N at bottom (0 degrees), E on left (90), S at top (180), W on right (270)
     annotations = [
-        dict(x=0, y=-max_speed-2, text="N", showarrow=False),
-        dict(x=-max_speed-2, y=0, text="E", showarrow=False),
-        dict(x=0, y=max_speed+2, text="S", showarrow=False),
-        dict(x=max_speed+2, y=0, text="W", showarrow=False)
+        dict(x=0, y=-max_speed-2, text="N", showarrow=False),  # North at bottom
+        dict(x=-max_speed-2, y=0, text="E", showarrow=False),  # East on left
+        dict(x=0, y=max_speed+2, text="S", showarrow=False),   # South at top
+        dict(x=max_speed+2, y=0, text="W", showarrow=False)    # West on right
     ]
     fig.update_layout(annotations=annotations)
 
