@@ -421,10 +421,15 @@ def main():
         # Update progress bar and timer
         progress_container = st.sidebar.empty()
         if st.session_state.last_update_time and site_id:
-            time_since_last = (datetime.now() - st.session_state.last_update_time).total_seconds()
+            current_time = datetime.now()
+            time_since_last = (current_time - st.session_state.last_update_time).total_seconds()
             time_until_next = max(0, st.session_state.refresh_interval - time_since_last)
             progress = 1 - (time_until_next / st.session_state.refresh_interval)
-            progress_container.progress(float(progress), f"Next update in {int(time_until_next)}s")
+
+            # Ensure progress is between 0 and 1
+            progress = max(0, min(1, progress))
+
+            progress_container.progress(progress, f"Next update in {int(time_until_next)}s")
             st.sidebar.text(f"Last update: {st.session_state.last_update_time.strftime('%H:%M:%S')}")
 
     # Move the plot button right after site selection
@@ -488,7 +493,7 @@ def main():
     should_refresh = (
         auto_refresh and 
         site_id and
-        st.session_state.wind_profile.speeds is not None and
+        hasattr(st.session_state.wind_profile.speeds, '__len__') and
         len(st.session_state.wind_profile.speeds) > 0 and
         (st.session_state.last_update_time is None or 
          (current_time - st.session_state.last_update_time).total_seconds() >= st.session_state.refresh_interval)
@@ -759,6 +764,8 @@ def main():
     should_refresh = (
         auto_refresh and 
         site_id and
+        hasattr(st.session_state.wind_profile.speeds, '__len__') and
+        len(st.session_state.wind_profile.speeds) > 0 and
         (st.session_state.last_update_time is None or 
          (datetime.now() - st.session_state.last_update_time).total_seconds() >= st.session_state.refresh_interval)
     )
