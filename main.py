@@ -256,6 +256,67 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             showlegend=False,
             hovertext=f'Left Mover<br>Speed: {bunkers_left[1]:.0f}kts<br>Direction: {bunkers_left[0]:.0f}°'
         ))
+
+        # For analyst plot, add critical angle lines and annotations
+        if plot_type == "Analyst" and show_metar and st.session_state.metar_data:
+            metar = st.session_state.metar_data
+            surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
+
+            # Get the lowest radar point
+            radar_speed = st.session_state.wind_profile.speeds[0]
+            radar_dir = st.session_state.wind_profile.directions[0]
+            radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
+
+            # Calculate critical angles for both movers
+            right_critical = calculate_skoff_angle_points(
+                surface_u, surface_v, right_u, right_v, radar_u, radar_v
+            )
+            left_critical = calculate_skoff_angle_points(
+                surface_u, surface_v, left_u, left_v, radar_u, radar_v
+            )
+
+            # Add lines to storm motion vectors (only in analyst mode)
+            fig.add_trace(go.Scatter(
+                x=[surface_u, right_u],
+                y=[surface_v, right_v],
+                mode='lines',
+                line=dict(color='purple', width=2, dash='dash'),
+                name='Right Mover Vector',
+                showlegend=True
+            ))
+
+            fig.add_trace(go.Scatter(
+                x=[surface_u, left_u],
+                y=[surface_v, left_v],
+                mode='lines',
+                line=dict(color='blue', width=2, dash='dash'),
+                name='Left Mover Vector',
+                showlegend=True
+            ))
+
+            # Add critical angle annotations at different vertical positions
+            fig.add_annotation(
+                x=0,
+                y=-max_speed * 0.7,
+                text=f'Right Mover Critical Angle: {right_critical:.1f}°',
+                showarrow=False,
+                font=dict(size=12, color='purple'),
+                bgcolor='white',
+                bordercolor='purple',
+                borderwidth=1
+            )
+
+            fig.add_annotation(
+                x=0,
+                y=-max_speed * 0.6,
+                text=f'Left Mover Critical Angle: {left_critical:.1f}°',
+                showarrow=False,
+                font=dict(size=12, color='blue'),
+                bgcolor='white',
+                bordercolor='blue',
+                borderwidth=1
+            )
+
     except Exception as e:
         print(f"Could not calculate Bunkers movers: {str(e)}")
 
