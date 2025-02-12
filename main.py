@@ -321,6 +321,48 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
 
     return fig, max_speed
 
+def refresh_data(site_id, metar_station):
+    """Refresh both VWP and METAR data."""
+    success = True
+    error_message = None
+
+    try:
+        # Fetch VWP data
+        if site_id:
+            from vad_reader import download_vad
+            vad = download_vad(site_id, cache_path="temp_data")
+
+            if vad:
+                st.session_state.wind_profile.heights = vad['altitude']
+                st.session_state.wind_profile.speeds = vad['wind_spd']
+                st.session_state.wind_profile.directions = vad['wind_dir']
+                st.session_state.wind_profile.times = [vad['time']] * len(vad['altitude'])
+            else:
+                success = False
+                error_message = "Could not fetch radar data"
+
+        # Fetch METAR data
+        if metar_station and success:
+            wind_dir, wind_speed, error = get_metar(metar_station)
+            if error:
+                success = False
+                error_message = f"METAR Error: {error}"
+            else:
+                st.session_state.metar_data = {
+                    'station': metar_station,
+                    'direction': wind_dir,
+                    'speed': wind_speed
+                }
+
+        if success:
+            st.session_state.last_update_time = datetime.now()
+
+    except Exception as e:
+        success = False
+        error_message = f"Error refreshing data: {str(e)}"
+
+    return success, error_message
+
 def main():
     os.makedirs("temp_data", exist_ok=True)
 
@@ -369,22 +411,22 @@ def main():
     if selected_site and selected_site != "Select a site...":
         site_id = selected_site.split(" - ")[0]
 
-    current_time = datetime.now()
-    should_refresh = (
-        auto_refresh and 
-        site_id and  
-        (st.session_state.last_update_time is None or 
-         (current_time - st.session_state.last_update_time).total_seconds() >= refresh_interval)
-    ) if auto_refresh else False
-
-    fetch_clicked = st.sidebar.button("Fetch Latest Data")
-
     st.sidebar.header("METAR Data")
     metar_station = st.sidebar.text_input(
         "METAR Station ID (4-letter ICAO)",
         help="Enter a 4-letter ICAO station identifier (e.g., KBOS, KJFK)",
         max_chars=4
     ).strip().upper()
+
+    current_time = datetime.now()
+    should_refresh = (
+        auto_refresh and 
+        site_id and
+        (st.session_state.last_update_time is None or 
+         (current_time - st.session_state.last_update_time).total_seconds() >= refresh_interval)
+    ) if auto_refresh else False
+
+    fetch_clicked = st.sidebar.button("Fetch Latest Data")
 
     if metar_station:
         metar_fetch = st.sidebar.button("Fetch METAR Data")
@@ -426,23 +468,12 @@ def main():
     } if storm_direction is not None and storm_speed is not None else None
 
     if fetch_clicked or should_refresh:
-        if site_id:
-            with st.spinner(f'Fetching latest data from {site_id}...'):
-                try:
-                    from vad_reader import download_vad
-                    vad = download_vad(site_id, cache_path="temp_data")
-
-                    if vad:
-                        st.session_state.wind_profile.heights = vad['altitude']
-                        st.session_state.wind_profile.speeds = vad['wind_spd']
-                        st.session_state.wind_profile.directions = vad['wind_dir']
-                        st.session_state.wind_profile.times = [vad['time']] * len(vad['altitude'])
-                        st.session_state.last_update_time = current_time
-                        st.success(f"Successfully loaded data from {site_id}")
-                    else:
-                        st.error("Could not fetch radar data")
-                except Exception as e:
-                    st.error(f"Error fetching data: {str(e)}")
+        with st.spinner('Refreshing data...'):
+            success, error_message = refresh_data(site_id, metar_station)
+            if not success:
+                st.error(error_message)
+            elif fetch_clicked:  # Only show success message for manual refresh
+                st.success("Successfully refreshed data")
 
     if hasattr(st.session_state.wind_profile.speeds, '__len__') and len(st.session_state.wind_profile.speeds) > 0:
         st.subheader("Wind Profile Visualization")
