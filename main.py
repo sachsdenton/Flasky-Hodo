@@ -418,27 +418,58 @@ def main():
     plot_clicked = st.sidebar.button("Plot Hodograph")
 
     st.sidebar.header("METAR Data")
-    metar_station = st.sidebar.text_input(
-        "METAR Station ID (4-letter ICAO)",
-        help="Enter a 4-letter ICAO station identifier (e.g., KBOS, KJFK)",
-        max_chars=4
-    ).strip().upper()
+    with st.sidebar.form("metar_form"):
+        metar_station = st.text_input(
+            "METAR Station ID (4-letter ICAO)",
+            help="Enter a 4-letter ICAO station identifier (e.g., KBOS, KJFK)",
+            max_chars=4
+        ).strip().upper()
 
-    if metar_station:
-        metar_fetch = st.sidebar.button("Plot METAR")
-        if metar_fetch:
-            with st.spinner(f'Fetching METAR data from {metar_station}...'):
-                wind_dir, wind_speed, error = get_metar(metar_station)
-                if error:
-                    st.sidebar.error(f"METAR Error: {error}")
-                    st.session_state.metar_data = None
-                else:
-                    st.session_state.metar_data = {
-                        'station': metar_station,
-                        'direction': wind_dir,
-                        'speed': wind_speed
-                    }
-                    st.sidebar.success(f"METAR data loaded: {wind_speed}kts @ {wind_dir}°")
+        metar_fetch = st.form_submit_button("Plot METAR")
+
+    if metar_fetch:
+        with st.spinner(f'Fetching METAR data from {metar_station}...'):
+            wind_dir, wind_speed, error = get_metar(metar_station)
+            if error:
+                st.sidebar.error(f"METAR Error: {error}")
+                st.session_state.metar_data = None
+            else:
+                st.session_state.metar_data = {
+                    'station': metar_station,
+                    'direction': wind_dir,
+                    'speed': wind_speed
+                }
+                st.sidebar.success(f"METAR data loaded: {wind_speed}kts @ {wind_dir}°")
+
+    # Add Storm Motion inputs
+    st.sidebar.header("Storm Motion")
+    with st.sidebar.form("storm_motion_form"):
+        storm_direction = st.number_input(
+            "Storm Direction (degrees)",
+            min_value=0,
+            max_value=360,
+            value=None,
+            help="Enter storm motion direction (0-360 degrees)"
+        )
+        storm_speed = st.number_input(
+            "Storm Speed (knots)",
+            min_value=0,
+            max_value=100,
+            value=None,
+            help="Enter storm motion speed in knots"
+        )
+
+        storm_motion_submit = st.form_submit_button("Plot Storm Motion")
+
+    if storm_motion_submit and storm_direction is not None and storm_speed is not None:
+        st.session_state.storm_motion = {
+            'direction': storm_direction,
+            'speed': storm_speed
+        }
+        st.sidebar.success(f"Storm motion updated: {storm_speed}kts @ {storm_direction}°")
+    elif storm_motion_submit:
+        st.sidebar.error("Please enter both direction and speed for storm motion")
+
 
     current_time = datetime.now()
     should_refresh = (
