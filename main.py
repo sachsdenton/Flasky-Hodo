@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from hodograph_plotter import HodographPlotter
 from data_processor import WindProfile
 from radar_sites import get_sorted_sites, get_site_by_id
-from utils import calculate_wind_components, calculate_esterheld_angle
+from utils import calculate_wind_components, calculate_skoff_angle
 from metar_utils import get_metar
 import io
 import time
