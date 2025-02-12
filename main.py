@@ -386,6 +386,15 @@ def main():
     if 'refresh_interval' not in st.session_state:
         st.session_state.refresh_interval = 120
 
+    # Add manual refresh button before auto-refresh checkbox
+    if st.sidebar.button("🔄 Refresh Data", help="Manually refresh both METAR and hodograph data"):
+        with st.spinner('Refreshing data...'):
+            success, error_message = refresh_data(site_id, metar_station if 'metar_station' in locals() else None)
+            if not success:
+                st.error(error_message)
+            else:
+                st.success("Successfully refreshed data")
+
     auto_refresh = st.sidebar.checkbox("Enable Auto-refresh", value=True)
     if auto_refresh:
         st.session_state.refresh_interval = st.sidebar.number_input(
@@ -470,6 +479,7 @@ def main():
         st.sidebar.success(f"Storm motion updated: {storm_speed}kts @ {storm_direction}°")
     elif storm_motion_submit:
         st.sidebar.error("Please enter both direction and speed for storm motion")
+
 
 
     current_time = datetime.now()
@@ -739,6 +749,15 @@ def main():
         }
         df = pd.DataFrame(data)
         st.dataframe(df, hide_index=True)
+        st.subheader("Wind Profile Data")
+        data = {
+            'Height (m)': [h * 1000 for h in st.session_state.wind_profile.heights],
+            'Height (ft)': [h * 1000 * 3.28084 for h in st.session_state.wind_profile.heights],
+            'Speed (kts)': st.session_state.wind_profile.speeds,
+            'Direction (°)': st.session_state.wind_profile.directions
+        }
+        df = pd.DataFrame(data)
+        st.dataframe(df, hide_index=True)
 
     else:
         st.info("Select a radar site and click 'Plot Hodograph' to generate a hodograph.")
@@ -752,7 +771,7 @@ def main():
     )
 
     if should_refresh or (plot_clicked and auto_refresh):
-        time.sleep(0.1)
+        time.sleep(0.1)  # Small delay to prevent too rapid updates
         st.rerun()
 
 if __name__ == "__main__":
