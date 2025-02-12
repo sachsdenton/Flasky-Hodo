@@ -369,6 +369,9 @@ def main():
     st.title("Hodograph Analysis Tool")
     st.sidebar.header("Data Source")
 
+    # Initialize site_id at the start
+    site_id = None
+
     if 'wind_profile' not in st.session_state:
         st.session_state.wind_profile = WindProfile()
     if 'last_update_time' not in st.session_state:
@@ -408,7 +411,6 @@ def main():
         format_func=lambda x: x
     )
 
-    site_id = None
     if selected_site and selected_site != "Select a site...":
         site_id = selected_site.split(" - ")[0]
 
