@@ -405,6 +405,7 @@ def main():
             step=5
         )
 
+        # Update progress bar and timer
         progress_container = st.sidebar.empty()
         if st.session_state.last_update_time and site_id:
             time_since_last = (datetime.now() - st.session_state.last_update_time).total_seconds()
@@ -749,15 +750,6 @@ def main():
         }
         df = pd.DataFrame(data)
         st.dataframe(df, hide_index=True)
-        st.subheader("Wind Profile Data")
-        data = {
-            'Height (m)': [h * 1000 for h in st.session_state.wind_profile.heights],
-            'Height (ft)': [h * 1000 * 3.28084 for h in st.session_state.wind_profile.heights],
-            'Speed (kts)': st.session_state.wind_profile.speeds,
-            'Direction (°)': st.session_state.wind_profile.directions
-        }
-        df = pd.DataFrame(data)
-        st.dataframe(df, hide_index=True)
 
     else:
         st.info("Select a radar site and click 'Plot Hodograph' to generate a hodograph.")
@@ -772,7 +764,7 @@ def main():
 
     if should_refresh or (plot_clicked and auto_refresh):
         time.sleep(0.1)  # Small delay to prevent too rapid updates
-        st.rerun()
+        st.experimental_rerun()  # Use experimental_rerun instead of rerun for more reliable updates
 
 if __name__ == "__main__":
     main()
