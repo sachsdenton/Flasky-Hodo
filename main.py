@@ -143,29 +143,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         radar_dir = wind_profile.directions[0]
         radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
 
-        # Get storm motion point
-        storm_u, storm_v = calculate_wind_components(
-            st.session_state.storm_motion['speed'],
-            st.session_state.storm_motion['direction']
-        )
-
-        # Calculate angles
-        surface_radar_angle = calculate_esterheld_angle(
-            metar['speed'], metar['direction'],
-            radar_speed, radar_dir
-        )
-        surface_storm_angle = calculate_esterheld_angle(
-            metar['speed'], metar['direction'],
-            st.session_state.storm_motion['speed'],
-            st.session_state.storm_motion['direction']
-        )
-        storm_radar_angle = calculate_esterheld_angle(
-            st.session_state.storm_motion['speed'],
-            st.session_state.storm_motion['direction'],
-            radar_speed, radar_dir
-        )
-
-        # Add dashed line connecting METAR to lowest radar point
+        # Add METAR point and surface-to-radar line
         fig.add_trace(go.Scatter(
             x=[surface_u, radar_u],
             y=[surface_v, radar_v],
@@ -175,7 +153,6 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             hoverinfo='skip'
         ))
 
-        # Add METAR point
         fig.add_trace(go.Scatter(
             x=[surface_u],
             y=[surface_v],
@@ -190,48 +167,58 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             text=f"METAR {metar['station']}<br>Speed: {metar['speed']}kts<br>Direction: {metar['direction']}°"
         ))
 
-        # Add Storm Motion point
-        fig.add_trace(go.Scatter(
-            x=[storm_u],
-            y=[storm_v],
-            mode='markers',
-            marker=dict(
-                symbol='triangle-up',
-                size=15,
-                color='green',
-            ),
-            name="Storm Motion",
-            hoverinfo='text',
-            text=f"Storm Motion<br>Speed: {st.session_state.storm_motion['speed']}kts<br>Direction: {st.session_state.storm_motion['direction']}°"
-        ))
+        # Only add storm motion if it's been entered
+        if st.session_state.storm_motion:
+            storm_u, storm_v = calculate_wind_components(
+                st.session_state.storm_motion['speed'],
+                st.session_state.storm_motion['direction']
+            )
 
-        # Add connecting lines
-        for points, color in [
-            ([surface_u, storm_u], [surface_v, storm_v], 'green'),
-            ([storm_u, radar_u], [storm_v, radar_v], 'red')
-        ]:
+            # Add Storm Motion point
             fig.add_trace(go.Scatter(
-                x=points,
-                y=points,
-                mode='lines',
-                line=dict(color=color, width=2, dash='dash'),
-                showlegend=False,
-                hoverinfo='skip'
+                x=[storm_u],
+                y=[storm_v],
+                mode='markers',
+                marker=dict(
+                    symbol='triangle-up',
+                    size=15,
+                    color='green',
+                ),
+                name="Storm Motion",
+                hoverinfo='text',
+                text=f"Storm Motion<br>Speed: {st.session_state.storm_motion['speed']}kts<br>Direction: {st.session_state.storm_motion['direction']}°"
             ))
 
-        # Add annotation for angles at the bottom
-        fig.add_annotation(
-            x=0,
-            y=-max_speed * 0.8,
-            text=f'Surface-Radar Angle: {surface_radar_angle:.1f}°<br>' +
-                 f'Surface-Storm Angle: {surface_storm_angle:.1f}°<br>' +
-                 f'Storm-Radar Angle: {storm_radar_angle:.1f}°',
-            showarrow=False,
-            font=dict(size=12, color='blue'),
-            bgcolor='white',
-            bordercolor='blue',
-            borderwidth=1
-        )
+            # Add connecting lines
+            for points, color in [
+                ([surface_u, storm_u], [surface_v, storm_v], 'green'),
+                ([storm_u, radar_u], [storm_v, radar_v], 'red')
+            ]:
+                fig.add_trace(go.Scatter(
+                    x=points,
+                    y=points,
+                    mode='lines',
+                    line=dict(color=color, width=2, dash='dash'),
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
+
+            # Calculate and display Esterheld Critical Angle
+            critical_angle = calculate_esterheld_angle_points(
+                surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
+            )
+
+            # Add annotation for the angle at the bottom
+            fig.add_annotation(
+                x=0,
+                y=-max_speed * 0.8,
+                text=f'Esterheld Critical Angle: {critical_angle:.1f}°',
+                showarrow=False,
+                font=dict(size=12, color='blue'),
+                bgcolor='white',
+                bordercolor='blue',
+                borderwidth=1
+            )
 
     return fig
 
@@ -320,14 +307,14 @@ def main():
         "Storm Direction (degrees)",
         min_value=0,
         max_value=360,
-        value=240 if st.session_state.storm_motion is None else st.session_state.storm_motion['direction'],
+        value=None,
         help="Enter storm motion direction (0-360 degrees)"
     )
     storm_speed = st.sidebar.number_input(
         "Storm Speed (knots)",
         min_value=0,
         max_value=100,
-        value=25 if st.session_state.storm_motion is None else st.session_state.storm_motion['speed'],
+        value=None,
         help="Enter storm motion speed in knots"
     )
 
@@ -335,7 +322,28 @@ def main():
     st.session_state.storm_motion = {
         'direction': storm_direction,
         'speed': storm_speed
-    }
+    } if storm_direction is not None and storm_speed is not None else None
+
+    def calculate_esterheld_angle_points(surface_u, surface_v, storm_u, storm_v, radar_u, radar_v):
+        """Calculate the Esterheld Critical Angle between three points."""
+        # Calculate vectors
+        v1 = [storm_u - surface_u, storm_v - surface_v]  # Surface to Storm vector
+        v2 = [radar_u - surface_u, radar_v - surface_v]  # Surface to Radar vector
+
+        # Calculate dot product
+        dot_product = v1[0]*v2[0] + v1[1]*v2[1]
+
+        # Calculate magnitudes
+        mag1 = np.sqrt(v1[0]**2 + v1[1]**2)
+        mag2 = np.sqrt(v2[0]**2 + v2[1]**2)
+
+        if mag1 == 0 or mag2 == 0:
+            return 0.0
+
+        # Calculate angle
+        cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
+        angle_rad = np.arccos(cos_angle)
+        return np.rad2deg(angle_rad)
 
     if fetch_clicked or should_refresh:
         if site_id:
@@ -395,53 +403,43 @@ def main():
                 radar_dir = st.session_state.wind_profile.directions[0]
                 radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
 
-                # Get storm motion point
-                storm_u, storm_v = calculate_wind_components(
-                    st.session_state.storm_motion['speed'],
-                    st.session_state.storm_motion['direction']
-                )
-
-                # Calculate angles
-                surface_radar_angle = calculate_esterheld_angle(
-                    metar['speed'], metar['direction'],
-                    radar_speed, radar_dir
-                )
-                surface_storm_angle = calculate_esterheld_angle(
-                    metar['speed'], metar['direction'],
-                    st.session_state.storm_motion['speed'],
-                    st.session_state.storm_motion['direction']
-                )
-                storm_radar_angle = calculate_esterheld_angle(
-                    st.session_state.storm_motion['speed'],
-                    st.session_state.storm_motion['direction'],
-                    radar_speed, radar_dir
-                )
-
                 fig, ax = plotter.get_plot()
 
                 # Plot METAR point
                 ax.scatter([surface_u], [surface_v], c='red', marker='*', s=150, 
                           label=f"METAR {metar['station']}")
 
-                # Plot Storm Motion point
-                ax.scatter([storm_u], [storm_v], c='green', marker='^', s=150,
-                          label='Storm Motion')
-
-                # Draw connecting lines
+                # Draw surface to radar line
                 ax.plot([surface_u, radar_u], [surface_v, radar_v], 'b--', linewidth=2)
-                ax.plot([surface_u, storm_u], [surface_v, storm_v], 'g--', linewidth=2)
-                ax.plot([storm_u, radar_u], [storm_v, radar_v], 'r--', linewidth=2)
 
-                # Add text annotations for angles at the bottom
-                max_speed = plotter.max_speed
-                ax.text(0, -max_speed * 0.8, 
-                       f'Surface-Radar Angle: {surface_radar_angle:.1f}°\n' +
-                       f'Surface-Storm Angle: {surface_storm_angle:.1f}°\n' +
-                       f'Storm-Radar Angle: {storm_radar_angle:.1f}°',
-                       ha='center', va='center',
-                       bbox=dict(facecolor='white', edgecolor='blue', alpha=0.8),
-                       fontsize=10,
-                       color='blue')
+                # Only add storm motion if it's been entered
+                if st.session_state.storm_motion:
+                    storm_u, storm_v = calculate_wind_components(
+                        st.session_state.storm_motion['speed'],
+                        st.session_state.storm_motion['direction']
+                    )
+
+                    # Plot Storm Motion point
+                    ax.scatter([storm_u], [storm_v], c='green', marker='^', s=150,
+                              label='Storm Motion')
+
+                    # Draw connecting lines
+                    ax.plot([surface_u, storm_u], [surface_v, storm_v], 'g--', linewidth=2)
+                    ax.plot([storm_u, radar_u], [storm_v, radar_v], 'r--', linewidth=2)
+
+                    # Calculate and display Esterheld Critical Angle
+                    critical_angle = calculate_esterheld_angle_points(
+                        surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
+                    )
+
+                    # Add text annotation for critical angle at the bottom
+                    max_speed = plotter.max_speed
+                    ax.text(0, -max_speed * 0.8, 
+                           f'Esterheld Critical Angle: {critical_angle:.1f}°',
+                           ha='center', va='center',
+                           bbox=dict(facecolor='white', edgecolor='blue', alpha=0.8),
+                           fontsize=10,
+                           color='blue')
 
                 ax.legend()
 
@@ -471,29 +469,16 @@ def main():
                 radar_dir = st.session_state.wind_profile.directions[0]
                 radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
 
-                # Get storm motion point
-                storm_u, storm_v = calculate_wind_components(
-                    st.session_state.storm_motion['speed'],
-                    st.session_state.storm_motion['direction']
-                )
+                # Add METAR point and surface-to-radar line
+                fig.add_trace(go.Scatter(
+                    x=[surface_u, radar_u],
+                    y=[surface_v, radar_v],
+                    mode='lines',
+                    line=dict(color='blue', width=2, dash='dash'),
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
 
-                # Calculate angles
-                surface_radar_angle = calculate_esterheld_angle(
-                    metar['speed'], metar['direction'],
-                    radar_speed, radar_dir
-                )
-                surface_storm_angle = calculate_esterheld_angle(
-                    metar['speed'], metar['direction'],
-                    st.session_state.storm_motion['speed'],
-                    st.session_state.storm_motion['direction']
-                )
-                storm_radar_angle = calculate_esterheld_angle(
-                    st.session_state.storm_motion['speed'],
-                    st.session_state.storm_motion['direction'],
-                    radar_speed, radar_dir
-                )
-
-                # Add METAR point
                 fig.add_trace(go.Scatter(
                     x=[surface_u],
                     y=[surface_v],
@@ -508,49 +493,58 @@ def main():
                     text=f"METAR {metar['station']}<br>Speed: {metar['speed']}kts<br>Direction: {metar['direction']}°"
                 ))
 
-                # Add Storm Motion point
-                fig.add_trace(go.Scatter(
-                    x=[storm_u],
-                    y=[storm_v],
-                    mode='markers',
-                    marker=dict(
-                        symbol='triangle-up',
-                        size=15,
-                        color='green',
-                    ),
-                    name="Storm Motion",
-                    hoverinfo='text',
-                    text=f"Storm Motion<br>Speed: {st.session_state.storm_motion['speed']}kts<br>Direction: {st.session_state.storm_motion['direction']}°"
-                ))
+                # Only add storm motion if it's been entered
+                if st.session_state.storm_motion:
+                    storm_u, storm_v = calculate_wind_components(
+                        st.session_state.storm_motion['speed'],
+                        st.session_state.storm_motion['direction']
+                    )
 
-                # Add connecting lines
-                for points, color in [
-                    ([surface_u, radar_u], [surface_v, radar_v], 'blue'),
-                    ([surface_u, storm_u], [surface_v, storm_v], 'green'),
-                    ([storm_u, radar_u], [storm_v, radar_v], 'red')
-                ]:
+                    # Add Storm Motion point
                     fig.add_trace(go.Scatter(
-                        x=points,
-                        y=points,
-                        mode='lines',
-                        line=dict(color=color, width=2, dash='dash'),
-                        showlegend=False,
-                        hoverinfo='skip'
+                        x=[storm_u],
+                        y=[storm_v],
+                        mode='markers',
+                        marker=dict(
+                            symbol='triangle-up',
+                            size=15,
+                            color='green',
+                        ),
+                        name="Storm Motion",
+                        hoverinfo='text',
+                        text=f"Storm Motion<br>Speed: {st.session_state.storm_motion['speed']}kts<br>Direction: {st.session_state.storm_motion['direction']}°"
                     ))
 
-                # Add annotation for angles at the bottom
-                fig.add_annotation(
-                    x=0,
-                    y=-max_speed * 0.8,
-                    text=f'Surface-Radar Angle: {surface_radar_angle:.1f}°<br>' +
-                         f'Surface-Storm Angle: {surface_storm_angle:.1f}°<br>' +
-                         f'Storm-Radar Angle: {storm_radar_angle:.1f}°',
-                    showarrow=False,
-                    font=dict(size=12, color='blue'),
-                    bgcolor='white',
-                    bordercolor='blue',
-                    borderwidth=1
-                )
+                    # Add connecting lines
+                    for points, color in [
+                        ([surface_u, storm_u], [surface_v, storm_v], 'green'),
+                        ([storm_u, radar_u], [storm_v, radar_v], 'red')
+                    ]:
+                        fig.add_trace(go.Scatter(
+                            x=points,
+                            y=points,
+                            mode='lines',
+                            line=dict(color=color, width=2, dash='dash'),
+                            showlegend=False,
+                            hoverinfo='skip'
+                        ))
+
+                    # Calculate and display Esterheld Critical Angle
+                    critical_angle = calculate_esterheld_angle_points(
+                        surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
+                    )
+
+                    # Add annotation for the angle at the bottom
+                    fig.add_annotation(
+                        x=0,
+                        y=-max_speed * 0.8,
+                        text=f'Esterheld Critical Angle: {critical_angle:.1f}°',
+                        showarrow=False,
+                        font=dict(size=12, color='blue'),
+                        bgcolor='white',
+                        bordercolor='blue',
+                        borderwidth=1
+                    )
 
             st.plotly_chart(fig, use_container_width=True)
 
