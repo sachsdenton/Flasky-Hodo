@@ -379,22 +379,25 @@ def main():
         st.session_state.storm_motion = None
     if 'plot_type' not in st.session_state:
         st.session_state.plot_type = "Standard"
+    if 'refresh_interval' not in st.session_state:
+        st.session_state.refresh_interval = 120
 
     auto_refresh = st.sidebar.checkbox("Enable Auto-refresh", value=True)
     if auto_refresh:
-        refresh_interval = st.sidebar.number_input(
+        st.session_state.refresh_interval = st.sidebar.number_input(
             "Refresh Interval (seconds)",
             min_value=10,
             max_value=300,
-            value=120,
+            value=st.session_state.refresh_interval,
             step=5
         )
 
+        progress_container = st.sidebar.empty()
         if st.session_state.last_update_time:
             time_since_last = (datetime.now() - st.session_state.last_update_time).total_seconds()
-            time_until_next = max(0, refresh_interval - time_since_last)
-            progress = 1 - (time_until_next / refresh_interval)
-            st.sidebar.progress(float(progress), f"Next update in {int(time_until_next)}s")
+            time_until_next = max(0, st.session_state.refresh_interval - time_since_last)
+            progress = 1 - (time_until_next / st.session_state.refresh_interval)
+            progress_container.progress(float(progress), f"Next update in {int(time_until_next)}s")
 
         if st.session_state.last_update_time:
             st.sidebar.text(f"Last update: {st.session_state.last_update_time.strftime('%H:%M:%S')}")
@@ -423,8 +426,8 @@ def main():
         auto_refresh and 
         site_id and
         (st.session_state.last_update_time is None or 
-         (current_time - st.session_state.last_update_time).total_seconds() >= refresh_interval)
-    ) if auto_refresh else False
+         (current_time - st.session_state.last_update_time).total_seconds() >= st.session_state.refresh_interval)
+    )
 
     fetch_clicked = st.sidebar.button("Fetch Latest Data")
 
@@ -719,7 +722,7 @@ def main():
 
     if (auto_refresh and site_id and 
         st.session_state.last_update_time and 
-        (datetime.now() - st.session_state.last_update_time).total_seconds() >= refresh_interval):
+        (datetime.now() - st.session_state.last_update_time).total_seconds() >= st.session_state.refresh_interval):
         time.sleep(0.1)
         st.rerun()
 
