@@ -27,7 +27,7 @@ def calculate_vector_angle(u1: float, v1: float, u2: float, v2: float) -> float:
     return np.rad2deg(angle_rad)
 
 def calculate_shear_depth(surface_u: float, surface_v: float, profile: WindProfile) -> Tuple[float, list]:
-    """Calculate shear depth based on points within 10 degrees of the surface-to-lowest vector."""
+    """Calculate shear depth based on points within 5 degrees of the surface-to-lowest vector."""
     # Get the lowest radar point
     radar_u, radar_v = calculate_wind_components(profile.speeds[0], profile.directions[0])
 
@@ -35,7 +35,7 @@ def calculate_shear_depth(surface_u: float, surface_v: float, profile: WindProfi
     ref_u = radar_u - surface_u
     ref_v = radar_v - surface_v
 
-    # Find points within 10 degrees of reference vector
+    # Find points within 5 degrees of reference vector
     aligned_heights = []
     for i in range(len(profile.speeds)):
         point_u, point_v = calculate_wind_components(profile.speeds[i], profile.directions[i])
@@ -43,11 +43,32 @@ def calculate_shear_depth(surface_u: float, surface_v: float, profile: WindProfi
         vector_v = point_v - surface_v
 
         angle = calculate_vector_angle(ref_u, ref_v, vector_u, vector_v)
-        if angle <= 10.0:  # Within 10 degrees
+        if angle <= 5.0:  # Within 5 degrees
             aligned_heights.append(profile.heights[i])
 
     # Return the maximum height (shear depth) and list of aligned heights
     return max(aligned_heights) if aligned_heights else 0.0, aligned_heights
+
+def extend_line_to_edge(surface_u: float, surface_v: float, radar_u: float, radar_v: float, max_speed: float) -> Tuple[float, float]:
+    """Calculate where a line through two points intersects the hodograph edge."""
+    # Calculate vector from surface to radar point
+    vector_u = radar_u - surface_u
+    vector_v = radar_v - surface_v
+
+    # Normalize the vector
+    magnitude = np.sqrt(vector_u**2 + vector_v**2)
+    if magnitude == 0:
+        return radar_u, radar_v
+
+    unit_u = vector_u / magnitude
+    unit_v = vector_v / magnitude
+
+    # Scale to reach edge (max_speed)
+    scale = max_speed * 1.4  # Scale beyond the max speed rings for visual clarity
+    end_u = surface_u + unit_u * scale
+    end_v = surface_v + unit_v * scale
+
+    return end_u, end_v
 
 def calculate_skoff_angle_points(surface_u, surface_v, storm_u, storm_v, radar_u, radar_v):
     """Calculate the Skoff Critical Angle between three points."""
@@ -370,7 +391,8 @@ def main():
                 ax.plot([surface_u, radar_u], [surface_v, radar_v], 'b--', linewidth=2)
 
                 # Draw the reference line (light grey dashed)
-                ax.plot([surface_u, radar_u], [surface_v, radar_v], 
+                end_u, end_v = extend_line_to_edge(surface_u, surface_v, radar_u, radar_v, plotter.max_speed)
+                ax.plot([surface_u, end_u], [surface_v, end_v], 
                        color='lightgrey', linestyle='--', linewidth=1.5,
                        label='Reference Vector')
 
@@ -469,10 +491,11 @@ def main():
                     text=f"METAR {metar['station']}<br>Speed: {metar['speed']}kts<br>Direction: {metar['direction']}°"
                 ))
 
-                # Add reference vector line
+                # Add reference vector line extended to edge
+                end_u, end_v = extend_line_to_edge(surface_u, surface_v, radar_u, radar_v, max_speed)
                 fig.add_trace(go.Scatter(
-                    x=[surface_u, radar_u],
-                    y=[surface_v, radar_v],
+                    x=[surface_u, end_u],
+                    y=[surface_v, end_v],
                     mode='lines',
                     line=dict(color='lightgrey', width=1.5, dash='dash'),
                     name='Reference Vector',
