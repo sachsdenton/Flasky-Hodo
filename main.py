@@ -155,22 +155,16 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             y=[surface_v, radar_v],
             mode='lines',
             line=dict(color='blue', width=2, dash='dash'),
-            name='Surface to Radar',
+            showlegend=False,
             hoverinfo='skip'
         ))
 
-        # Add annotation for the critical angle
-        mid_x = (surface_u + radar_u) / 2
-        mid_y = (surface_v + radar_v) / 2
+        # Add annotation for the critical angle at the bottom of the plot
         fig.add_annotation(
-            x=mid_x,
-            y=mid_y,
+            x=0,
+            y=-max_speed * 0.8,  # Position in the lower portion
             text=f'Esterheld Critical Angle: {critical_angle:.1f}°',
-            showarrow=True,
-            arrowhead=2,
-            arrowsize=1,
-            arrowwidth=2,
-            arrowcolor='blue',
+            showarrow=False,
             font=dict(size=12, color='blue'),
             bgcolor='white',
             bordercolor='blue',
@@ -327,21 +321,18 @@ def main():
                 ax.scatter([surface_u], [surface_v], c='red', marker='*', s=150, 
                           label=f"METAR {metar['station']}")
 
-                # Draw dashed line from METAR to lowest radar point
+                # Draw dashed line from METAR to lowest radar point with no legend entry
                 ax.plot([surface_u, radar_u], [surface_v, radar_v], 
-                       'b--', linewidth=2, label='Surface to Radar')
+                       'b--', linewidth=2)
 
-                # Add text annotation for critical angle
-                mid_x = (surface_u + radar_u) / 2
-                mid_y = (surface_v + radar_v) / 2
-                ax.annotate(
-                    f'Esterheld Critical Angle: {critical_angle:.1f}°',
-                    xy=(mid_x, mid_y),
-                    xytext=(10, 10), textcoords='offset points',
-                    bbox=dict(boxstyle='round,pad=0.5', fc='white', ec='blue', alpha=0.8),
-                    fontsize=10,
-                    color='blue'
-                )
+                # Add text annotation for critical angle at the bottom
+                max_speed = plotter.max_speed
+                ax.text(0, -max_speed * 0.8, 
+                       f'Esterheld Critical Angle: {critical_angle:.1f}°',
+                       ha='center', va='center',
+                       bbox=dict(facecolor='white', edgecolor='blue', alpha=0.8),
+                       fontsize=10,
+                       color='blue')
 
                 ax.legend()
 
