@@ -394,7 +394,7 @@ def main():
                 end_u, end_v = extend_line_to_edge(surface_u, surface_v, radar_u, radar_v, plotter.max_speed)
                 ax.plot([surface_u, end_u], [surface_v, end_v], 
                        color='lightgrey', linestyle='--', linewidth=1.5,
-                       label='Reference Vector')
+                       label='Ideal Shear Vector')
 
 
                 # Add shear depth annotation
@@ -498,7 +498,7 @@ def main():
                     y=[surface_v, end_v],
                     mode='lines',
                     line=dict(color='lightgrey', width=1.5, dash='dash'),
-                    name='Reference Vector',
+                    name='Ideal Shear Vector',
                     showlegend=True
                 ))
 
