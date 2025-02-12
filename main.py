@@ -370,9 +370,7 @@ def main():
     st.title("Hodograph Analysis Tool")
     st.sidebar.header("Data Source")
 
-    # Initialize site_id at the start
-    site_id = None
-
+    # Initialize session state variables
     if 'wind_profile' not in st.session_state:
         st.session_state.wind_profile = WindProfile()
     if 'last_update_time' not in st.session_state:
@@ -386,7 +384,21 @@ def main():
     if 'refresh_interval' not in st.session_state:
         st.session_state.refresh_interval = 120
 
-    # Add manual refresh button before auto-refresh checkbox
+    # Site selection first
+    sites = get_sorted_sites()
+    site_options = ["Select a site..."] + [f"{site.id} - {site.name}" for site in sites]
+    selected_site = st.sidebar.selectbox(
+        "Select Radar Site",
+        site_options,
+        format_func=lambda x: x
+    )
+
+    # Initialize site_id based on selection
+    site_id = None
+    if selected_site and selected_site != "Select a site...":
+        site_id = selected_site.split(" - ")[0]
+
+    # Add manual refresh button after site selection
     if st.sidebar.button("🔄 Refresh Data", help="Manually refresh both METAR and hodograph data"):
         with st.spinner('Refreshing data...'):
             success, error_message = refresh_data(site_id, metar_station if 'metar_station' in locals() else None)
@@ -395,6 +407,7 @@ def main():
             else:
                 st.success("Successfully refreshed data")
 
+    # Auto-refresh settings
     auto_refresh = st.sidebar.checkbox("Enable Auto-refresh", value=True)
     if auto_refresh:
         st.session_state.refresh_interval = st.sidebar.number_input(
@@ -413,17 +426,6 @@ def main():
             progress = 1 - (time_until_next / st.session_state.refresh_interval)
             progress_container.progress(float(progress), f"Next update in {int(time_until_next)}s")
             st.sidebar.text(f"Last update: {st.session_state.last_update_time.strftime('%H:%M:%S')}")
-
-    sites = get_sorted_sites()
-    site_options = ["Select a site..."] + [f"{site.id} - {site.name}" for site in sites]
-    selected_site = st.sidebar.selectbox(
-        "Select Radar Site",
-        site_options,
-        format_func=lambda x: x
-    )
-
-    if selected_site and selected_site != "Select a site...":
-        site_id = selected_site.split(" - ")[0]
 
     # Move the plot button right after site selection
     plot_clicked = st.sidebar.button("Plot Hodograph")
@@ -480,7 +482,6 @@ def main():
         st.sidebar.success(f"Storm motion updated: {storm_speed}kts @ {storm_direction}°")
     elif storm_motion_submit:
         st.sidebar.error("Please enter both direction and speed for storm motion")
-
 
 
     current_time = datetime.now()
@@ -754,7 +755,7 @@ def main():
     else:
         st.info("Select a radar site and click 'Plot Hodograph' to generate a hodograph.")
 
-    # Modify auto-refresh logic to trigger immediately after plotting
+    # Modified auto-refresh logic at the end
     should_refresh = (
         auto_refresh and 
         site_id and
@@ -764,7 +765,7 @@ def main():
 
     if should_refresh or (plot_clicked and auto_refresh):
         time.sleep(0.1)  # Small delay to prevent too rapid updates
-        st.experimental_rerun()  # Use experimental_rerun instead of rerun for more reliable updates
+        st.rerun()  # Use rerun instead of experimental_rerun
 
 if __name__ == "__main__":
     main()
