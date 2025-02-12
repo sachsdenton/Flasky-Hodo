@@ -32,10 +32,15 @@ class HodographPlotter:
         self.fig, self.ax = plt.subplots(figsize=(8, 8))
 
         # Add title with site information and time if provided
-        if site_id and site_name and valid_time:
+        title_parts = []
+        if site_id and site_name:
+            title_parts.append(f"{site_id} - {site_name}")
+        if valid_time:
             time_str = valid_time.strftime('%Y-%m-%d %H:%M UTC')
-            title = f"{site_id} - {site_name}\nValid: {time_str}"
-            self.fig.suptitle(title, y=0.95)
+            title_parts.append(f"Valid: {time_str}")
+            
+        if title_parts:
+            self.fig.suptitle('\n'.join(title_parts), y=0.95)
 
         # Set up the plot
         self.ax.set_aspect('equal')

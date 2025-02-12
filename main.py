@@ -35,6 +35,25 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
     ]
 
     fig = go.Figure()
+    
+    # Add title with site and time information
+    title = []
+    if site_id and site_name:
+        title.append(f"{site_id} - {site_name}")
+    if valid_time:
+        title.append(f"Valid: {valid_time.strftime('%Y-%m-%d %H:%M UTC')}")
+    if st.session_state.metar_data:
+        metar = st.session_state.metar_data
+        title.append(f"METAR: {metar['station']}")
+    
+    if title:
+        fig.update_layout(title={
+            'text': '<br>'.join(title),
+            'y': 0.95,
+            'x': 0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'
+        })
 
     for speed in range(10, max_speed + 1, 10):
         circle_points = np.linspace(0, 2*np.pi, 100)
