@@ -418,19 +418,27 @@ def main():
             step=5
         )
 
-        # Update progress bar and timer
-        progress_container = st.sidebar.empty()
-        if st.session_state.last_update_time and site_id:
-            current_time = datetime.now()
-            time_since_last = (current_time - st.session_state.last_update_time).total_seconds()
-            time_until_next = max(0, st.session_state.refresh_interval - time_since_last)
-            progress = 1 - (time_until_next / st.session_state.refresh_interval)
+    # Update progress bar and timer if auto-refresh is enabled
+    if auto_refresh and site_id and st.session_state.last_update_time:
+        current_time = datetime.now()
+        time_since_last = (current_time - st.session_state.last_update_time).total_seconds()
+        time_until_next = max(0, st.session_state.refresh_interval - time_since_last)
+        progress = 1 - (time_until_next / st.session_state.refresh_interval)
+        progress = max(0, min(1, progress))  # Ensure progress is between 0 and 1
 
-            # Ensure progress is between 0 and 1
-            progress = max(0, min(1, progress))
+        # Display countdown and progress bar
+        st.sidebar.progress(progress, f"Next update in {int(time_until_next)}s")
+        st.sidebar.text(f"Last update: {st.session_state.last_update_time.strftime('%H:%M:%S')}")
 
-            progress_container.progress(progress, f"Next update in {int(time_until_next)}s")
-            st.sidebar.text(f"Last update: {st.session_state.last_update_time.strftime('%H:%M:%S')}")
+        # Check if it's time to refresh
+        if time_until_next <= 0:
+            with st.spinner('Auto-refreshing data...'):
+                success, error_message = refresh_data(site_id, metar_station if 'metar_station' in locals() else None)
+                if not success:
+                    st.error(error_message)
+            time.sleep(0.1)  # Small delay to prevent too rapid updates
+            st.rerun()
+
 
     # Move the plot button right after site selection
     plot_clicked = st.sidebar.button("Plot Hodograph")
@@ -760,19 +768,18 @@ def main():
     else:
         st.info("Select a radar site and click 'Plot Hodograph' to generate a hodograph.")
 
-    # Modified auto-refresh logic at the end
-    should_refresh = (
-        auto_refresh and 
-        site_id and
-        hasattr(st.session_state.wind_profile.speeds, '__len__') and
-        len(st.session_state.wind_profile.speeds) > 0 and
-        (st.session_state.last_update_time is None or 
-         (datetime.now() - st.session_state.last_update_time).total_seconds() >= st.session_state.refresh_interval)
-    )
-
-    if should_refresh or (plot_clicked and auto_refresh):
-        time.sleep(0.1)  # Small delay to prevent too rapid updates
-        st.rerun()  # Use rerun instead of experimental_rerun
+    # Auto-refresh logic moved inside the auto-refresh conditional block
+    if auto_refresh and site_id and st.session_state.last_update_time:
+        current_time = datetime.now()
+        time_since_last = (current_time - st.session_state.last_update_time).total_seconds()
+        time_until_next = max(0, st.session_state.refresh_interval - time_since_last)
+        if time_until_next <= 0:
+            with st.spinner('Auto-refreshing data...'):
+                success, error_message = refresh_data(site_id, metar_station if 'metar_station' in locals() else None)
+                if not success:
+                    st.error(error_message)
+            time.sleep(0.1)
+            st.rerun()
 
 if __name__ == "__main__":
     main()
