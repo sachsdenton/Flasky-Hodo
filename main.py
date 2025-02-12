@@ -243,7 +243,7 @@ def main():
                 metar = st.session_state.metar_data
                 u, v = calculate_wind_components(metar['speed'], metar['direction'])
                 fig, ax = plotter.get_plot()
-                ax.scatter([u], [v], c='red', marker='*', s=200, label=f"METAR {metar['station']}")
+                ax.scatter([u], [v], c='red', marker='*', s=150, label=f"METAR {metar['station']}")
                 ax.legend()
 
             buf = io.BytesIO()
@@ -272,7 +272,7 @@ def main():
                     mode='markers',
                     marker=dict(
                         symbol='star',
-                        size=20,
+                        size=15,
                         color='red',
                     ),
                     name=f"METAR {metar['station']}",
