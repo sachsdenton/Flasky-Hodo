@@ -79,8 +79,12 @@ class HodographPlotter:
         # Set max_speed based on data
         self.max_speed = self.calculate_max_speed(profile.speeds)
 
-        # Recreate the plot with the new max_speed
-        self.setup_plot()
+        # Recreate the plot with the new max_speed and preserve header info
+        self.setup_plot(
+            site_id=getattr(profile, 'site_id', None),
+            site_name=getattr(profile, 'site_name', None),
+            valid_time=profile.times[0] if profile.times else None
+        )
 
         # Calculate u and v components
         u_comp = []
