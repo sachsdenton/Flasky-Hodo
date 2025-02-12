@@ -237,7 +237,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                 color='purple',
             ),
             name='RM',
-            showlegend=False,
+            showlegend=True,
             hovertext=f'Right Mover<br>Speed: {bunkers_right[1]:.0f}kts<br>Direction: {bunkers_right[0]:.0f}°'
         ))
 
@@ -253,12 +253,12 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                 color='blue',
             ),
             name='LM',
-            showlegend=False,
+            showlegend=True,
             hovertext=f'Left Mover<br>Speed: {bunkers_left[1]:.0f}kts<br>Direction: {bunkers_left[0]:.0f}°'
         ))
 
         # For analyst plot, add critical angle lines and annotations
-        if plot_type == "Analyst" and show_metar and st.session_state.metar_data:
+        if st.session_state.get('plot_type') == "Analyst" and show_metar and st.session_state.metar_data:
             metar = st.session_state.metar_data
             surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
 
@@ -275,7 +275,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                 surface_u, surface_v, left_u, left_v, radar_u, radar_v
             )
 
-            # Add lines to storm motion vectors (only in analyst mode)
+            # Add lines from surface to storm movers
             fig.add_trace(go.Scatter(
                 x=[surface_u, right_u],
                 y=[surface_v, right_v],
@@ -294,7 +294,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                 showlegend=True
             ))
 
-            # Add critical angle annotations at different vertical positions
+            # Add critical angle annotations at different positions
             fig.add_annotation(
                 x=0,
                 y=-max_speed * 0.7,
@@ -336,6 +336,8 @@ def main():
         st.session_state.metar_data = None
     if 'storm_motion' not in st.session_state:
         st.session_state.storm_motion = None
+    if 'plot_type' not in st.session_state:
+        st.session_state.plot_type = "Standard"
 
     auto_refresh = st.sidebar.checkbox("Enable Auto-refresh", value=True)
     if auto_refresh:
@@ -448,7 +450,7 @@ def main():
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            plot_type = st.radio("Plot Type", ["Standard", "Analyst"], key="plot_type")
+            st.session_state.plot_type = st.radio("Plot Type", ["Standard", "Analyst"], key="plot_type")
         with col2:
             height_colors = st.checkbox("Color code by height", value=True)
         with col3:
@@ -456,7 +458,7 @@ def main():
 
         plt.close('all')
 
-        if plot_type == "Standard":
+        if st.session_state.plot_type == "Standard":
             plotter = HodographPlotter()
             site = get_site_by_id(site_id) if site_id else None
             valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
