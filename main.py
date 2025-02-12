@@ -56,7 +56,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
     ]
 
     fig = go.Figure()
-    
+
     # Add title with site and time information
     title = []
     if site_id and site_name:
@@ -66,7 +66,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
     if st.session_state.metar_data:
         metar = st.session_state.metar_data
         title.append(f"METAR: {metar['station']}")
-    
+
     if title:
         fig.update_layout(title={
             'text': '<br>'.join(title),
@@ -131,6 +131,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         plot_bgcolor='white'
     )
 
+    # Add base axes
     fig.add_shape(
         type="line",
         x0=-max_speed, x1=max_speed,
@@ -146,6 +147,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         layer='below'
     )
 
+    # Add cardinal direction annotations
     annotations = [
         dict(x=0, y=-max_speed-2, text="N", showarrow=False),
         dict(x=-max_speed-2, y=0, text="E", showarrow=False),
@@ -154,96 +156,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
     ]
     fig.update_layout(annotations=annotations)
 
-    # After adding all the initial traces, check if we have METAR data to add
-    if st.session_state.metar_data:
-        metar = st.session_state.metar_data
-        surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
-
-        # Get the lowest radar point
-        radar_speed = wind_profile.speeds[0]
-        radar_dir = wind_profile.directions[0]
-        radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
-
-        # Add METAR point and surface-to-radar line
-        fig.add_trace(go.Scatter(
-            x=[surface_u, radar_u],
-            y=[surface_v, radar_v],
-            mode='lines',
-            line=dict(color='blue', width=2, dash='dash'),
-            showlegend=False,
-            hoverinfo='skip'
-        ))
-
-        fig.add_trace(go.Scatter(
-            x=[surface_u],
-            y=[surface_v],
-            mode='markers',
-            marker=dict(
-                symbol='star',
-                size=15,
-                color='red',
-            ),
-            name=f"METAR {metar['station']}",
-            hoverinfo='text',
-            text=f"METAR {metar['station']}<br>Speed: {metar['speed']}kts<br>Direction: {metar['direction']}°"
-        ))
-
-        # Only add storm motion if it's been entered
-        if st.session_state.storm_motion:
-            storm_u, storm_v = calculate_wind_components(
-                st.session_state.storm_motion['speed'],
-                st.session_state.storm_motion['direction']
-            )
-
-            # Add Storm Motion point
-            fig.add_trace(go.Scatter(
-                x=[storm_u],
-                y=[storm_v],
-                mode='markers',
-                marker=dict(
-                    symbol='triangle-up',
-                    size=15,
-                    color='green',
-                ),
-                name="Storm Motion",
-                hoverinfo='text',
-                text=f"Storm Motion<br>Speed: {st.session_state.storm_motion['speed']}kts<br>Direction: {st.session_state.storm_motion['direction']}°"
-            ))
-
-            # Add connecting lines
-            for coord_pair in [
-                dict(
-                    points=([surface_u, storm_u], [surface_v, storm_v]),
-                    color='green'
-                )
-            ]:
-                fig.add_trace(go.Scatter(
-                    x=coord_pair['points'][0],
-                    y=coord_pair['points'][1],
-                    mode='lines',
-                    line=dict(color=coord_pair['color'], width=2, dash='dash'),
-                    showlegend=False,
-                    hoverinfo='skip'
-                ))
-
-            # Calculate and display Esterheld Critical Angle
-            critical_angle = calculate_esterheld_angle_points(
-                surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
-            )
-
-            # Add annotation for the angle at the bottom
-            fig.add_annotation(
-                x=0,
-                y=-max_speed * 0.8,
-                text=f'Esterheld Critical Angle: {critical_angle:.1f}°',
-                showarrow=False,
-                font=dict(size=12, color='blue'),
-                bgcolor='white',
-                bordercolor='blue',
-                borderwidth=1
-            )
-
-    return fig
+    return fig, max_speed
 
 def main():
     os.makedirs("temp_data", exist_ok=True)
@@ -454,7 +367,7 @@ def main():
             site = get_site_by_id(site_id) if site_id else None
             valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
 
-            fig = create_plotly_hodograph(
+            fig, max_speed = create_plotly_hodograph(
                 st.session_state.wind_profile,
                 site_id=site_id,
                 site_name=site.name if site else None,
