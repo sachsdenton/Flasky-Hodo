@@ -28,9 +28,9 @@ def calculate_vector_angle(u1: float, v1: float, u2: float, v2: float) -> float:
     angle_rad = np.arccos(cos_angle)
     return np.rad2deg(angle_rad)
 
-def calculate_shear_depth(surface_u: float, surface_v: float, profile: WindProfile) -> Tuple[float, list]:
+def calculate_shear_depth(surface_u: float, surface_v: float, profile: WindProfile) -> Tuple[float, list, float]:
     """Calculate shear depth based on points within 5 degrees of the surface-to-lowest vector,
-    stopping at the first point that deviates from this alignment."""
+    stopping at the first point that deviates from this alignment. Also calculates shear magnitude."""
     # Get the lowest radar point
     radar_u, radar_v = calculate_wind_components(profile.speeds[0], profile.directions[0])
 
@@ -40,6 +40,8 @@ def calculate_shear_depth(surface_u: float, surface_v: float, profile: WindProfi
 
     # Find points within 5 degrees of reference vector, stopping at first deviation
     aligned_heights = []
+    aligned_u = []
+    aligned_v = []
     for i in range(len(profile.speeds)):
         point_u, point_v = calculate_wind_components(profile.speeds[i], profile.directions[i])
         vector_u = point_u - surface_u
@@ -48,12 +50,21 @@ def calculate_shear_depth(surface_u: float, surface_v: float, profile: WindProfi
         angle = calculate_vector_angle(ref_u, ref_v, vector_u, vector_v)
         if angle <= 5.0:  # Within 5 degrees
             aligned_heights.append(profile.heights[i])
+            aligned_u.append(point_u)
+            aligned_v.append(point_v)
         else:
             # Stop at first deviation outside the 5-degree bandwidth
             break
 
-    # Return the maximum height (shear depth) and list of aligned heights
-    return max(aligned_heights) if aligned_heights else 0.0, aligned_heights
+    # Calculate shear magnitude (vector difference between surface and highest aligned point)
+    shear_magnitude = 0.0
+    if aligned_u and aligned_v:
+        final_u = aligned_u[-1]
+        final_v = aligned_v[-1]
+        shear_magnitude = np.sqrt((final_u - surface_u)**2 + (final_v - surface_v)**2)
+
+    # Return the maximum height (shear depth), list of aligned heights, and shear magnitude
+    return max(aligned_heights) if aligned_heights else 0.0, aligned_heights, shear_magnitude
 
 def extend_line_to_edge(surface_u: float, surface_v: float, radar_u: float, radar_v: float, max_speed: float) -> Tuple[float, float]:
     """Calculate where a line through two points intersects the hodograph edge."""
@@ -516,8 +527,8 @@ def main():
                 radar_dir = st.session_state.wind_profile.directions[0]
                 radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
 
-                # Calculate shear depth
-                shear_depth, aligned_heights = calculate_shear_depth(
+                # Calculate shear depth and magnitude
+                shear_depth, aligned_heights, shear_magnitude = calculate_shear_depth(
                     surface_u, surface_v, st.session_state.wind_profile
                 )
 
@@ -537,10 +548,10 @@ def main():
                        label='Ideal Shear Vector')
 
 
-                # Add shear depth annotation
+                # Add shear depth and magnitude annotations
                 max_speed = plotter.max_speed
                 ax.text(0, -max_speed * 0.9,
-                       f'Shear Depth: {shear_depth * 1000:.0f}m',
+                       f'Shear Depth: {shear_depth * 1000:.0f}m\nShear Magnitude: {shear_magnitude:.0f}kts',
                        ha='center', va='center',
                        bbox=dict(facecolor='white', edgecolor='grey', alpha=0.8),
                        fontsize=10,
@@ -602,8 +613,8 @@ def main():
                 radar_dir = st.session_state.wind_profile.directions[0]
                 radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
 
-                # Calculate shear depth
-                shear_depth, aligned_heights = calculate_shear_depth(
+                # Calculate shear depth and magnitude
+                shear_depth, aligned_heights, shear_magnitude = calculate_shear_depth(
                     surface_u, surface_v, st.session_state.wind_profile
                 )
 
@@ -642,11 +653,11 @@ def main():
                     showlegend=True
                 ))
 
-                # Add shear depth annotation
+                # Add shear depth and magnitude annotation
                 fig.add_annotation(
                     x=0,
                     y=-max_speed * 0.9,
-                    text=f'Shear Depth: {shear_depth * 1000:.0f}m',
+                    text=f'Shear Depth: {shear_depth * 1000:.0f}m<br>Shear Magnitude: {shear_magnitude:.0f}kts',
                     showarrow=False,
                     font=dict(size=12, color='grey'),
                     bgcolor='white',
