@@ -726,10 +726,10 @@ def main():
         # Add wind data table
         st.subheader("Wind Profile Data")
         data = {
-            'Height (m)': [h * 1000 for h in st.session_state.wind_profile.heights],
-            'Height (ft)': [h * 1000 * 3.28084 for h in st.session_state.wind_profile.heights],
-            'Speed (kts)': st.session_state.wind_profile.speeds,
-            'Direction (°)': st.session_state.wind_profile.directions
+            'Height (m)': [int(h * 1000) for h in st.session_state.wind_profile.heights],
+            'Height (ft)': [int(h * 1000 * 3.28084) for h in st.session_state.wind_profile.heights],
+            'Speed (kts)': [int(s) for s in st.session_state.wind_profile.speeds],
+            'Direction (°)': [int(d) for d in st.session_state.wind_profile.directions]
         }
         df = pd.DataFrame(data)
         st.dataframe(df, hide_index=True)
