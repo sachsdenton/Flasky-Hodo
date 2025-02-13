@@ -29,7 +29,8 @@ def calculate_vector_angle(u1: float, v1: float, u2: float, v2: float) -> float:
     return np.rad2deg(angle_rad)
 
 def calculate_shear_depth(surface_u: float, surface_v: float, profile: WindProfile) -> Tuple[float, list]:
-    """Calculate shear depth based on points within 5 degrees of the surface-to-lowest vector."""
+    """Calculate shear depth based on points within 5 degrees of the surface-to-lowest vector,
+    stopping at the first point that deviates from this alignment."""
     # Get the lowest radar point
     radar_u, radar_v = calculate_wind_components(profile.speeds[0], profile.directions[0])
 
@@ -37,7 +38,7 @@ def calculate_shear_depth(surface_u: float, surface_v: float, profile: WindProfi
     ref_u = radar_u - surface_u
     ref_v = radar_v - surface_v
 
-    # Find points within 5 degrees of reference vector
+    # Find points within 5 degrees of reference vector, stopping at first deviation
     aligned_heights = []
     for i in range(len(profile.speeds)):
         point_u, point_v = calculate_wind_components(profile.speeds[i], profile.directions[i])
@@ -47,6 +48,9 @@ def calculate_shear_depth(surface_u: float, surface_v: float, profile: WindProfi
         angle = calculate_vector_angle(ref_u, ref_v, vector_u, vector_v)
         if angle <= 5.0:  # Within 5 degrees
             aligned_heights.append(profile.heights[i])
+        else:
+            # Stop at first deviation outside the 5-degree bandwidth
+            break
 
     # Return the maximum height (shear depth) and list of aligned heights
     return max(aligned_heights) if aligned_heights else 0.0, aligned_heights
@@ -403,7 +407,6 @@ def main():
             else:
                 st.success("Successfully refreshed data")
 
-    
 
     # Move the plot button right after site selection
     plot_clicked = st.sidebar.button("Plot Hodograph")
