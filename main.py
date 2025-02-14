@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import pandas as pd
 import folium
-from streamlit_folium import folium_static
+from streamlit_folium import st_folium
 from hodograph_plotter import HodographPlotter
 from data_processor import WindProfile
 from radar_sites import get_sorted_sites, get_site_by_id
@@ -396,12 +396,14 @@ def create_radar_map():
         # Get site coordinates
         site_coords = [site.lat, site.lon]
 
-        # Create popup content with JavaScript
+        # Create popup content
         popup_content = f"""
         <div>
             <b>{site.id}</b><br>
             {site.name}<br>
-            <button onclick="selectSite('{site.id}')" style="width:100%">Select Site</button>
+            <button onclick="document.dispatchEvent(new CustomEvent('site_selected', {{detail: '{site.id}}}))" style="width:100%">
+                Select Site
+            </button>
         </div>
         """
 
@@ -416,20 +418,6 @@ def create_radar_map():
             popup=folium.Popup(popup_content, max_width=200),
             tooltip=f"{site.id} - {site.name}"
         ).add_to(m)
-
-    # Add custom JavaScript for site selection
-    m.get_root().html.add_child(folium.Element("""
-        <script>
-        function selectSite(siteId) {
-            // Update Streamlit
-            window.parent.postMessage({
-                type: 'streamlit:setComponentValue',
-                value: siteId,
-                key: 'site_input'
-            }, '*');
-        }
-        </script>
-    """))
 
     return m
 
@@ -457,7 +445,15 @@ def main():
     with col1:
         st.subheader("Select Radar Site")
         radar_map = create_radar_map()
-        folium_static(radar_map, height=600)
+        map_data = st_folium(radar_map, height=600, key="radar_map")
+
+        # Handle map click events
+        if map_data.get("last_event") == "click":
+            # Check if a site was selected through the custom event
+            selected_site_id = map_data.get("last_active_object",{}).get("properties",{}).get("site_id")
+            if selected_site_id:
+                st.session_state.selected_site = selected_site_id
+
 
     # Move site information to sidebar
     st.sidebar.header("Radar Site Selection")
@@ -465,6 +461,7 @@ def main():
     # Add text input for manual site selection
     manual_site = st.sidebar.text_input(
         "Enter Radar Site ID",
+        value=st.session_state.selected_site if st.session_state.selected_site else "",
         key="site_input",
         help="Enter a 4-letter radar site ID (e.g., KABR, KENX)"
     ).strip().upper()
@@ -759,7 +756,7 @@ def main():
                     # Add connecting lines
                     for coord_pair in [
                         dict(
-                            points=([surface_u, storm_u], [surface_v, storm_v]),
+                            points=([surface_u, storm_u], [surfacev, storm_v]),
                             color='green'
                         )
                     ]:
