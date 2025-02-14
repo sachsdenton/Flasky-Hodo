@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import pandas as pd
 import folium
-from streamlit_folium import folium_static
 from hodograph_plotter import HodographPlotter
 from data_processor import WindProfile
 from radar_sites import get_sorted_sites, get_site_by_id
@@ -396,11 +395,21 @@ def create_radar_map():
         # Get site coordinates from your existing data
         site_coords = [site.lat, site.lon]  # Adjust based on your Site class structure
 
-        # Create popup content
+        # Create popup content with JavaScript
         popup_content = f"""
         <b>{site.id}</b><br>
         {site.name}<br>
         <button onclick="selectSite('{site.id}')" style="width:100%">Select Site</button>
+        <script>
+        function selectSite(siteId) {{
+            // Post message to Streamlit
+            window.parent.postMessage({{
+                type: 'streamlit:set_component_value',
+                data: siteId,
+                key: 'site_input'
+            }}, '*');
+        }}
+        </script>
         """
 
         # Add marker to map with custom style
@@ -415,43 +424,8 @@ def create_radar_map():
             tooltip=f"{site.id} - {site.name}"
         ).add_to(m)
 
-    # Add custom JavaScript for site selection
-    m.get_root().html.add_child(folium.Element("""
-        <script>
-        function selectSite(siteId) {
-            // Update URL with the selected site
-            const searchParams = new URLSearchParams(window.location.search);
-            searchParams.set('site', siteId);
-            const newUrl = window.location.pathname + '?' + searchParams.toString();
-            history.pushState({}, '', newUrl);
-
-            // Post message to Streamlit
-            window.parent.postMessage({type: 'site_selected', siteId: siteId}, '*');
-        }
-        </script>
-    """))
-
     return m
 
-
-def handle_site_selection():
-    """Handles site selection messages from the map."""
-    # Initialize session state if not already done
-    if 'selected_site' not in st.session_state:
-        st.session_state.selected_site = None
-
-    try:
-        # Check URL parameters first
-        if "site" in st.query_params:
-            site_id = st.query_params["site"]
-            if isinstance(site_id, list):
-                site_id = site_id[0]
-            if site_id:
-                st.session_state.selected_site = site_id
-                return site_id
-        return st.session_state.selected_site
-    except (KeyError, AttributeError):
-        return st.session_state.selected_site
 
 def main():
     os.makedirs("temp_data", exist_ok=True)
@@ -476,25 +450,19 @@ def main():
     with col1:
         st.subheader("Select Radar Site")
         radar_map = create_radar_map()
-        folium_static(radar_map)
-
-        # Handle site selection
-        selected_site = handle_site_selection()
-        if selected_site:
-            st.session_state.selected_site = selected_site
+        st.components.v1.html(radar_map._repr_html_(), height=600)
 
     # Move site information to sidebar
     st.sidebar.header("Radar Site Selection")
 
-    # Add text input for manual site selection
+    # Add text input for manual site selection with session state key
     manual_site = st.sidebar.text_input(
         "Enter Radar Site ID",
-        value=st.session_state.selected_site if st.session_state.selected_site else "",
-        key="site_input",  # Add a key for the input widget
+        key="site_input",
         help="Enter a 4-letter radar site ID (e.g., KABR, KENX)"
     ).strip().upper()
 
-    # Update selected site based on manual input or map selection
+    # Update selected site based on manual input
     if manual_site:
         try:
             site = get_site_by_id(manual_site)
