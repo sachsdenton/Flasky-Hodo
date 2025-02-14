@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import pandas as pd
 import folium
+from streamlit_folium import folium_static
 from hodograph_plotter import HodographPlotter
 from data_processor import WindProfile
 from radar_sites import get_sorted_sites, get_site_by_id
@@ -392,37 +393,43 @@ def create_radar_map():
 
     # Add markers for each radar site
     for site in sites:
-        # Get site coordinates from your existing data
-        site_coords = [site.lat, site.lon]  # Adjust based on your Site class structure
+        # Get site coordinates
+        site_coords = [site.lat, site.lon]
 
         # Create popup content with JavaScript
         popup_content = f"""
-        <b>{site.id}</b><br>
-        {site.name}<br>
-        <button onclick="selectSite('{site.id}')" style="width:100%">Select Site</button>
-        <script>
-        function selectSite(siteId) {{
-            // Post message to Streamlit
-            window.parent.postMessage({{
-                type: 'streamlit:set_component_value',
-                data: siteId,
-                key: 'site_input'
-            }}, '*');
-        }}
-        </script>
+        <div>
+            <b>{site.id}</b><br>
+            {site.name}<br>
+            <button onclick="selectSite('{site.id}')" style="width:100%">Select Site</button>
+        </div>
         """
 
-        # Add marker to map with custom style
+        # Add marker to map
         folium.CircleMarker(
             site_coords,
-            radius=3,  # Small dot
-            color='red',  # Red outline
+            radius=3,
+            color='red',
             fill=True,
-            fillColor='red',  # Red fill
+            fillColor='red',
             fillOpacity=1.0,
             popup=folium.Popup(popup_content, max_width=200),
             tooltip=f"{site.id} - {site.name}"
         ).add_to(m)
+
+    # Add custom JavaScript for site selection
+    m.get_root().html.add_child(folium.Element("""
+        <script>
+        function selectSite(siteId) {
+            // Update Streamlit
+            window.parent.postMessage({
+                type: 'streamlit:setComponentValue',
+                value: siteId,
+                key: 'site_input'
+            }, '*');
+        }
+        </script>
+    """))
 
     return m
 
@@ -445,17 +452,17 @@ def main():
         st.session_state.selected_site = None
 
     # Create a single column for the map
-    col1 = st.columns([1])[0]  # Single column for map only
+    col1 = st.columns([1])[0]
 
     with col1:
         st.subheader("Select Radar Site")
         radar_map = create_radar_map()
-        st.components.v1.html(radar_map._repr_html_(), height=600)
+        folium_static(radar_map, height=600)
 
     # Move site information to sidebar
     st.sidebar.header("Radar Site Selection")
 
-    # Add text input for manual site selection with session state key
+    # Add text input for manual site selection
     manual_site = st.sidebar.text_input(
         "Enter Radar Site ID",
         key="site_input",
