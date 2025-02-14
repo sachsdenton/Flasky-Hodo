@@ -334,6 +334,56 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                 borderwidth=1
             )
 
+            # Add shear depth and magnitude annotation
+            fig.add_annotation(
+                x=0,
+                y=-max_speed * 0.9,
+                text=f'Shear Depth: {shear_depth * 1000:.0f}m<br>Shear Magnitude: {shear_magnitude:.0f}kts',
+                showarrow=False,
+                font=dict(size=12, color='grey'),
+                bgcolor='white',
+                bordercolor='grey',
+                borderwidth=1
+            )
+
+            # Only add storm motion if it's been entered
+            if st.session_state.storm_motion:
+                storm_u, storm_v = calculate_wind_components(
+                    st.session_state.storm_motion['speed'],
+                    st.session_state.storm_motion['direction']
+                )
+
+                # Add Storm Motion point
+                fig.add_trace(go.Scatter(
+                    x=[storm_u],
+                    y=[storm_v],
+                    mode='markers',
+                    marker=dict(
+                        symbol='triangle-up',
+                        size=15,
+                        color='green',
+                    ),
+                    name="Storm Motion",
+                    hoverinfo='text',
+                    text=f"Storm Motion<br>Speed: {st.session_state.storm_motion['speed']}kts<br>Direction: {st.session_state.storm_motion['direction']}°"
+                ))
+
+                # Add connecting lines
+                for coord_pair in [
+                    dict(
+                        points=([surface_u, storm_u], [surface_v, storm_v]),
+                        color='green'
+                    )
+                ]:
+                    fig.add_trace(go.Scatter(
+                        x=coord_pair['points'][0],
+                        y=coord_pair['points'][1],
+                        mode='lines',
+                        line=dict(color=coord_pair['color'], width=2, dash='dash'),
+                        showlegend=False,
+                        hoverinfo='skip'
+                    ))
+
     except Exception as e:
         print(f"Could not calculate Bunkers movers: {str(e)}")
 
@@ -396,12 +446,19 @@ def create_radar_map():
         # Get site coordinates
         site_coords = [site.lat, site.lon]
 
-        # Create popup content
+        # Create popup content with custom event
         popup_content = f"""
         <div>
             <b>{site.id}</b><br>
             {site.name}<br>
-            <button onclick="document.dispatchEvent(new CustomEvent('site_selected', {{detail: '{site.id}}}))" style="width:100%">
+            <button onclick="
+                console.log('Selecting site: {site.id}');
+                document.dispatchEvent(new CustomEvent('site_selected', {{
+                    detail: {{
+                        siteId: '{site.id}'
+                    }}
+                }}));
+            " style="width:100%">
                 Select Site
             </button>
         </div>
@@ -445,18 +502,36 @@ def main():
     with col1:
         st.subheader("Select Radar Site")
         radar_map = create_radar_map()
+
+        # Debug statement before map rendering
+        st.write("Debug: Current selected_site before map:", st.session_state.selected_site)
+
         map_data = st_folium(radar_map, height=600, key="radar_map")
 
-        # Handle map click events
-        if map_data.get("last_event") == "click":
-            # Check if a site was selected through the custom event
-            selected_site_id = map_data.get("last_active_object",{}).get("properties",{}).get("site_id")
-            if selected_site_id:
-                st.session_state.selected_site = selected_site_id
+        # Debug map_data
+        st.write("Debug: Map data:", map_data)
 
+        # Handle map click events
+        if map_data and "last_event" in map_data:
+            st.write(f"Debug: Last event: {map_data['last_event']}")
+            if map_data.get("last_event") == "site_selected":
+                try:
+                    site_data = map_data.get("last_object_clicked", {})
+                    st.write("Debug: Site data:", site_data)
+                    if isinstance(site_data, dict) and "detail" in site_data:
+                        selected_site_id = site_data["detail"].get("siteId")
+                        st.write(f"Debug: Selected site ID: {selected_site_id}")
+                        if selected_site_id:
+                            st.session_state.selected_site = selected_site_id
+                            st.write(f"Debug: Updated session state with site: {selected_site_id}")
+                except Exception as e:
+                    st.error(f"Debug: Error processing site selection: {str(e)}")
 
     # Move site information to sidebar
     st.sidebar.header("Radar Site Selection")
+
+    # Debug statement before text input
+    st.sidebar.write("Debug: Current selected_site before text input:", st.session_state.selected_site)
 
     # Add text input for manual site selection
     manual_site = st.sidebar.text_input(
@@ -465,6 +540,9 @@ def main():
         key="site_input",
         help="Enter a 4-letter radar site ID (e.g., KABR, KENX)"
     ).strip().upper()
+
+    # Debug statement after text input
+    st.sidebar.write("Debug: Manual site input value:", manual_site)
 
     # Update selected site based on manual input
     if manual_site:
@@ -565,6 +643,11 @@ def main():
             show_metar = st.checkbox("Show METAR data", value=True)
 
         plt.close('all')
+
+        # Debug statement before plotting
+        st.write("Debug: Plot type:", plot_type)
+        st.write("Debug: Height colors:", height_colors)
+        st.write("Debug: Show METAR:", show_metar)
 
         if plot_type == "Standard":
             plotter = HodographPlotter()
@@ -756,7 +839,7 @@ def main():
                     # Add connecting lines
                     for coord_pair in [
                         dict(
-                            points=([surface_u, storm_u], [surfacev, storm_v]),
+                            points=([surface_u, storm_u], [surface_v, storm_v]),
                             color='green'
                         )
                     ]:
