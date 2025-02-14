@@ -490,9 +490,11 @@ def main():
     manual_site = st.sidebar.text_input(
         "Enter Radar Site ID",
         value=st.session_state.selected_site if st.session_state.selected_site else "",
+        key="site_input",  # Add a key for the input widget
         help="Enter a 4-letter radar site ID (e.g., KABR, KENX)"
     ).strip().upper()
 
+    # Update selected site based on manual input or map selection
     if manual_site:
         try:
             site = get_site_by_id(manual_site)
