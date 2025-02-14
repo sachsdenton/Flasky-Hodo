@@ -436,12 +436,22 @@ def create_radar_map():
 
 def handle_site_selection():
     """Handles site selection messages from the map."""
+    # Initialize session state if not already done
+    if 'selected_site' not in st.session_state:
+        st.session_state.selected_site = None
+
     try:
+        # Check URL parameters first
         if "site" in st.query_params:
-            return st.query_params["site"][0]
-        return None
+            site_id = st.query_params["site"]
+            if isinstance(site_id, list):
+                site_id = site_id[0]
+            if site_id:
+                st.session_state.selected_site = site_id
+                return site_id
+        return st.session_state.selected_site
     except (KeyError, AttributeError):
-        return None
+        return st.session_state.selected_site
 
 def main():
     os.makedirs("temp_data", exist_ok=True)
@@ -487,6 +497,8 @@ def main():
         try:
             site = get_site_by_id(manual_site)
             st.session_state.selected_site = manual_site
+            # Update URL when manual site is entered
+            st.query_params["site"] = manual_site
         except ValueError:
             st.sidebar.error(f"Invalid radar site ID: {manual_site}")
 
