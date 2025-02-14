@@ -425,11 +425,10 @@ def create_radar_map():
 def handle_site_selection():
     """Handles site selection messages from the map."""
     try:
-        if st.experimental_get_query_params():
-          return st.experimental_get_query_params()["site"][0]
-        else:
-          return None
-    except (KeyError, IndexError):
+        if "site" in st.query_params:
+            return st.query_params["site"][0]
+        return None
+    except (KeyError, AttributeError):
         return None
 
 def main():

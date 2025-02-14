@@ -1,0 +1,111 @@
+st.query_params
+st.query_params provides a dictionary-like interface to access query parameters in your app's URL and is available as of Streamlit 1.30.0. It behaves similarly to st.session_state with the notable exception that keys may be repeated in an app's URL. Handling of repeated keys requires special consideration as explained below.
+
+st.query_params can be used with both key and attribute notation. For example, st.query_params.my_key and st.query_params["my_key"]. All keys and values will be set and returned as strings. When you write to st.query_params, key-value pair prefixed with ? is added to the end of your app's URL. Each additional pair is prefixed with & instead of ?. Query parameters are cleared when navigating between pages in a multipage app.
+
+For example, consider the following URL:
+
+https://your_app.streamlit.app/?first_key=1&second_key=two&third_key=true
+The parameters in the URL above will be accessible in st.query_params as:
+
+{
+    "first_key" : "1",
+    "second_key" : "two",
+    "third_key" : "true"
+}
+This means you can use those parameters in your app like this:
+
+# You can read query params using key notation
+if st.query_params["first_key"] == "1":
+    do_something()
+
+# ...or using attribute notation
+if st.query_params.second_key == "two":
+    do_something_else()
+
+# And you can change a param by just writing to it
+st.query_params.first_key = 2  # This gets converted to str automatically
+Repeated keys
+When a key is repeated in your app's URL (?a=1&a=2&a=3), dict-like methods will return only the last value. In this example, st.query_params["a"] returns "3". To get all keys as a list, use the .get_all() method shown below. To set the value of a repeated key, assign the values as a list. For example, st.query_params.a = ["1", "2", "3"] produces the repeated key given at the beginning of this paragraph.
+
+Limitation
+st.query_params can't get or set embedding settings as described in Embed your app. st.query_params.embed and st.query_params.embed_options will raise an AttributeError or StreamlitAPIException when trying to get or set their values, respectively.
+
+st.query_params.clear
+Streamlit Version
+Version 1.42.0
+Clear all query parameters from the URL of the app.
+
+Function signature[source]
+st.query_params.clear()
+
+Returns
+(None)
+
+No description
+
+st.query_params.from_dict
+Streamlit Version
+Version 1.42.0
+Set all of the query parameters from a dictionary or dictionary-like object.
+
+This method primarily exists for advanced users who want to control multiple query parameters in a single update. To set individual query parameters, use key or attribute notation instead.
+
+This method inherits limitations from st.query_params and can't be used to set embedding options as described in Embed your app.
+
+To handle repeated keys, the value in a key-value pair should be a list.
+
+Note
+
+.from_dict() is not a direct inverse of .to_dict() if you are working with repeated keys. A true inverse operation is {key: st.query_params.get_all(key) for key in st.query_params}.
+
+Function signature[source]
+st.query_params.from_dict(params)
+
+Parameters
+params (dict)
+
+A dictionary used to replace the current query parameters.
+
+Example
+import streamlit as st
+
+st.query_params.from_dict({"foo": "bar", "baz": [1, "two"]})
+Copy
+st.query_params.get_all
+Streamlit Version
+Version 1.42.0
+Get a list of all query parameter values associated to a given key.
+
+When a key is repeated as a query parameter within the URL, this method allows all values to be obtained. In contrast, dict-like methods only retrieve the last value when a key is repeated in the URL.
+
+Function signature[source]
+st.query_params.get_all(key)
+
+Parameters
+key (str)
+
+The label of the query parameter in the URL.
+
+Returns
+(List[str])
+
+A list of values associated to the given key. May return zero, one, or multiple values.
+
+st.query_params.to_dict
+Streamlit Version
+Version 1.42.0
+Get all query parameters as a dictionary.
+
+This method primarily exists for internal use and is not needed for most cases. st.query_params returns an object that inherits from dict by default.
+
+When a key is repeated as a query parameter within the URL, this method will return only the last value of each unique key.
+
+Function signature[source]
+st.query_params.to_dict()
+
+Returns
+(Dict[str,str])
+
+A dictionary of the current query paramters in the app's URL.
+
