@@ -422,6 +422,16 @@ def create_radar_map():
     return m
 
 
+def handle_site_selection():
+    """Handles site selection messages from the map."""
+    try:
+        if st.experimental_get_query_params():
+          return st.experimental_get_query_params()["site"][0]
+        else:
+          return None
+    except (KeyError, IndexError):
+        return None
+
 def main():
     os.makedirs("temp_data", exist_ok=True)
 
@@ -446,6 +456,11 @@ def main():
         st.subheader("Select Radar Site")
         radar_map = create_radar_map()
         folium_static(radar_map)
+
+        # Handle site selection
+        selected_site = handle_site_selection()
+        if selected_site:
+            st.session_state.selected_site = selected_site
 
     with col2:
         st.subheader("Site Information")
