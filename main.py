@@ -448,8 +448,8 @@ def main():
     if 'selected_site' not in st.session_state:
         st.session_state.selected_site = None
 
-    # Create two columns: one for the map, one for site info
-    col1, col2 = st.columns([2, 1])
+    # Create a single column for the map
+    col1 = st.columns([1])[0]  # Single column for map only
 
     with col1:
         st.subheader("Select Radar Site")
@@ -461,41 +461,42 @@ def main():
         if selected_site:
             st.session_state.selected_site = selected_site
 
-    with col2:
-        st.subheader("Site Information")
+    # Move site information to sidebar
+    st.sidebar.header("Radar Site Selection")
 
-        # Add text input for manual site selection
-        manual_site = st.text_input(
-            "Enter Radar Site ID",
-            value=st.session_state.selected_site if st.session_state.selected_site else "",
-            help="Enter a 4-letter radar site ID (e.g., KABR, KENX)"
-        ).strip().upper()
+    # Add text input for manual site selection
+    manual_site = st.sidebar.text_input(
+        "Enter Radar Site ID",
+        value=st.session_state.selected_site if st.session_state.selected_site else "",
+        help="Enter a 4-letter radar site ID (e.g., KABR, KENX)"
+    ).strip().upper()
 
-        if manual_site:
-            try:
-                site = get_site_by_id(manual_site)
-                st.session_state.selected_site = manual_site
-            except ValueError:
-                st.error(f"Invalid radar site ID: {manual_site}")
+    if manual_site:
+        try:
+            site = get_site_by_id(manual_site)
+            st.session_state.selected_site = manual_site
+        except ValueError:
+            st.sidebar.error(f"Invalid radar site ID: {manual_site}")
 
-        if st.session_state.selected_site:
-            site = get_site_by_id(st.session_state.selected_site)
-            if site:
-                st.write(f"Selected Site: {site.id}")
-                st.write(f"Name: {site.name}")
-                st.write(f"Location: {site.lat:.2f}°N, {site.lon:.2f}°W")
+    if st.session_state.selected_site:
+        site = get_site_by_id(st.session_state.selected_site)
+        if site:
+            st.sidebar.write(f"Selected Site: {site.id}")
+            st.sidebar.write(f"Name: {site.name}")
+            st.sidebar.write(f"Location: {site.lat:.2f}°N, {site.lon:.2f}°W")
 
-                if st.button("Plot Hodograph"):
-                    with st.spinner('Refreshing data...'):
-                        success, error_message = refresh_data(site.id, None)
-                        if not success:
-                            st.error(error_message)
-                        else:
-                            st.success("Successfully refreshed data")
-        else:
-            st.info("Click a marker on the map or enter a site ID to select a radar site")
+            if st.sidebar.button("Plot Hodograph"):
+                with st.spinner('Refreshing data...'):
+                    success, error_message = refresh_data(site.id, None)
+                    if not success:
+                        st.sidebar.error(error_message)
+                    else:
+                        st.sidebar.success("Successfully refreshed data")
+    else:
+        st.sidebar.info("Click a marker on the map or enter a site ID to select a radar site")
 
-    # METAR Data Section
+    # Move METAR Data Section up in the sidebar
+    st.sidebar.markdown("---")  # Add a visual separator
     st.sidebar.header("METAR Data")
     with st.sidebar.form("metar_form"):
         metar_station = st.text_input(
@@ -761,7 +762,7 @@ def main():
                             color='green'
                         )
                     ]:
-                        fig.add_trace(gogo.Scatter(
+                        fig.add_trace(go.Scatter(
                             x=coord_pair['points'][0],
                             y=coord_pair['points'][1],
                             mode='lines',
