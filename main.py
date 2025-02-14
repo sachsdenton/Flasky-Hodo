@@ -403,9 +403,14 @@ def create_radar_map():
         <button onclick="selectSite('{site.id}')" style="width:100%">Select Site</button>
         """
 
-        # Add marker to map
-        folium.Marker(
+        # Add marker to map with custom style
+        folium.CircleMarker(
             site_coords,
+            radius=3,  # Small dot
+            color='red',  # Red outline
+            fill=True,
+            fillColor='red',  # Red fill
+            fillOpacity=1.0,
             popup=folium.Popup(popup_content, max_width=200),
             tooltip=f"{site.id} - {site.name}"
         ).add_to(m)
@@ -414,6 +419,13 @@ def create_radar_map():
     m.get_root().html.add_child(folium.Element("""
         <script>
         function selectSite(siteId) {
+            // Update URL with the selected site
+            const searchParams = new URLSearchParams(window.location.search);
+            searchParams.set('site', siteId);
+            const newUrl = window.location.pathname + '?' + searchParams.toString();
+            history.pushState({}, '', newUrl);
+
+            // Post message to Streamlit
             window.parent.postMessage({type: 'site_selected', siteId: siteId}, '*');
         }
         </script>
