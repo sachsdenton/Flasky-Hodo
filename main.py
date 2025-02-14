@@ -4,6 +4,8 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import pandas as pd
+import folium
+from streamlit_folium import folium_static
 from hodograph_plotter import HodographPlotter
 from data_processor import WindProfile
 from radar_sites import get_sorted_sites, get_site_by_id
@@ -379,11 +381,51 @@ def refresh_data(site_id, metar_station=None):
 
     return success, error_message
 
+def create_radar_map():
+    """Create a folium map with radar site markers."""
+    sites = get_sorted_sites()
+
+    # Calculate center of US (approximately)
+    center_lat, center_lon = 39.8283, -98.5795
+
+    # Create the map
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=4)
+
+    # Add markers for each radar site
+    for site in sites:
+        # Get site coordinates from your existing data
+        site_coords = [site.lat, site.lon]  # Adjust based on your Site class structure
+
+        # Create popup content
+        popup_content = f"""
+        <b>{site.id}</b><br>
+        {site.name}<br>
+        <button onclick="selectSite('{site.id}')" style="width:100%">Select Site</button>
+        """
+
+        # Add marker to map
+        folium.Marker(
+            site_coords,
+            popup=folium.Popup(popup_content, max_width=200),
+            tooltip=f"{site.id} - {site.name}"
+        ).add_to(m)
+
+    # Add custom JavaScript for site selection
+    m.get_root().html.add_child(folium.Element("""
+        <script>
+        function selectSite(siteId) {
+            window.parent.postMessage({type: 'site_selected', siteId: siteId}, '*');
+        }
+        </script>
+    """))
+
+    return m
+
+
 def main():
     os.makedirs("temp_data", exist_ok=True)
 
     st.title("Hodograph Analysis Tool")
-    st.sidebar.header("Data Source")
 
     # Initialize session state variables
     if 'wind_profile' not in st.session_state:
@@ -394,34 +436,37 @@ def main():
         st.session_state.storm_motion = None
     if 'plot_type' not in st.session_state:
         st.session_state.plot_type = "Standard"
+    if 'selected_site' not in st.session_state:
+        st.session_state.selected_site = None
 
-    # Site selection first
-    sites = get_sorted_sites()
-    site_options = ["Select a site..."] + [f"{site.id} - {site.name}" for site in sites]
-    selected_site = st.sidebar.selectbox(
-        "Select Radar Site",
-        site_options,
-        format_func=lambda x: x
-    )
+    # Create two columns: one for the map, one for site info
+    col1, col2 = st.columns([2, 1])
 
-    # Initialize site_id based on selection
-    site_id = None
-    if selected_site and selected_site != "Select a site...":
-        site_id = selected_site.split(" - ")[0]
+    with col1:
+        st.subheader("Select Radar Site")
+        radar_map = create_radar_map()
+        folium_static(radar_map)
 
-    # Add manual refresh button after site selection
-    if st.sidebar.button("🔄 Refresh Data", help="Manually refresh both METAR and hodograph data"):
-        with st.spinner('Refreshing data...'):
-            success, error_message = refresh_data(site_id, metar_station if 'metar_station' in locals() else None)
-            if not success:
-                st.error(error_message)
-            else:
-                st.success("Successfully refreshed data")
+    with col2:
+        st.subheader("Site Information")
+        if st.session_state.selected_site:
+            site = get_site_by_id(st.session_state.selected_site)
+            if site:
+                st.write(f"Selected Site: {site.id}")
+                st.write(f"Name: {site.name}")
+                st.write(f"Location: {site.lat:.2f}°N, {site.lon:.2f}°W")
 
+                if st.button("Plot Hodograph"):
+                    with st.spinner('Refreshing data...'):
+                        success, error_message = refresh_data(site.id, None)
+                        if not success:
+                            st.error(error_message)
+                        else:
+                            st.success("Successfully refreshed data")
+        else:
+            st.info("Click a marker on the map to select a radar site")
 
-    # Move the plot button right after site selection
-    plot_clicked = st.sidebar.button("Plot Hodograph")
-
+    # METAR Data Section
     st.sidebar.header("METAR Data")
     with st.sidebar.form("metar_form"):
         metar_station = st.text_input(
@@ -476,14 +521,6 @@ def main():
         st.sidebar.error("Please enter both direction and speed for storm motion")
 
 
-    if plot_clicked:
-        with st.spinner('Refreshing data...'):
-            success, error_message = refresh_data(site_id, metar_station)
-            if not success:
-                st.error(error_message)
-            elif plot_clicked:  # Only show success message for manual refresh
-                st.success("Successfully refreshed data")
-
     if hasattr(st.session_state.wind_profile.speeds, '__len__') and len(st.session_state.wind_profile.speeds) > 0:
         st.subheader("Wind Profile Visualization")
 
@@ -503,16 +540,16 @@ def main():
 
         if plot_type == "Standard":
             plotter = HodographPlotter()
-            site = get_site_by_id(site_id) if site_id else None
+            site = get_site_by_id(st.session_state.selected_site) if st.session_state.selected_site else None
             valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
 
             # Set site info in wind profile
-            st.session_state.wind_profile.site_id = site_id
+            st.session_state.wind_profile.site_id = st.session_state.selected_site
             st.session_state.wind_profile.site_name = site.name if site else None
 
             speeds = st.session_state.wind_profile.speeds
             plotter.setup_plot(
-                site_id=site_id,
+                site_id=st.session_state.selected_site,
                 site_name=site.name if site else None,
                 valid_time=valid_time
             )
@@ -594,12 +631,12 @@ def main():
             st.image(buf)
             plt.close(fig)
         else:
-            site = get_site_by_id(site_id) if site_id else None
+            site = get_site_by_id(st.session_state.selected_site) if st.session_state.selected_site else None
             valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
 
             fig, max_speed = create_plotly_hodograph(
                 st.session_state.wind_profile,
-                site_id=site_id,
+                site_id=st.session_state.selected_site,
                 site_name=site.name if site else None,
                 valid_time=valid_time,
                 plot_type=plot_type
@@ -721,7 +758,7 @@ def main():
                         borderwidth=1
                     )
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, usecontainer_width=True)
 
         # Add wind data table
         st.subheader("Wind Profile Data")
@@ -737,14 +774,11 @@ def main():
     else:
         st.info("Select a radar site and click 'Plot Hodograph' to generate a hodograph.")
 
-    # Remove duplicate auto-refresh logic, as it's now handled above
-    if plot_clicked and site_id:
-        with st.spinner('Refreshing data...'):
-            success, error_message = refresh_data(site_id, metar_station if 'metar_station' in locals() else None)
-            if not success:
-                st.error(error_message)
-            else:
-                st.success("Successfully refreshed data")
+    # Handle site selection from the map using message passing
+    if st.session_state.selected_site is not None:
+        site = get_site_by_id(st.session_state.selected_site)
+        if site:
+            st.success(f"Site selected: {site.id} - {site.name}")
 
 if __name__ == "__main__":
     main()

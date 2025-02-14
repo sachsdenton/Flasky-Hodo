@@ -12,47 +12,43 @@ class RadarSite:
     id: str
     name: str
     region: int
+    lat: float = 0.0
+    lon: float = 0.0
     elevation: float = 0.0  # Added elevation in feet
 
-# Process the CSV files to get location names
-def _load_site_names() -> Dict[str, str]:
-    site_names = {}
+def _load_site_data() -> Dict[str, Dict]:
+    """Load site data from CSV file."""
+    site_data = {}
+    csv_path = "attached_assets/Weather_Radar_Stations_lat_lon_locations.csv"
 
-    # Read WSR-88D sites
-    wsr88d_csv = "attached_assets/wsr88d-radar-list_alphabetically by site ID.csv"
-    if os.path.exists(wsr88d_csv):
-        with open(wsr88d_csv, 'r') as f:
-            reader = csv.reader(f)
+    if os.path.exists(csv_path):
+        with open(csv_path, 'r') as f:
+            reader = csv.DictReader(f)
             for row in reader:
-                if len(row) >= 3 and row[2].strip().startswith('K'):  # Valid WSR-88D row
-                    site_id = row[2].strip()
-                    location = row[0].strip().strip('"')
-                    site_names[site_id] = location
+                if row['siteID']:  # Valid site row
+                    site_data[row['siteID']] = {
+                        'name': row['siteName'].strip() + ', ' + row['State'].strip(),
+                        'lat': float(row['Latitude']),
+                        'lon': float(row['Longitude']),
+                        'elevation': float(row['antennaElevation'].replace(',', '')) if row['antennaElevation'] else 0.0
+                    }
+    return site_data
 
-    # Read TDWR sites
-    tdwr_csv = "attached_assets/Copy of tdwr-radar-list_alphabetical by site ID.csv"
-    if os.path.exists(tdwr_csv):
-        with open(tdwr_csv, 'r') as f:
-            reader = csv.reader(f)
-            for row in reader:
-                if len(row) >= 3 and row[2].strip().startswith('T'):  # Valid TDWR row
-                    site_id = row[2].strip()
-                    location = row[0].strip().strip('"')
-                    site_names[site_id] = location
+# Load site data from CSV files
+_SITE_DATA = _load_site_data()
 
-    return site_names
-
-# Load site names from CSV files
-_SITE_NAMES = _load_site_names()
-
-# Create radar sites mapping from wsr88d._radar_info and include TDWR sites
+# Create radar sites mapping from wsr88d._radar_info and include coordinates from CSV
 RADAR_SITES: Dict[str, RadarSite] = {
     site_id: RadarSite(
         id=site_id,
-        name=_SITE_NAMES.get(site_id, site_id),  # Use name from CSV mapping or ID if not found
-        region=info['region']
+        name=_SITE_DATA.get(site_id, {}).get('name', site_id),
+        region=info['region'],
+        lat=_SITE_DATA.get(site_id, {}).get('lat', 0.0),
+        lon=_SITE_DATA.get(site_id, {}).get('lon', 0.0),
+        elevation=_SITE_DATA.get(site_id, {}).get('elevation', 0.0)
     )
     for site_id, info in _radar_info.items()
+    if site_id in _SITE_DATA  # Only include sites we have coordinates for
 }
 
 def get_sorted_sites() -> List[RadarSite]:
