@@ -463,6 +463,21 @@ def main():
 
     with col2:
         st.subheader("Site Information")
+
+        # Add text input for manual site selection
+        manual_site = st.text_input(
+            "Enter Radar Site ID",
+            value=st.session_state.selected_site if st.session_state.selected_site else "",
+            help="Enter a 4-letter radar site ID (e.g., KABR, KENX)"
+        ).strip().upper()
+
+        if manual_site:
+            try:
+                site = get_site_by_id(manual_site)
+                st.session_state.selected_site = manual_site
+            except ValueError:
+                st.error(f"Invalid radar site ID: {manual_site}")
+
         if st.session_state.selected_site:
             site = get_site_by_id(st.session_state.selected_site)
             if site:
@@ -478,7 +493,7 @@ def main():
                         else:
                             st.success("Successfully refreshed data")
         else:
-            st.info("Click a marker on the map to select a radar site")
+            st.info("Click a marker on the map or enter a site ID to select a radar site")
 
     # METAR Data Section
     st.sidebar.header("METAR Data")
@@ -746,7 +761,7 @@ def main():
                             color='green'
                         )
                     ]:
-                        fig.add_trace(go.Scatter(
+                        fig.add_trace(gogo.Scatter(
                             x=coord_pair['points'][0],
                             y=coord_pair['points'][1],
                             mode='lines',
