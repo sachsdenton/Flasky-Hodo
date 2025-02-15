@@ -6,12 +6,12 @@ from streamlit_folium import folium_static
 
 def load_metar_sites():
     """Load METAR sites from CSV file"""
-    df = pd.read_csv('attached_assets/METAR Sites US.csv')
+    df = pd.read_csv('attached_assets/metar_sites.csv')
     # Clean up column names and drop empty columns
     df.columns = df.columns.str.strip()
     df = df.dropna(axis=1, how='all')
     # Ensure required columns exist
-    required_columns = ['ID', 'STATE', 'NAME', 'LAT', 'LON']
+    required_columns = ['ID', 'Name', 'Latitude', 'Longitude']
     if not all(col in df.columns for col in required_columns):
         st.error("METAR CSV file is missing required columns")
         return pd.DataFrame()
@@ -36,17 +36,15 @@ def create_map_component():
     # Add METAR sites as markers
     for _, row in sites_df.iterrows():
         site_id = row['ID']
-        state = row['STATE']
-        name = row['NAME']
-        lat = float(row['LAT'])
-        lon = float(row['LON'])
+        name = row['Name']
+        lat = float(row['Latitude'])
+        lon = float(row['Longitude'])
 
         # Create popup content
         popup_content = f"""
         <div style='width:200px'>
             <b>Station:</b> {site_id}<br>
             <b>Name:</b> {name}<br>
-            <b>State:</b> {state}<br>
             <button onclick="parent.postMessage(
                 {{type: 'site_selected', siteId: '{site_id}'}},
                 '*'
