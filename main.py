@@ -498,7 +498,7 @@ def create_radar_map():
     # Calculate center of US (approximately)
     center_lat, center_lon = 39.8283, -98.5795
 
-    # Create the map
+    # Create the map with default center and zoom
     m = folium.Map(location=[center_lat, center_lon], zoom_start=4)
 
     # Add markers for each radar site
@@ -532,6 +532,14 @@ def create_radar_map():
 
     return m
 
+def update_map_view(m, site):
+    """Update map center and zoom for selected radar site."""
+    # Calculate zoom level that would show approximately 120nmi
+    # 120nmi ≈ 222.24 km
+    # Zoom level 8 typically shows about 250km width
+    m.location = [site.lat, site.lon]
+    m.zoom_start = 8
+    return m
 
 def add_metar_sites_to_map(m, radar_site):
     """Add METAR sites to the map for a given radar site."""
@@ -604,10 +612,11 @@ def main():
         # Create a new map
         radar_map = create_radar_map()
 
-        # If a site is selected, add METAR sites around it
+        # If a site is selected, add METAR sites around it and update view
         if st.session_state.selected_site:
             try:
                 site = get_site_by_id(st.session_state.selected_site)
+                radar_map = update_map_view(radar_map, site)
                 add_metar_sites_to_map(radar_map, site)
             except ValueError as e:
                 st.error(f"Error with radar site: {str(e)}")
