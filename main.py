@@ -443,30 +443,17 @@ def create_radar_map():
 
     # Add markers for each radar site
     for site in sites:
-        # Get site coordinates
-        site_coords = [site.lat, site.lon]
-
-        # Create popup content with custom event
+        # Create popup content
         popup_content = f"""
         <div>
             <b>{site.id}</b><br>
-            {site.name}<br>
-            <button onclick="
-                console.log('Selecting site: {site.id}');
-                document.dispatchEvent(new CustomEvent('site_selected', {{
-                    detail: {{
-                        siteId: '{site.id}'
-                    }}
-                }}));
-            " style="width:100%">
-                Select Site
-            </button>
+            {site.name}
         </div>
         """
 
-        # Add marker to map
-        folium.CircleMarker(
-            site_coords,
+        # Add marker to map with site ID in the properties
+        marker = folium.CircleMarker(
+            location=[site.lat, site.lon],
             radius=3,
             color='red',
             fill=True,
@@ -474,7 +461,13 @@ def create_radar_map():
             fillOpacity=1.0,
             popup=folium.Popup(popup_content, max_width=200),
             tooltip=f"{site.id} - {site.name}"
-        ).add_to(m)
+        )
+
+        # Add custom properties to the marker
+        marker.add_to(m)
+
+        # Add the site ID to the marker element
+        marker._name = f"site_{site.id}"
 
     return m
 
@@ -511,21 +504,15 @@ def main():
         # Debug map_data
         st.write("Debug: Map data:", map_data)
 
-        # Handle map click events
-        if map_data and "last_event" in map_data:
-            st.write(f"Debug: Last event: {map_data['last_event']}")
-            if map_data.get("last_event") == "site_selected":
-                try:
-                    site_data = map_data.get("last_object_clicked", {})
-                    st.write("Debug: Site data:", site_data)
-                    if isinstance(site_data, dict) and "detail" in site_data:
-                        selected_site_id = site_data["detail"].get("siteId")
-                        st.write(f"Debug: Selected site ID: {selected_site_id}")
-                        if selected_site_id:
-                            st.session_state.selected_site = selected_site_id
-                            st.write(f"Debug: Updated session state with site: {selected_site_id}")
-                except Exception as e:
-                    st.error(f"Debug: Error processing site selection: {str(e)}")
+        # Handle map clicks with the actual data structure
+        if map_data and "last_object_clicked_tooltip" in map_data:
+            tooltip = map_data["last_object_clicked_tooltip"]
+            # Extract site ID from tooltip (format: "XXXX - Site Name")
+            if tooltip:
+                site_id = tooltip.split(" - ")[0].strip()
+                st.write(f"Debug: Extracted site ID from tooltip: {site_id}")
+                st.session_state.selected_site = site_id
+                st.write(f"Debug: Updated session state with site: {site_id}")
 
     # Move site information to sidebar
     st.sidebar.header("Radar Site Selection")
@@ -768,7 +755,7 @@ def main():
 
                 # Add METAR point and surface-to-radar line
                 fig.add_trace(go.Scatter(
-                    x=[surface_u, radar_u],
+                    x=[surfaceu, radar_u],
                     y=[surface_v, radar_v],
                     mode='lines',
                     line=dict(color='blue', width=2, dash='dash'),
