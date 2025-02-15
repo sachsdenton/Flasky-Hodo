@@ -16,8 +16,7 @@ import time
 import os
 from typing import Tuple
 from params import compute_bunkers
-from map_component import create_map_component, load_metar_sites # Added import statement
-
+from map_component import create_map_component, load_metar_sites
 
 def calculate_vector_angle(u1: float, v1: float, u2: float, v2: float) -> float:
     """Calculate the angle between two vectors."""
@@ -502,30 +501,6 @@ def create_radar_map():
     # Create the map
     m = folium.Map(location=[center_lat, center_lon], zoom_start=4)
 
-    # Load METAR sites
-    metar_sites = load_metar_sites()
-
-    # Get the currently selected radar site for filtering METAR stations
-    selected_radar = None
-    if st.session_state.selected_site:
-        selected_site = next((site for site in sites if site.id == st.session_state.selected_site), None)
-        if selected_site:
-            selected_radar = {
-                'lat': selected_site.lat,
-                'lon': selected_site.lon
-            }
-
-    # Function to calculate distance between two points
-    def calculate_distance(lat1, lon1, lat2, lon2):
-        from math import radians, sin, cos, sqrt, atan2
-        R = 3440.065  # Earth's radius in nautical miles
-        lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-        dlat = lat2 - lat1
-        dlon = lon2 - lon1
-        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-        c = 2 * atan2(sqrt(a), sqrt(1-a))
-        return R * c
-
     # Add markers for each radar site
     for site in sites:
         # Create popup content
@@ -558,48 +533,51 @@ def create_radar_map():
         marker._name = f"site_{site.id}"
         marker.add_to(m)
 
-    # Add METAR sites if we have data
-    if not metar_sites.empty:
-        # Filter METAR sites if a radar is selected
-        if selected_radar:
-            metar_sites['distance'] = metar_sites.apply(
-                lambda row: calculate_distance(
-                    selected_radar['lat'], selected_radar['lon'],
-                    row['Latitude'], row['Longitude']
-                ),
-                axis=1
-            )
-            metar_sites = metar_sites[metar_sites['distance'] <= 120]
+    # Only add METAR sites if a radar site is selected
+    if st.session_state.selected_site:
+        site = get_site_by_id(st.session_state.selected_site)
+        if site:
+            # Load and filter METAR sites
+            metar_sites = load_metar_sites()
+            if not metar_sites.empty:
+                # Calculate distances and filter sites within 120nmi
+                metar_sites['distance'] = metar_sites.apply(
+                    lambda row: calculate_distance(
+                        site.lat, site.lon,
+                        row['Latitude'], row['Longitude']
+                    ),
+                    axis=1
+                )
+                metar_sites = metar_sites[metar_sites['distance'] <= 120]
 
-            # Add range circle
-            folium.Circle(
-                location=[selected_radar['lat'], selected_radar['lon']],
-                radius=222240,  # 120nmi in meters
-                color='blue',
-                fill=False,
-                weight=1,
-            ).add_to(m)
+                # Add range circle
+                folium.Circle(
+                    location=[site.lat, site.lon],
+                    radius=222240,  # 120nmi in meters
+                    color='blue',
+                    fill=False,
+                    weight=1,
+                ).add_to(m)
 
-        # Add METAR markers
-        for _, row in metar_sites.iterrows():
-            popup_content = f"""
-            <div>
-                <b>{row['ID']}</b><br>
-                {row['Name']}
-            </div>
-            """
+                # Add filtered METAR markers
+                for _, row in metar_sites.iterrows():
+                    popup_content = f"""
+                    <div>
+                        <b>{row['ID']}</b><br>
+                        {row['Name']}
+                    </div>
+                    """
 
-            folium.CircleMarker(
-                location=[row['Latitude'], row['Longitude']],
-                radius=4,
-                color='blue',
-                fill=True,
-                popup=folium.Popup(popup_content, max_width=200),
-                tooltip=f"{row['ID']} - {row['Name']}"
-            ).add_to(m)
+                    folium.CircleMarker(
+                        location=[row['Latitude'], row['Longitude']],
+                        radius=4,
+                        color='blue',
+                        fill=True,
+                        popup=folium.Popup(popup_content, max_width=200),
+                        tooltip=f"{row['ID']} - {row['Name']}"
+                    ).add_to(m)
 
     return m
-
 
 
 def main():
@@ -696,6 +674,7 @@ def main():
     # Add METAR map component with radar site information
 
     #This section is removed as per the intention of removing the separate METAR map component.
+
 
     # Use selected METAR in the form
     with st.sidebar.form("metar_form"):
