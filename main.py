@@ -625,10 +625,22 @@ def main():
         st.session_state.plot_type = "Standard"
     if 'selected_site' not in st.session_state:
         st.session_state.selected_site = None
+    if 'last_metar_click' not in st.session_state:
+        st.session_state.last_metar_click = None
 
     st.subheader("Select Radar Site")
 
-    # Create a new map
+    # Create a new map with full width styling
+    st.markdown("""
+        <style>
+        .element-container {
+            width: 100%;
+            max-width: none;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # Create the map
     radar_map = create_radar_map()
 
     # If a site is selected, add METAR sites around it and update view
@@ -655,15 +667,18 @@ def main():
                 site = get_site_by_id(site_id)
                 if site_id != st.session_state.selected_site:
                     st.session_state.selected_site = site_id
+                    st.query_params["site"] = site_id
                     st.rerun()
             except ValueError:
-                # Check if it's a METAR site
+                # Check if it's a METAR site and hasn't been clicked recently
                 metar_sites = load_metar_sites()
-                if not metar_sites.empty and site_id in metar_sites['ID'].values:
+                current_time = time.time()
+                if (not metar_sites.empty and site_id in metar_sites['ID'].values and 
+                    (st.session_state.last_metar_click is None or 
+                     current_time - st.session_state.last_metar_click > 2)):
                     st.session_state.metar_data = {'station': site_id}
-                    # Force sidebar METAR input to update
-                    st.experimental_set_query_params(metar=site_id)
-                    st.rerun()
+                    st.session_state.last_metar_click = current_time
+                    st.query_params["metar"] = site_id
 
     # Site selection sidebar
     st.sidebar.header("Site Selection")
@@ -683,7 +698,7 @@ def main():
             if manual_site != st.session_state.selected_site:
                 st.session_state.selected_site = manual_site
                 st.query_params["site"] = manual_site
-                st.rerun()  # Force a rerun to update the map
+                st.rerun()
         except ValueError:
             # Check if it's a valid METAR site
             metar_sites = load_metar_sites()
@@ -765,7 +780,7 @@ def main():
             min_value=0,
             max_value=100,
             value=st.session_state.storm_motion['speed'] if st.session_state.storm_motion else None,
-            help="Enter storm motion speed in knots"
+            help="Enter storm motion speedin knots"
         )
 
         storm_motion_submit = st.form_submit_button("Plot Storm Motion")
