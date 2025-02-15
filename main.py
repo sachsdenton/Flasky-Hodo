@@ -612,7 +612,9 @@ def main():
             except ValueError as e:
                 st.error(f"Error with radar site: {str(e)}")
 
-        map_data = st_folium(radar_map, height=600, key="radar_map")
+        # Generate a unique key for the map based on the selected site
+        map_key = f"radar_map_{st.session_state.selected_site}" if st.session_state.selected_site else "radar_map"
+        map_data = st_folium(radar_map, height=600, key=map_key)
 
         # Handle map clicks
         if map_data and "last_object_clicked_tooltip" in map_data:
@@ -624,10 +626,11 @@ def main():
                     site = get_site_by_id(site_id)
                     if site_id != st.session_state.selected_site:
                         st.session_state.selected_site = site_id
+                        st.experimental_rerun()  # Force a rerun to update the map
                 except ValueError:
                     pass  # Not a radar site, ignore
 
-    # Move site information to sidebar
+    # Site selection sidebar
     st.sidebar.header("Site Selection")
 
     # Add text input for manual site selection
@@ -644,9 +647,8 @@ def main():
             site = get_site_by_id(manual_site)
             if manual_site != st.session_state.selected_site:
                 st.session_state.selected_site = manual_site
-                # Add METAR sites for the manually entered radar site
-                add_metar_sites_to_map(radar_map, site)
-            st.query_params["site"] = manual_site
+                st.query_params["site"] = manual_site
+                st.experimental_rerun()  # Force a rerun to update the map
         except ValueError:
             # Check if it's a valid METAR site
             metar_sites = load_metar_sites()
