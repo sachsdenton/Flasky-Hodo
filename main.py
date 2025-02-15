@@ -17,6 +17,7 @@ import os
 from typing import Tuple
 from params import compute_bunkers
 from map_component import load_metar_sites, calculate_distance
+from geopy.distance import distance
 
 def calculate_vector_angle(u1: float, v1: float, u2: float, v2: float) -> float:
     """Calculate the angle between two vectors."""
@@ -532,14 +533,35 @@ def create_radar_map():
 
     return m
 
+
 def update_map_view(m, site):
     """Update map center and zoom for selected radar site."""
-    # Calculate zoom level that would show approximately 120nmi
-    # 120nmi ≈ 222.24 km
-    # Zoom level 8 typically shows about 250km width
+    # Center on the radar site
     m.location = [site.lat, site.lon]
-    m.zoom_start = 8
+
+    # Calculate the bounds for 120nmi coverage
+    # 120nmi ≈ 222.24 km
+    # Using folium's fit_bounds to zoom appropriately
+    from geopy.distance import distance
+
+    # Calculate corner points of a box around the radar site
+    corner_distance = distance(nautical=120)
+
+    # Get the corner coordinates
+    north = corner_distance.destination((site.lat, site.lon), bearing=0)
+    south = corner_distance.destination((site.lat, site.lon), bearing=180)
+    east = corner_distance.destination((site.lat, site.lon), bearing=90)
+    west = corner_distance.destination((site.lat, site.lon), bearing=270)
+
+    # Set bounds to cover the 120nmi radius
+    bounds = [
+        [south.latitude, west.longitude],  # Southwest corner
+        [north.latitude, east.longitude]   # Northeast corner
+    ]
+    m.fit_bounds(bounds)
+
     return m
+
 
 def add_metar_sites_to_map(m, radar_site):
     """Add METAR sites to the map for a given radar site."""
@@ -585,6 +607,7 @@ def add_metar_sites_to_map(m, radar_site):
                 ).add_to(m)
     except Exception as e:
         st.warning(f"Error loading METAR sites: {str(e)}")
+
 
 def main():
     os.makedirs("temp_data", exist_ok=True)
@@ -761,7 +784,7 @@ def main():
         with col1:
             # Initialize plot_type in session state if it doesn't exist
             if 'plot_type' not in st.session_state:
-                st.session_state.plot_type = "Standard"
+                st.sessionstate.plot_type = "Standard"
             # Use the radio button value directly
             plot_type = st.radio("Plot Type", ["Standard", "Analyst"], key="plot_type")
         with col2:
