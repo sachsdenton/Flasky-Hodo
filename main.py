@@ -500,7 +500,7 @@ def create_radar_map():
     center_lat, center_lon = 39.8283, -98.5795
 
     # Create the map with default center and zoom
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=4)
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=4, width='100%')
 
     # Add markers for each radar site
     for site in sites:
@@ -524,7 +524,7 @@ def create_radar_map():
 
         marker = folium.Marker(
             location=[site.lat, site.lon],
-            popup=folium.Popup(popup_content, max_width=200),
+            popup=folium.Popup(popup_content, max_width=300),
             tooltip=f"{site.id} - {site.name}",
             icon=icon
         )
@@ -626,41 +626,44 @@ def main():
     if 'selected_site' not in st.session_state:
         st.session_state.selected_site = None
 
-    # Create a single column for the map
-    col1 = st.columns([1])[0]
+    st.subheader("Select Radar Site")
 
-    with col1:
-        st.subheader("Select Radar Site")
+    # Create a new map
+    radar_map = create_radar_map()
 
-        # Create a new map
-        radar_map = create_radar_map()
+    # If a site is selected, add METAR sites around it and update view
+    if st.session_state.selected_site:
+        try:
+            site = get_site_by_id(st.session_state.selected_site)
+            radar_map = update_map_view(radar_map, site)
+            add_metar_sites_to_map(radar_map, site)
+        except ValueError as e:
+            st.error(f"Error with radar site: {str(e)}")
 
-        # If a site is selected, add METAR sites around it and update view
-        if st.session_state.selected_site:
+    # Generate a unique key for the map based on the selected site
+    map_key = f"radar_map_{st.session_state.selected_site}" if st.session_state.selected_site else "radar_map"
+    map_data = st_folium(radar_map, height=600, width="100%", key=map_key)
+
+    # Handle map clicks
+    if map_data and "last_object_clicked_tooltip" in map_data:
+        tooltip = map_data["last_object_clicked_tooltip"]
+        if tooltip:
+            # Extract site ID from tooltip (format: "XXXX - Site Name")
+            site_id = tooltip.split(" - ")[0].strip()
             try:
-                site = get_site_by_id(st.session_state.selected_site)
-                radar_map = update_map_view(radar_map, site)
-                add_metar_sites_to_map(radar_map, site)
-            except ValueError as e:
-                st.error(f"Error with radar site: {str(e)}")
-
-        # Generate a unique key for the map based on the selected site
-        map_key = f"radar_map_{st.session_state.selected_site}" if st.session_state.selected_site else "radar_map"
-        map_data = st_folium(radar_map, height=600, key=map_key)
-
-        # Handle map clicks
-        if map_data and "last_object_clicked_tooltip" in map_data:
-            tooltip = map_data["last_object_clicked_tooltip"]
-            if tooltip:
-                # Extract site ID from tooltip (format: "XXXX - Site Name")
-                site_id = tooltip.split(" - ")[0].strip()
-                try:
-                    site = get_site_by_id(site_id)
-                    if site_id != st.session_state.selected_site:
-                        st.session_state.selected_site = site_id
-                        st.rerun()  # Force a rerun to update the map
-                except ValueError:
-                    pass  # Not a radar site, ignore
+                # Check if it's a radar site
+                site = get_site_by_id(site_id)
+                if site_id != st.session_state.selected_site:
+                    st.session_state.selected_site = site_id
+                    st.rerun()
+            except ValueError:
+                # Check if it's a METAR site
+                metar_sites = load_metar_sites()
+                if not metar_sites.empty and site_id in metar_sites['ID'].values:
+                    st.session_state.metar_data = {'station': site_id}
+                    # Force sidebar METAR input to update
+                    st.experimental_set_query_params(metar=site_id)
+                    st.rerun()
 
     # Site selection sidebar
     st.sidebar.header("Site Selection")
@@ -784,7 +787,7 @@ def main():
         with col1:
             # Initialize plot_type in session state if it doesn't exist
             if 'plot_type' not in st.session_state:
-                st.sessionstate.plot_type = "Standard"
+                st.session_state.plot_type = "Standard"
             # Use the radio button value directly
             plot_type = st.radio("Plot Type", ["Standard", "Analyst"], key="plot_type")
         with col2:
