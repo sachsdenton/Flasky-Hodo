@@ -283,165 +283,168 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
 
         if plot_type == "Analyst" and st.session_state.metar_data:
             metar = st.session_state.metar_data
-            surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
+            if all(key in metar for key in ['speed', 'direction']):
+                surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
 
-            # Get the lowest radar point
-            radar_speed = wind_profile.speeds[0]
-            radar_dir = wind_profile.directions[0]
-            radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
+                # Get the lowest radar point
+                radar_speed = wind_profile.speeds[0]
+                radar_dir = wind_profile.directions[0]
+                radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
 
-            # Calculate critical angles for both movers
-            right_critical = calculate_skoff_angle_points(
-                surface_u, surface_v, right_u, right_v, radar_u, radar_v
-            )
-            left_critical = calculate_skoff_angle_points(
-                surface_u, surface_v, left_u, left_v, radar_u, radar_v
-            )
-
-            # Add lines from surface to storm movers
-            fig.add_trace(go.Scatter(
-                x=[surface_u, right_u],
-                y=[surface_v, right_v],
-                mode='lines',
-                line=dict(color='purple', width=2, dash='dash'),
-                name='Right Mover Vector',
-                showlegend=True
-            ))
-
-            fig.add_trace(go.Scatter(
-                x=[surface_u, left_u],
-                y=[surface_v, left_v],
-                mode='lines',
-                line=dict(color='blue', width=2, dash='dash'),
-                name='Left Mover Vector',
-                showlegend=True
-            ))
-
-            # Add critical angle annotations
-            fig.add_annotation(
-                x=0,
-                y=-max_speed * 0.7,
-                text=f'Right Mover Critical Angle: {right_critical:.1f}°',
-                showarrow=False,
-                font=dict(size=12, color='purple'),
-                bgcolor='white',
-                bordercolor='purple',
-                borderwidth=1
-            )
-
-            fig.add_annotation(
-                x=0,
-                y=-max_speed * 0.6,
-                text=f'Left Mover Critical Angle: {left_critical:.1f}°',
-                showarrow=False,
-                font=dict(size=12, color='blue'),
-                bgcolor='white',
-                bordercolor='blue',
-                borderwidth=1
-            )
-
-            # Add shear depth and magnitude annotation
-            fig.add_annotation(
-                x=0,
-                y=-max_speed * 0.9,
-                text=f'Shear Depth: {shear_depth * 1000:.0f}m<br>Shear Magnitude: {shear_magnitude:.0f}kts',
-                showarrow=False,
-                font=dict(size=12, color='grey'),
-                bgcolor='white',
-                bordercolor='grey',
-                borderwidth=1
-            )
-
-            # Add METAR point and surface-to-radar line
-            fig.add_trace(go.Scatter(
-                x=[surface_u, radar_u],
-                y=[surface_v, radar_v],
-                mode='lines',
-                line=dict(color='blue', width=2, dash='dash'),
-                showlegend=False,
-                hoverinfo='skip'
-            ))
-
-            fig.add_trace(go.Scatter(
-                x=[surface_u],
-                y=[surface_v],
-                mode='markers',
-                marker=dict(
-                    symbol='star',
-                    size=15,
-                    color='red',
-                ),
-                name=f"METAR {metar['station']}",
-                hoverinfo='text',
-                text=f"METAR {metar['station']}<br>Speed: {metar['speed']}kts<br>Direction: {metar['direction']}°"
-            ))
-
-            # Add reference vector line extended to edge
-            end_u, end_v = extend_line_to_edge(surface_u, surface_v, radar_u, radar_v, max_speed)
-            fig.add_trace(go.Scatter(
-                x=[surface_u, end_u],
-                y=[surface_v, end_v],
-                mode='lines',
-                line=dict(color='lightgrey', width=1.5, dash='dash'),
-                name='Ideal Shear Vector',
-                showlegend=True
-            ))
-
-
-            # Only add storm motion if it's been entered
-            if st.session_state.storm_motion:
-                storm_u, storm_v = calculate_wind_components(
-                    st.session_state.storm_motion['speed'],
-                    st.session_state.storm_motion['direction']
+                # Calculate critical angles for both movers
+                right_critical = calculate_skoff_angle_points(
+                    surface_u, surface_v, right_u, right_v, radar_u, radar_v
+                )
+                left_critical = calculate_skoff_angle_points(
+                    surface_u, surface_v, left_u, left_v, radar_u, radar_v
                 )
 
-                # Add Storm Motion point
+                # Add lines from surface to storm movers
                 fig.add_trace(go.Scatter(
-                    x=[storm_u],
-                    y=[storm_v],
-                    mode='markers',
-                    marker=dict(
-                        symbol='triangle-up',
-                        size=15,
-                        color='green',
-                    ),
-                    name="Storm Motion",
-                    hoverinfo='text',
-                    text=f"Storm Motion<br>Speed: {st.session_state.storm_motion['speed']}kts<br>Direction: {st.session_state.storm_motion['direction']}°"
+                    x=[surface_u, right_u],
+                    y=[surface_v, right_v],
+                    mode='lines',
+                    line=dict(color='purple', width=2, dash='dash'),
+                    name='Right Mover Vector',
+                    showlegend=True
                 ))
 
-                # Add connecting lines
-                for coord_pair in [
-                    dict(
-                        points=([surface_u, storm_u], [surface_v, storm_v]),
-                        color='green'
-                    )
-                ]:
-                    fig.add_trace(go.Scatter(
-                        x=coord_pair['points'][0],
-                        y=coord_pair['points'][1],
-                        mode='lines',
-                        line=dict(color=coord_pair['color'], width=2, dash='dash'),
-                        showlegend=False,
-                        hoverinfo='skip'
-                    ))
+                fig.add_trace(go.Scatter(
+                    x=[surface_u, left_u],
+                    y=[surface_v, left_v],
+                    mode='lines',
+                    line=dict(color='blue', width=2, dash='dash'),
+                    name='Left Mover Vector',
+                    showlegend=True
+                ))
 
-                # Calculate and display Skoff Critical Angle
-                critical_angle = calculate_skoff_angle_points(
-                    surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
-                )
-
-                # Add annotation for the angle at the bottom
+                # Add critical angle annotations
                 fig.add_annotation(
                     x=0,
-                    y=-max_speed * 0.8,
-                    text=f'Skoff Critical Angle: {critical_angle:.1f}°',
+                    y=-max_speed * 0.7,
+                    text=f'Right Mover Critical Angle: {right_critical:.1f}°',
+                    showarrow=False,
+                    font=dict(size=12, color='purple'),
+                    bgcolor='white',
+                    bordercolor='purple',
+                    borderwidth=1
+                )
+
+                fig.add_annotation(
+                    x=0,
+                    y=-max_speed * 0.6,
+                    text=f'Left Mover Critical Angle: {left_critical:.1f}°',
                     showarrow=False,
                     font=dict(size=12, color='blue'),
                     bgcolor='white',
                     bordercolor='blue',
                     borderwidth=1
                 )
+
+                # Add shear depth and magnitude annotation
+                fig.add_annotation(
+                    x=0,
+                    y=-max_speed * 0.9,
+                    text=f'Shear Depth: {shear_depth * 1000:.0f}m<br>Shear Magnitude: {shear_magnitude:.0f}kts',
+                    showarrow=False,
+                    font=dict(size=12, color='grey'),
+                    bgcolor='white',
+                    bordercolor='grey',
+                    borderwidth=1
+                )
+
+                # Add METAR point and surface-to-radar line
+                fig.add_trace(go.Scatter(
+                    x=[surface_u, radar_u],
+                    y=[surface_v, radar_v],
+                    mode='lines',
+                    line=dict(color='blue', width=2, dash='dash'),
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
+
+                fig.add_trace(go.Scatter(
+                    x=[surface_u],
+                    y=[surface_v],
+                    mode='markers',
+                    marker=dict(
+                        symbol='star',
+                        size=15,
+                        color='red',
+                    ),
+                    name=f"METAR {metar['station']}",
+                    hoverinfo='text',
+                    text=f"METAR {metar['station']}<br>Speed: {metar['speed']}kts<br>Direction: {metar['direction']}°"
+                ))
+
+                # Add reference vector line extended to edge
+                end_u, end_v = extend_line_to_edge(surface_u, surface_v, radar_u, radar_v, max_speed)
+                fig.add_trace(go.Scatter(
+                    x=[surface_u, end_u],
+                    y=[surface_v, end_v],
+                    mode='lines',
+                    line=dict(color='lightgrey', width=1.5, dash='dash'),
+                    name='Ideal Shear Vector',
+                    showlegend=True
+                ))
+
+
+                # Only add storm motion if it's been entered
+                if st.session_state.storm_motion:
+                    storm_u, storm_v = calculate_wind_components(
+                        st.session_state.storm_motion['speed'],
+                        st.session_state.storm_motion['direction']
+                    )
+
+                    # Add Storm Motion point
+                    fig.add_trace(go.Scatter(
+                        x=[storm_u],
+                        y=[storm_v],
+                        mode='markers',
+                        marker=dict(
+                            symbol='triangle-up',
+                            size=15,
+                            color='green',
+                        ),
+                        name="Storm Motion",
+                        hoverinfo='text',
+                        text=f"Storm Motion<br>Speed: {st.session_state.storm_motion['speed']}kts<br>Direction: {st.session_state.storm_motion['direction']}°"
+                    ))
+
+                    # Add connecting lines
+                    for coord_pair in [
+                        dict(
+                            points=([surface_u, storm_u], [surface_v, storm_v]),
+                            color='green'
+                        )
+                    ]:
+                        fig.add_trace(go.Scatter(
+                            x=coord_pair['points'][0],
+                            y=coord_pair['points'][1],
+                            mode='lines',
+                            line=dict(color=coord_pair['color'], width=2, dash='dash'),
+                            showlegend=False,
+                            hoverinfo='skip'
+                        ))
+
+                    # Calculate and display Skoff Critical Angle
+                    critical_angle = calculate_skoff_angle_points(
+                        surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
+                    )
+
+                    # Add annotation for the angle at the bottom
+                    fig.add_annotation(
+                        x=0,
+                        y=-max_speed * 0.8,
+                        text=f'Skoff Critical Angle: {critical_angle:.1f}°',
+                        showarrow=False,
+                        font=dict(size=12, color='blue'),
+                        bgcolor='white',
+                        bordercolor='blue',
+                        borderwidth=1
+                    )
+            else:
+                st.warning("METAR station selected but wind data not yet available. Please fetch METAR data using the sidebar form.")
 
     except Exception as e:
         print(f"Could not calculate Bunkers movers: {str(e)}")
@@ -780,7 +783,7 @@ def main():
             min_value=0,
             max_value=100,
             value=st.session_state.storm_motion['speed'] if st.session_state.storm_motion else None,
-            help="Enter storm motion speedin knots"
+            help="Enter storm motion speed in knots"
         )
 
         storm_motion_submit = st.form_submit_button("Plot Storm Motion")
@@ -831,72 +834,71 @@ def main():
 
             if show_metar and st.session_state.metar_data:
                 metar = st.session_state.metar_data
-                surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
+                # Check if we have both speed and direction before proceeding
+                if all(key in metar for key in ['speed', 'direction']):
+                    surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
 
-                ### Get the lowest radar point
-                radar_speed = st.session_state.wind_profile.speeds[0]
-                radar_dir = st.session_state.wind_profile.directions[0]
-                radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
+                    ### Get the lowest radar point
+                    radar_speed = st.session_state.wind_profile.speeds[0]
+                    radar_dir = st.session_state.wind_profile.directions[0]
+                    radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
 
-                # Calculate shear depth and magnitude
-                shear_depth, aligned_heights, shear_magnitude = calculate_shear_depth(
-                    surface_u, surface_v, st.session_state.wind_profile
-                )
-
-                fig, ax = plotter.get_plot()
-
-                # Plot METAR point
-                ax.scatter([surface_u], [surface_v], c='red', marker='*', s=150, 
-                          label=f"METAR {metar['station']}")
-
-                # Draw surface to radar line
-                ax.plot([surface_u, radar_u], [surface_v, radar_v], 'b--', linewidth=2)
-
-                # Draw the reference line (light grey dashed)
-                end_u, end_v = extend_line_to_edge(surface_u, surface_v, radar_u, radar_v, plotter.max_speed)
-                ax.plot([surface_u, end_u], [surface_v, end_v], 
-                       color='lightgrey', linestyle='--', linewidth=1.5,
-                       label='Ideal Shear Vector')
-
-
-                # Add shear depth and magnitude annotations
-                max_speed = plotter.max_speed
-                ax.text(0, -max_speed * 0.9,
-                       f'Shear Depth: {shear_depth * 1000:.0f}m\nShear Magnitude: {shear_magnitude:.0f}kts',
-                       ha='center', va='center',
-                       bbox=dict(facecolor='white', edgecolor='grey', alpha=0.8),
-                       fontsize=10,
-                       color='grey')
-
-                # Only add storm motion if it's been entered
-                if st.session_state.storm_motion:
-                    storm_u, storm_v = calculate_wind_components(
-                        st.session_state.storm_motion['speed'],
-                        st.session_state.storm_motion['direction']
+                    # Calculate shear depth and magnitude
+                    shear_depth, aligned_heights, shear_magnitude = calculate_shear_depth(
+                        surface_u, surface_v, st.session_state.wind_profile
                     )
 
-                    # Plot Storm Motion point
-                    ax.scatter([storm_u], [storm_v], c='green', marker='^', s=150,
-                              label='Storm Motion')
+                    fig, ax = plotter.get_plot()
 
-                    # Draw connecting lines (only surface to storm motion)
-                    ax.plot([surface_u, storm_u], [surface_v, storm_v], 'g--', linewidth=2)
+                    # Plot METAR point
+                    ax.scatter([surface_u], [surface_v], c='red', marker='*', s=150, 
+                              label=f"METAR {metar['station']}")
 
-                    # Calculate and display Skoff Critical Angle
-                    critical_angle = calculate_skoff_angle_points(
-                        surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
-                    )
+                    # Draw surface to radar line
+                    ax.plot([surface_u, radar_u], [surface_v, radar_v], 'b--', linewidth=2)
 
-                    # Add text annotation for critical angle at the bottom
+                    # Draw the reference line (light grey dashed)
+                    end_u, end_v = extend_line_to_edge(surface_u, surface_v, radar_u, radar_v, plotter.max_speed)
+                    ax.plot([surface_u, end_u], [surface_v, end_v], 
+                           color='lightgrey', linestyle='--', linewidth=1.5,
+                           label='Ideal Shear Vector')
+
+                    # Add shear depth and magnitude annotations
                     max_speed = plotter.max_speed
-                    ax.text(0, -max_speed * 0.8, 
-                           f'Skoff Critical Angle: {critical_angle:.1f}°',
+                    ax.text(0, -max_speed * 0.9,
+                           f'Shear Depth: {shear_depth * 1000:.0f}m\nShear Magnitude: {shear_magnitude:.0f}kts',
                            ha='center', va='center',
-                           bbox=dict(facecolor='white', edgecolor='blue', alpha=0.8),
+                           bbox=dict(facecolor='white', edgecolor='grey', alpha=0.8),
                            fontsize=10,
-                           color='blue')
+                           color='grey')
 
-                ax.legend()
+                    # Only add storm motion if it's been entered
+                    if st.session_state.storm_motion:
+                        storm_u, storm_v = calculate_wind_components(
+                            st.session_state.storm_motion['speed'],
+                            st.session_state.storm_motion['direction']
+                        )
+
+                        # Plot Storm Motion point
+                        ax.scatter([storm_u], [storm_v], c='green', marker='^', s=150,
+                                  label='Storm Motion')
+
+                        # Draw connecting lines (only surface to storm motion)
+                        ax.plot([surface_u, storm_u], [surface_v, storm_v], 'g--', linewidth=2)
+
+                        # Calculate and display Skoff Critical Angle
+                        critical_angle = calculate_skoff_angle_points(
+                            surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
+                        )
+
+                        # Add the angle annotation
+                        ax.text(0, -max_speed * 0.8,
+                               f'Critical Angle: {critical_angle:.1f}°',
+                               ha='center', va='center',
+                               bbox=dict(facecolor='white', edgecolor='blue', alpha=0.8),
+                               fontsize=10)
+                else:
+                    st.warning("METAR station selected but wind data not yet available. Please fetch METAR data using the sidebar form.")
 
             buf = io.BytesIO()
             fig, ax = plotter.get_plot()
@@ -917,120 +919,123 @@ def main():
             )
             if show_metar and st.session_state.metar_data:
                 metar = st.session_state.metar_data
-                surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
+                if all(key in metar for key in ['speed', 'direction']):
+                    surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
 
-                # Get the lowest radar point
-                radar_speed = st.session_state.wind_profile.speeds[0]
-                radar_dir = st.session_state.wind_profile.directions[0]
-                radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
+                    # Get the lowest radar point
+                    radar_speed = st.session_state.wind_profile.speeds[0]
+                    radar_dir = st.session_state.wind_profile.directions[0]
+                    radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
 
-                # Calculate shear depth and magnitude
-                shear_depth, aligned_heights, shear_magnitude = calculate_shear_depth(
-                    surface_u, surface_v, st.session_state.wind_profile
-                )
-
-                # Add METAR point and surface-to-radar line
-                fig.add_trace(go.Scatter(
-                    x=[surface_u, radar_u],
-                    y=[surface_v, radar_v],
-                    mode='lines',
-                    line=dict(color='blue', width=2, dash='dash'),
-                    showlegend=False,
-                    hoverinfo='skip'
-                ))
-
-                fig.add_trace(go.Scatter(
-                    x=[surface_u],
-                    y=[surface_v],
-                    mode='markers',
-                    marker=dict(
-                        symbol='star',
-                        size=15,
-                        color='red',
-                    ),
-                    name=f"METAR {metar['station']}",
-                    hoverinfo='text',
-                    text=f"METAR {metar['station']}<br>Speed: {metar['speed']}kts<br>Direction: {metar['direction']}°"
-                ))
-
-                # Add reference vector line extended to edge
-                end_u, end_v = extend_line_to_edge(surface_u, surface_v, radar_u, radar_v, max_speed)
-                fig.add_trace(go.Scatter(
-                    x=[surface_u, end_u],
-                    y=[surface_v, end_v],
-                    mode='lines',
-                    line=dict(color='lightgrey', width=1.5, dash='dash'),
-                    name='Ideal Shear Vector',
-                    showlegend=True
-                ))
-
-                # Add shear depth and magnitude annotation
-                fig.add_annotation(
-                    x=0,
-                    y=-max_speed * 0.9,
-                    text=f'Shear Depth: {shear_depth * 1000:.0f}m<br>Shear Magnitude: {shear_magnitude:.0f}kts',
-                    showarrow=False,
-                    font=dict(size=12, color='grey'),
-                    bgcolor='white',
-                    bordercolor='grey',
-                    borderwidth=1
-                )
-
-
-                # Only add storm motion if it's been entered
-                if st.session_state.storm_motion:
-                    storm_u, storm_v = calculate_wind_components(
-                        st.session_state.storm_motion['speed'],
-                        st.session_state.storm_motion['direction']
+                    # Calculate shear depth and magnitude
+                    shear_depth, aligned_heights, shear_magnitude = calculate_shear_depth(
+                        surface_u, surface_v, st.session_state.wind_profile
                     )
 
-                    # Add Storm Motion point
+                    # Add METAR point and surface-to-radar line
                     fig.add_trace(go.Scatter(
-                        x=[storm_u],
-                        y=[storm_v],
-                        mode='markers',
-                        marker=dict(
-                            symbol='triangle-up',
-                            size=15,
-                            color='green',
-                        ),
-                        name="Storm Motion",
-                        hoverinfo='text',
-                        text=f"Storm Motion<br>Speed: {st.session_state.storm_motion['speed']}kts<br>Direction: {st.session_state.storm_motion['direction']}°"
+                        x=[surface_u, radar_u],
+                        y=[surface_v, radar_v],
+                        mode='lines',
+                        line=dict(color='blue', width=2, dash='dash'),
+                        showlegend=False,
+                        hoverinfo='skip'
                     ))
 
-                    # Add connecting lines
-                    for coord_pair in [
-                        dict(
-                            points=([surface_u, storm_u], [surface_v, storm_v]),
-                            color='green'
-                        )
-                    ]:
-                        fig.add_trace(go.Scatter(
-                            x=coord_pair['points'][0],
-                            y=coord_pair['points'][1],
-                            mode='lines',
-                            line=dict(color=coord_pair['color'], width=2, dash='dash'),
-                            showlegend=False,
-                            hoverinfo='skip'
-                        ))
+                    fig.add_trace(go.Scatter(
+                        x=[surface_u],
+                        y=[surface_v],
+                        mode='markers',
+                        marker=dict(
+                            symbol='star',
+                            size=15,
+                            color='red',
+                        ),
+                        name=f"METAR {metar['station']}",
+                        hoverinfo='text',
+                        text=f"METAR {metar['station']}<br>Speed: {metar['speed']}kts<br>Direction: {metar['direction']}°"
+                    ))
 
-                    # Calculate and display Skoff Critical Angle
-                    critical_angle = calculate_skoff_angle_points(
-                        surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
-                    )
+                    # Add reference vector line extended to edge
+                    end_u, end_v = extend_line_to_edge(surface_u, surface_v, radar_u, radar_v, max_speed)
+                    fig.add_trace(go.Scatter(
+                        x=[surface_u, end_u],
+                        y=[surface_v, end_v],
+                        mode='lines',
+                        line=dict(color='lightgrey', width=1.5, dash='dash'),
+                        name='Ideal Shear Vector',
+                        showlegend=True
+                    ))
 
-                    # Add annotation for the angle at the bottom
+                    # Add shear depth and magnitude annotation
                     fig.add_annotation(
                         x=0,
-                        y=-max_speed * 0.8,
-                        text=f'Skoff Critical Angle: {critical_angle:.1f}°',
+                        y=-max_speed * 0.9,
+                        text=f'Shear Depth: {shear_depth * 1000:.0f}m<br>Shear Magnitude: {shear_magnitude:.0f}kts',
                         showarrow=False,
-                        font=dict(size=12, color='blue'),
+                        font=dict(size=12, color='grey'),
                         bgcolor='white',
-                        bordercolor='blue',
+                        bordercolor='grey',
                         borderwidth=1
                     )
+
+
+                    # Only add storm motion if it's been entered
+                    if st.session_state.storm_motion:
+                        storm_u, storm_v = calculate_wind_components(
+                            st.session_state.storm_motion['speed'],
+                            st.session_state.storm_motion['direction']
+                        )
+
+                        # Add Storm Motion point
+                        fig.add_trace(go.Scatter(
+                            x=[storm_u],
+                            y=[storm_v],
+                            mode='markers',
+                            marker=dict(
+                                symbol='triangle-up',
+                                size=15,
+                                color='green',
+                            ),
+                            name="Storm Motion",
+                            hoverinfo='text',
+                            text=f"Storm Motion<br>Speed: {st.session_state.storm_motion['speed']}kts<br>Direction: {st.session_state.storm_motion['direction']}°"
+                        ))
+
+                        # Add connecting lines
+                        for coord_pair in [
+                            dict(
+                                points=([surface_u, storm_u], [surface_v, storm_v]),
+                                color='green'
+                            )
+                        ]:
+                            fig.add_trace(go.Scatter(
+                                x=coord_pair['points'][0],
+                                y=coord_pair['points'][1],
+                                mode='lines',
+                                line=dict(color=coord_pair['color'], width=2, dash='dash'),
+                                showlegend=False,
+                                hoverinfo='skip'
+                            ))
+
+                        # Calculate and display Skoff Critical Angle
+                        critical_angle = calculate_skoff_angle_points(
+                            surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
+                        )
+
+                        # Add annotation for the angle at the bottom
+                        fig.add_annotation(
+                            x=0,
+                            y=-max_speed * 0.8,
+                            text=f'Skoff Critical Angle: {critical_angle:.1f}°',
+                            showarrow=False,
+                            font=dict(size=12, color='blue'),
+                            bgcolor='white',
+                            bordercolor='blue',
+                            borderwidth=1
+                        )
+                else:
+                    st.warning("METAR station selected but wind data not yet available. Please fetch METAR data using the sidebar form.")
 
             st.plotly_chart(fig, usecontainer_width=True)
 
