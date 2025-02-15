@@ -608,10 +608,22 @@ def main():
         # Handle map clicks
         if map_data and "last_object_clicked_tooltip" in map_data:
             tooltip = map_data["last_object_clicked_tooltip"]
-            # Extract site ID from tooltip (format: "XXXX - Site Name")
             if tooltip:
+                # Extract site ID from tooltip (format: "XXXX - Site Name")
                 site_id = tooltip.split(" - ")[0].strip()
-                st.session_state.selected_site = site_id
+
+                # Check if it's a radar site
+                try:
+                    site = get_site_by_id(site_id)
+                    st.session_state.selected_site = site_id
+                except ValueError:
+                    # If not a radar site, check if it's a METAR site
+                    metar_sites = load_metar_sites()
+                    if not metar_sites.empty and site_id in metar_sites['ID'].values:
+                        st.session_state.metar_data = {'station': site_id}
+                        # Don't set selected_site for METAR stations
+                    else:
+                        st.error(f"Invalid site ID: {site_id}")
 
     # Move site information to sidebar
     st.sidebar.header("Site Selection")
