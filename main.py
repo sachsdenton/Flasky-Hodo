@@ -532,6 +532,7 @@ def create_radar_map():
 
     return m
 
+
 def add_metar_sites_to_map(m, radar_site):
     """Add METAR sites to the map for a given radar site."""
     try:
@@ -593,19 +594,25 @@ def main():
         st.session_state.plot_type = "Standard"
     if 'selected_site' not in st.session_state:
         st.session_state.selected_site = None
-    if 'radar_map' not in st.session_state:
-        st.session_state.radar_map = None
 
     # Create a single column for the map
     col1 = st.columns([1])[0]
 
     with col1:
         st.subheader("Select Radar Site")
-        # Only create the base map if it doesn't exist
-        if not st.session_state.radar_map:
-            st.session_state.radar_map = create_radar_map()
 
-        map_data = st_folium(st.session_state.radar_map, height=600, key="radar_map")
+        # Create a new map
+        radar_map = create_radar_map()
+
+        # If a site is selected, add METAR sites around it
+        if st.session_state.selected_site:
+            try:
+                site = get_site_by_id(st.session_state.selected_site)
+                add_metar_sites_to_map(radar_map, site)
+            except ValueError as e:
+                st.error(f"Error with radar site: {str(e)}")
+
+        map_data = st_folium(radar_map, height=600, key="radar_map")
 
         # Handle map clicks
         if map_data and "last_object_clicked_tooltip" in map_data:
@@ -617,8 +624,6 @@ def main():
                     site = get_site_by_id(site_id)
                     if site_id != st.session_state.selected_site:
                         st.session_state.selected_site = site_id
-                        # Add METAR sites for the selected radar site
-                        add_metar_sites_to_map(st.session_state.radar_map, site)
                 except ValueError:
                     pass  # Not a radar site, ignore
 
@@ -640,7 +645,7 @@ def main():
             if manual_site != st.session_state.selected_site:
                 st.session_state.selected_site = manual_site
                 # Add METAR sites for the manually entered radar site
-                add_metar_sites_to_map(st.session_state.radar_map, site)
+                add_metar_sites_to_map(radar_map, site)
             st.query_params["site"] = manual_site
         except ValueError:
             # Check if it's a valid METAR site
@@ -776,7 +781,7 @@ def main():
                 metar = st.session_state.metar_data
                 surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
 
-                ## Get the lowest radar point
+                ### Get the lowest radar point
                 radar_speed = st.session_state.wind_profile.speeds[0]
                 radar_dir = st.session_state.wind_profile.directions[0]
                 radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
