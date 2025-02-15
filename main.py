@@ -16,11 +16,7 @@ import time
 import os
 from typing import Tuple
 from params import compute_bunkers
-from map_component import (
-    create_map_component,
-    load_metar_sites,
-    calculate_distance
-)
+from map_component import load_metar_sites, calculate_distance
 
 def calculate_vector_angle(u1: float, v1: float, u2: float, v2: float) -> float:
     """Calculate the angle between two vectors."""
@@ -538,48 +534,54 @@ def create_radar_map():
         marker.add_to(m)
 
     # Only add METAR sites if a radar site is selected
-    if st.session_state.selected_site:
-        site = get_site_by_id(st.session_state.selected_site)
-        if site:
-            # Load and filter METAR sites
-            metar_sites = load_metar_sites()
-            if not metar_sites.empty:
-                # Calculate distances and filter sites within 120nmi
-                metar_sites['distance'] = metar_sites.apply(
-                    lambda row: calculate_distance(
-                        site.lat, site.lon,
-                        row['Latitude'], row['Longitude']
-                    ),
-                    axis=1
-                )
-                metar_sites = metar_sites[metar_sites['distance'] <= 120]
+    if 'selected_site' in st.session_state and st.session_state.selected_site:
+        try:
+            site = get_site_by_id(st.session_state.selected_site)
+            if site:
+                try:
+                    # Load and filter METAR sites
+                    metar_sites = load_metar_sites()
+                    if not metar_sites.empty:
+                        # Calculate distances and filter sites within 120nmi
+                        metar_sites['distance'] = metar_sites.apply(
+                            lambda row: calculate_distance(
+                                site.lat, site.lon,
+                                row['Latitude'], row['Longitude']
+                            ),
+                            axis=1
+                        )
+                        metar_sites = metar_sites[metar_sites['distance'] <= 120]
 
-                # Add range circle
-                folium.Circle(
-                    location=[site.lat, site.lon],
-                    radius=222240,  # 120nmi in meters
-                    color='blue',
-                    fill=False,
-                    weight=1,
-                ).add_to(m)
+                        # Add range circle
+                        folium.Circle(
+                            location=[site.lat, site.lon],
+                            radius=222240,  # 120nmi in meters
+                            color='blue',
+                            fill=False,
+                            weight=1,
+                        ).add_to(m)
 
-                # Add filtered METAR markers
-                for _, row in metar_sites.iterrows():
-                    popup_content = f"""
-                    <div>
-                        <b>{row['ID']}</b><br>
-                        {row['Name']}
-                    </div>
-                    """
+                        # Add filtered METAR markers
+                        for _, row in metar_sites.iterrows():
+                            popup_content = f"""
+                            <div>
+                                <b>{row['ID']}</b><br>
+                                {row['Name']}
+                            </div>
+                            """
 
-                    folium.CircleMarker(
-                        location=[row['Latitude'], row['Longitude']],
-                        radius=4,
-                        color='blue',
-                        fill=True,
-                        popup=folium.Popup(popup_content, max_width=200),
-                        tooltip=f"{row['ID']} - {row['Name']}"
-                    ).add_to(m)
+                            folium.CircleMarker(
+                                location=[row['Latitude'], row['Longitude']],
+                                radius=4,
+                                color='blue',
+                                fill=True,
+                                popup=folium.Popup(popup_content, max_width=200),
+                                tooltip=f"{row['ID']} - {row['Name']}"
+                            ).add_to(m)
+                except Exception as e:
+                    st.warning(f"Error loading METAR sites: {str(e)}")
+        except ValueError as e:
+            st.error(f"Error with radar site: {str(e)}")
 
     return m
 
@@ -781,7 +783,7 @@ def main():
             plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
 
             if show_metar and st.session_state.metar_data:
-                metar = st.session_state.metar_data
+                metar = st.sessionstate.metar_data
                 surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
 
                 # Get the lowest radar point
