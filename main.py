@@ -16,6 +16,8 @@ import time
 import os
 from typing import Tuple
 from params import compute_bunkers
+from map_component import create_map_component # Added import statement
+
 
 def calculate_vector_angle(u1: float, v1: float, u2: float, v2: float) -> float:
     """Calculate the angle between two vectors."""
@@ -346,6 +348,42 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                 borderwidth=1
             )
 
+            # Add METAR point and surface-to-radar line
+            fig.add_trace(go.Scatter(
+                x=[surface_u, radar_u],
+                y=[surface_v, radar_v],
+                mode='lines',
+                line=dict(color='blue', width=2, dash='dash'),
+                showlegend=False,
+                hoverinfo='skip'
+            ))
+
+            fig.add_trace(go.Scatter(
+                x=[surface_u],
+                y=[surface_v],
+                mode='markers',
+                marker=dict(
+                    symbol='star',
+                    size=15,
+                    color='red',
+                ),
+                name=f"METAR {metar['station']}",
+                hoverinfo='text',
+                text=f"METAR {metar['station']}<br>Speed: {metar['speed']}kts<br>Direction: {metar['direction']}°"
+            ))
+
+            # Add reference vector line extended to edge
+            end_u, end_v = extend_line_to_edge(surface_u, surface_v, radar_u, radar_v, max_speed)
+            fig.add_trace(go.Scatter(
+                x=[surface_u, end_u],
+                y=[surface_v, end_v],
+                mode='lines',
+                line=dict(color='lightgrey', width=1.5, dash='dash'),
+                name='Ideal Shear Vector',
+                showlegend=True
+            ))
+
+
             # Only add storm motion if it's been entered
             if st.session_state.storm_motion:
                 storm_u, storm_v = calculate_wind_components(
@@ -383,6 +421,23 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                         showlegend=False,
                         hoverinfo='skip'
                     ))
+
+                # Calculate and display Skoff Critical Angle
+                critical_angle = calculate_skoff_angle_points(
+                    surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
+                )
+
+                # Add annotation for the angle at the bottom
+                fig.add_annotation(
+                    x=0,
+                    y=-max_speed * 0.8,
+                    text=f'Skoff Critical Angle: {critical_angle:.1f}°',
+                    showarrow=False,
+                    font=dict(size=12, color='blue'),
+                    bgcolor='white',
+                    bordercolor='blue',
+                    borderwidth=1
+                )
 
     except Exception as e:
         print(f"Could not calculate Bunkers movers: {str(e)}")
@@ -472,6 +527,7 @@ def create_radar_map():
     return m
 
 
+
 def main():
     os.makedirs("temp_data", exist_ok=True)
 
@@ -495,14 +551,7 @@ def main():
     with col1:
         st.subheader("Select Radar Site")
         radar_map = create_radar_map()
-
-        # Debug statement before map rendering
-        st.write("Debug: Current selected_site before map:", st.session_state.selected_site)
-
         map_data = st_folium(radar_map, height=600, key="radar_map")
-
-        # Debug map_data
-        st.write("Debug: Map data:", map_data)
 
         # Handle map clicks with the actual data structure
         if map_data and "last_object_clicked_tooltip" in map_data:
@@ -510,15 +559,10 @@ def main():
             # Extract site ID from tooltip (format: "XXXX - Site Name")
             if tooltip:
                 site_id = tooltip.split(" - ")[0].strip()
-                st.write(f"Debug: Extracted site ID from tooltip: {site_id}")
                 st.session_state.selected_site = site_id
-                st.write(f"Debug: Updated session state with site: {site_id}")
 
     # Move site information to sidebar
     st.sidebar.header("Radar Site Selection")
-
-    # Debug statement before text input
-    st.sidebar.write("Debug: Current selected_site before text input:", st.session_state.selected_site)
 
     # Add text input for manual site selection
     manual_site = st.sidebar.text_input(
@@ -527,9 +571,6 @@ def main():
         key="site_input",
         help="Enter a 4-letter radar site ID (e.g., KABR, KENX)"
     ).strip().upper()
-
-    # Debug statement after text input
-    st.sidebar.write("Debug: Manual site input value:", manual_site)
 
     # Update selected site based on manual input
     if manual_site:
@@ -561,9 +602,15 @@ def main():
     # Move METAR Data Section up in the sidebar
     st.sidebar.markdown("---")  # Add a visual separator
     st.sidebar.header("METAR Data")
+
+    # Add METAR map component
+    selected_metar = create_map_component()
+
+    # Use selected METAR in the form
     with st.sidebar.form("metar_form"):
         metar_station = st.text_input(
             "METAR Station ID (4-letter ICAO)",
+            value=selected_metar if selected_metar else "",
             help="Enter a 4-letter ICAO station identifier (e.g., KBOS, KJFK)",
             max_chars=4
         ).strip().upper()
@@ -630,11 +677,6 @@ def main():
             show_metar = st.checkbox("Show METAR data", value=True)
 
         plt.close('all')
-
-        # Debug statement before plotting
-        st.write("Debug: Plot type:", plot_type)
-        st.write("Debug: Height colors:", height_colors)
-        st.write("Debug: Show METAR:", show_metar)
 
         if plot_type == "Standard":
             plotter = HodographPlotter()
@@ -755,7 +797,7 @@ def main():
 
                 # Add METAR point and surface-to-radar line
                 fig.add_trace(go.Scatter(
-                    x=[surfaceu, radar_u],
+                    x=[surface_u, radar_u],
                     y=[surface_v, radar_v],
                     mode='lines',
                     line=dict(color='blue', width=2, dash='dash'),
