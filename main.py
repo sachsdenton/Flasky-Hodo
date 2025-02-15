@@ -603,8 +603,19 @@ def main():
     st.sidebar.markdown("---")  # Add a visual separator
     st.sidebar.header("METAR Data")
 
-    # Add METAR map component
-    selected_metar = create_map_component()
+    # Get current radar site information if selected
+    radar_site = None
+    if st.session_state.selected_site:
+        site = get_site_by_id(st.session_state.selected_site)
+        if site:
+            radar_site = {
+                'id': site.id,
+                'latitude': site.lat,
+                'longitude': site.lon
+            }
+
+    # Add METAR map component with radar site information
+    selected_metar = create_map_component(radar_site)
 
     # Use selected METAR in the form
     with st.sidebar.form("metar_form"):
