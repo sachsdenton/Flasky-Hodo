@@ -626,7 +626,7 @@ def main():
                     site = get_site_by_id(site_id)
                     if site_id != st.session_state.selected_site:
                         st.session_state.selected_site = site_id
-                        st.experimental_rerun()  # Force a rerun to update the map
+                        st.rerun()  # Force a rerun to update the map
                 except ValueError:
                     pass  # Not a radar site, ignore
 
@@ -648,7 +648,7 @@ def main():
             if manual_site != st.session_state.selected_site:
                 st.session_state.selected_site = manual_site
                 st.query_params["site"] = manual_site
-                st.experimental_rerun()  # Force a rerun to update the map
+                st.rerun()  # Force a rerun to update the map
         except ValueError:
             # Check if it's a valid METAR site
             metar_sites = load_metar_sites()
