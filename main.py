@@ -16,7 +16,7 @@ import time
 import os
 from typing import Tuple
 from params import compute_bunkers
-from map_component import create_map_component # Added import statement
+from map_component import create_map_component, load_metar_sites # Added import statement
 
 
 def calculate_vector_angle(u1: float, v1: float, u2: float, v2: float) -> float:
@@ -31,6 +31,7 @@ def calculate_vector_angle(u1: float, v1: float, u2: float, v2: float) -> float:
     cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
     angle_rad = np.arccos(cos_angle)
     return np.rad2deg(angle_rad)
+
 
 def calculate_shear_depth(surface_u: float, surface_v: float, profile: WindProfile) -> Tuple[float, list, float]:
     """Calculate shear depth based on points within 5 degrees of the surface-to-lowest vector,
@@ -70,6 +71,7 @@ def calculate_shear_depth(surface_u: float, surface_v: float, profile: WindProfi
     # Return the maximum height (shear depth), list of aligned heights, and shear magnitude
     return max(aligned_heights) if aligned_heights else 0.0, aligned_heights, shear_magnitude
 
+
 def extend_line_to_edge(surface_u: float, surface_v: float, radar_u: float, radar_v: float, max_speed: float) -> Tuple[float, float]:
     """Calculate where a line through two points intersects the hodograph edge."""
     # Calculate vector from surface to radar point
@@ -91,6 +93,7 @@ def extend_line_to_edge(surface_u: float, surface_v: float, radar_u: float, rada
 
     return end_u, end_v
 
+
 def calculate_skoff_angle_points(surface_u, surface_v, storm_u, storm_v, radar_u, radar_v):
     """Calculate the Skoff Critical Angle between three points."""
     # Calculate vectors
@@ -111,6 +114,7 @@ def calculate_skoff_angle_points(surface_u, surface_v, storm_u, storm_v, radar_u
     cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
     angle_rad = np.arccos(cos_angle)
     return np.rad2deg(angle_rad)
+
 
 def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_time=None, plot_type="Standard"):
     speeds = wind_profile.speeds
@@ -444,6 +448,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
 
     return fig, max_speed
 
+
 def refresh_data(site_id, metar_station=None):
     """Refresh both VWP and METAR data."""
     success = True
@@ -486,8 +491,9 @@ def refresh_data(site_id, metar_station=None):
 
     return success, error_message
 
+
 def create_radar_map():
-    """Create a folium map with radar site markers."""
+    """Create a folium map with radar site and METAR markers."""
     sites = get_sorted_sites()
 
     # Calculate center of US (approximately)
@@ -495,6 +501,30 @@ def create_radar_map():
 
     # Create the map
     m = folium.Map(location=[center_lat, center_lon], zoom_start=4)
+
+    # Load METAR sites
+    metar_sites = load_metar_sites()
+
+    # Get the currently selected radar site for filtering METAR stations
+    selected_radar = None
+    if st.session_state.selected_site:
+        selected_site = next((site for site in sites if site.id == st.session_state.selected_site), None)
+        if selected_site:
+            selected_radar = {
+                'lat': selected_site.lat,
+                'lon': selected_site.lon
+            }
+
+    # Function to calculate distance between two points
+    def calculate_distance(lat1, lon1, lat2, lon2):
+        from math import radians, sin, cos, sqrt, atan2
+        R = 3440.065  # Earth's radius in nautical miles
+        lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1-a))
+        return R * c
 
     # Add markers for each radar site
     for site in sites:
@@ -506,23 +536,67 @@ def create_radar_map():
         </div>
         """
 
-        # Add marker to map with site ID in the properties
-        marker = folium.CircleMarker(
-            location=[site.lat, site.lon],
-            radius=3,
-            color='red',
-            fill=True,
-            fillColor='red',
-            fillOpacity=1.0,
-            popup=folium.Popup(popup_content, max_width=200),
-            tooltip=f"{site.id} - {site.name}"
+        # Create custom diamond icon for radar sites
+        icon = folium.DivIcon(
+            html=f'''
+                <div style="transform: rotate(45deg); 
+                           background-color: red; 
+                           width: 12px; 
+                           height: 12px;">
+                </div>
+            ''',
+            icon_size=(12, 12)
         )
 
-        # Add custom properties to the marker
+        # Add marker to map
+        marker = folium.Marker(
+            location=[site.lat, site.lon],
+            popup=folium.Popup(popup_content, max_width=200),
+            tooltip=f"{site.id} - {site.name}",
+            icon=icon
+        )
+        marker._name = f"site_{site.id}"
         marker.add_to(m)
 
-        # Add the site ID to the marker element
-        marker._name = f"site_{site.id}"
+    # Add METAR sites if we have data
+    if not metar_sites.empty:
+        # Filter METAR sites if a radar is selected
+        if selected_radar:
+            metar_sites['distance'] = metar_sites.apply(
+                lambda row: calculate_distance(
+                    selected_radar['lat'], selected_radar['lon'],
+                    row['Latitude'], row['Longitude']
+                ),
+                axis=1
+            )
+            metar_sites = metar_sites[metar_sites['distance'] <= 120]
+
+            # Add range circle
+            folium.Circle(
+                location=[selected_radar['lat'], selected_radar['lon']],
+                radius=222240,  # 120nmi in meters
+                color='blue',
+                fill=False,
+                weight=1,
+            ).add_to(m)
+
+        # Add METAR markers
+        for _, row in metar_sites.iterrows():
+            popup_content = f"""
+            <div>
+                <b>{row['ID']}</b><br>
+                {row['Name']}
+            </div>
+            """
+
+            folium.CircleMarker(
+                location=[row['Latitude'], row['Longitude']],
+                radius=4,
+                color='blue',
+                fill=True,
+                popup=folium.Popup(popup_content, max_width=200),
+                tooltip=f"{row['ID']} - {row['Name']}"
+            ).add_to(m)
 
     return m
 
@@ -553,7 +627,7 @@ def main():
         radar_map = create_radar_map()
         map_data = st_folium(radar_map, height=600, key="radar_map")
 
-        # Handle map clicks with the actual data structure
+        # Handle map clicks
         if map_data and "last_object_clicked_tooltip" in map_data:
             tooltip = map_data["last_object_clicked_tooltip"]
             # Extract site ID from tooltip (format: "XXXX - Site Name")
@@ -562,14 +636,14 @@ def main():
                 st.session_state.selected_site = site_id
 
     # Move site information to sidebar
-    st.sidebar.header("Radar Site Selection")
+    st.sidebar.header("Site Selection")
 
     # Add text input for manual site selection
     manual_site = st.sidebar.text_input(
-        "Enter Radar Site ID",
+        "Enter Site ID",
         value=st.session_state.selected_site if st.session_state.selected_site else "",
         key="site_input",
-        help="Enter a 4-letter radar site ID (e.g., KABR, KENX)"
+        help="Enter a 4-letter site ID (e.g., KABR for radar, KBOS for METAR)"
     ).strip().upper()
 
     # Update selected site based on manual input
@@ -577,10 +651,15 @@ def main():
         try:
             site = get_site_by_id(manual_site)
             st.session_state.selected_site = manual_site
-            # Update URL when manual site is entered
             st.query_params["site"] = manual_site
         except ValueError:
-            st.sidebar.error(f"Invalid radar site ID: {manual_site}")
+            # Check if it's a valid METAR site
+            from map_component import load_metar_sites
+            metar_sites = load_metar_sites()
+            if not metar_sites.empty and manual_site in metar_sites['ID'].values:
+                st.session_state.metar_data = {'station': manual_site}
+            else:
+                st.sidebar.error(f"Invalid site ID: {manual_site}")
 
     if st.session_state.selected_site:
         site = get_site_by_id(st.session_state.selected_site)
@@ -615,13 +694,14 @@ def main():
             }
 
     # Add METAR map component with radar site information
-    selected_metar = create_map_component(radar_site)
+
+    #This section is removed as per the intention of removing the separate METAR map component.
 
     # Use selected METAR in the form
     with st.sidebar.form("metar_form"):
         metar_station = st.text_input(
             "METAR Station ID (4-letter ICAO)",
-            value=selected_metar if selected_metar else "",
+            value=st.session_state.metar_data['station'] if st.session_state.metar_data else "",
             help="Enter a 4-letter ICAO station identifier (e.g., KBOS, KJFK)",
             max_chars=4
         ).strip().upper()
@@ -649,14 +729,14 @@ def main():
             "Storm Direction (degrees)",
             min_value=0,
             max_value=360,
-            value=None,
+            value=st.session_state.storm_motion['direction'] if st.session_state.storm_motion else None,
             help="Enter storm motion direction (0-360 degrees)"
         )
         storm_speed = st.number_input(
             "Storm Speed (knots)",
             min_value=0,
             max_value=100,
-            value=None,
+            value=st.session_state.storm_motion['speed'] if st.session_state.storm_motion else None,
             help="Enter storm motion speed in knots"
         )
 
