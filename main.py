@@ -492,7 +492,7 @@ def refresh_data(site_id, metar_station=None):
 
 
 def create_radar_map():
-    """Create a folium map with radar site and METAR markers."""
+    """Create a folium map with radar site markers."""
     sites = get_sorted_sites()
 
     # Calculate center of US (approximately)
@@ -503,7 +503,6 @@ def create_radar_map():
 
     # Add markers for each radar site
     for site in sites:
-        # Create popup content
         popup_content = f"""
         <div>
             <b>{site.id}</b><br>
@@ -511,7 +510,6 @@ def create_radar_map():
         </div>
         """
 
-        # Create custom diamond icon for radar sites
         icon = folium.DivIcon(
             html=f'''
                 <div style="transform: rotate(45deg); 
@@ -523,7 +521,6 @@ def create_radar_map():
             icon_size=(12, 12)
         )
 
-        # Add marker to map
         marker = folium.Marker(
             location=[site.lat, site.lon],
             popup=folium.Popup(popup_content, max_width=200),
@@ -533,58 +530,52 @@ def create_radar_map():
         marker._name = f"site_{site.id}"
         marker.add_to(m)
 
-    # Only add METAR sites if a radar site is selected
-    if 'selected_site' in st.session_state and st.session_state.selected_site:
-        try:
-            site = get_site_by_id(st.session_state.selected_site)
-            if site:
-                try:
-                    # Load and filter METAR sites
-                    metar_sites = load_metar_sites()
-                    if not metar_sites.empty:
-                        # Calculate distances and filter sites within 120nmi
-                        metar_sites['distance'] = metar_sites.apply(
-                            lambda row: calculate_distance(
-                                site.lat, site.lon,
-                                row['Latitude'], row['Longitude']
-                            ),
-                            axis=1
-                        )
-                        metar_sites = metar_sites[metar_sites['distance'] <= 120]
-
-                        # Add range circle
-                        folium.Circle(
-                            location=[site.lat, site.lon],
-                            radius=222240,  # 120nmi in meters
-                            color='blue',
-                            fill=False,
-                            weight=1,
-                        ).add_to(m)
-
-                        # Add filtered METAR markers
-                        for _, row in metar_sites.iterrows():
-                            popup_content = f"""
-                            <div>
-                                <b>{row['ID']}</b><br>
-                                {row['Name']}
-                            </div>
-                            """
-
-                            folium.CircleMarker(
-                                location=[row['Latitude'], row['Longitude']],
-                                radius=4,
-                                color='blue',
-                                fill=True,
-                                popup=folium.Popup(popup_content, max_width=200),
-                                tooltip=f"{row['ID']} - {row['Name']}"
-                            ).add_to(m)
-                except Exception as e:
-                    st.warning(f"Error loading METAR sites: {str(e)}")
-        except ValueError as e:
-            st.error(f"Error with radar site: {str(e)}")
-
     return m
 
+def add_metar_sites_to_map(m, radar_site):
+    """Add METAR sites to the map for a given radar site."""
+    try:
+        # Load and filter METAR sites
+        metar_sites = load_metar_sites()
+        if not metar_sites.empty:
+            # Calculate distances and filter sites within 120nmi
+            metar_sites['distance'] = metar_sites.apply(
+                lambda row: calculate_distance(
+                    radar_site.lat, radar_site.lon,
+                    row['Latitude'], row['Longitude']
+                ),
+                axis=1
+            )
+            metar_sites = metar_sites[metar_sites['distance'] <= 120]
+
+            # Add range circle
+            folium.Circle(
+                location=[radar_site.lat, radar_site.lon],
+                radius=222240,  # 120nmi in meters
+                color='blue',
+                fill=False,
+                weight=1,
+            ).add_to(m)
+
+            # Add filtered METAR markers
+            for _, row in metar_sites.iterrows():
+                popup_content = f"""
+                <div>
+                    <b>{row['ID']}</b><br>
+                    {row['Name']}
+                </div>
+                """
+
+                folium.CircleMarker(
+                    location=[row['Latitude'], row['Longitude']],
+                    radius=4,
+                    color='blue',
+                    fill=True,
+                    popup=folium.Popup(popup_content, max_width=200),
+                    tooltip=f"{row['ID']} - {row['Name']}"
+                ).add_to(m)
+    except Exception as e:
+        st.warning(f"Error loading METAR sites: {str(e)}")
 
 def main():
     os.makedirs("temp_data", exist_ok=True)
@@ -602,14 +593,19 @@ def main():
         st.session_state.plot_type = "Standard"
     if 'selected_site' not in st.session_state:
         st.session_state.selected_site = None
+    if 'radar_map' not in st.session_state:
+        st.session_state.radar_map = None
 
     # Create a single column for the map
     col1 = st.columns([1])[0]
 
     with col1:
         st.subheader("Select Radar Site")
-        radar_map = create_radar_map()
-        map_data = st_folium(radar_map, height=600, key="radar_map")
+        # Only create the base map if it doesn't exist
+        if not st.session_state.radar_map:
+            st.session_state.radar_map = create_radar_map()
+
+        map_data = st_folium(st.session_state.radar_map, height=600, key="radar_map")
 
         # Handle map clicks
         if map_data and "last_object_clicked_tooltip" in map_data:
@@ -617,19 +613,14 @@ def main():
             if tooltip:
                 # Extract site ID from tooltip (format: "XXXX - Site Name")
                 site_id = tooltip.split(" - ")[0].strip()
-
-                # Check if it's a radar site
                 try:
                     site = get_site_by_id(site_id)
-                    st.session_state.selected_site = site_id
+                    if site_id != st.session_state.selected_site:
+                        st.session_state.selected_site = site_id
+                        # Add METAR sites for the selected radar site
+                        add_metar_sites_to_map(st.session_state.radar_map, site)
                 except ValueError:
-                    # If not a radar site, check if it's a METAR site
-                    metar_sites = load_metar_sites()
-                    if not metar_sites.empty and site_id in metar_sites['ID'].values:
-                        st.session_state.metar_data = {'station': site_id}
-                        # Don't set selected_site for METAR stations
-                    else:
-                        st.error(f"Invalid site ID: {site_id}")
+                    pass  # Not a radar site, ignore
 
     # Move site information to sidebar
     st.sidebar.header("Site Selection")
@@ -646,11 +637,13 @@ def main():
     if manual_site:
         try:
             site = get_site_by_id(manual_site)
-            st.session_state.selected_site = manual_site
+            if manual_site != st.session_state.selected_site:
+                st.session_state.selected_site = manual_site
+                # Add METAR sites for the manually entered radar site
+                add_metar_sites_to_map(st.session_state.radar_map, site)
             st.query_params["site"] = manual_site
         except ValueError:
             # Check if it's a valid METAR site
-            from map_component import load_metar_sites
             metar_sites = load_metar_sites()
             if not metar_sites.empty and manual_site in metar_sites['ID'].values:
                 st.session_state.metar_data = {'station': manual_site}
@@ -671,8 +664,8 @@ def main():
                         st.sidebar.error(error_message)
                     else:
                         st.sidebar.success("Successfully refreshed data")
-    else:
-        st.sidebar.info("Click a marker on the map or enter a site ID to select a radar site")
+        else:
+            st.sidebar.info("Click a marker on the map or enter a site ID to select a radar site")
 
     # Move METAR Data Section up in the sidebar
     st.sidebar.markdown("---")  # Add a visual separator
@@ -688,9 +681,6 @@ def main():
                 'latitude': site.lat,
                 'longitude': site.lon
             }
-
-
-    # Add METAR map component with radar site information
 
 
     # Use selected METAR in the form
@@ -783,10 +773,10 @@ def main():
             plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
 
             if show_metar and st.session_state.metar_data:
-                metar = st.sessionstate.metar_data
+                metar = st.session_state.metar_data
                 surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
 
-                # Get the lowest radar point
+                ## Get the lowest radar point
                 radar_speed = st.session_state.wind_profile.speeds[0]
                 radar_dir = st.session_state.wind_profile.directions[0]
                 radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
