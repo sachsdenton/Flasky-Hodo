@@ -16,7 +16,11 @@ import time
 import os
 from typing import Tuple
 from params import compute_bunkers
-from map_component import create_map_component, load_metar_sites, calculate_distance
+from map_component import (
+    create_map_component,
+    load_metar_sites,
+    calculate_distance
+)
 
 def calculate_vector_angle(u1: float, v1: float, u2: float, v2: float) -> float:
     """Calculate the angle between two vectors."""
