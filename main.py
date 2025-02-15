@@ -683,6 +683,16 @@ def main():
                     st.session_state.last_metar_click = current_time
                     st.query_params["metar"] = site_id
 
+                    # Refresh data for both radar and METAR when a METAR site is selected
+                    if st.session_state.selected_site:  # Only if we have a radar site selected
+                        with st.spinner('Refreshing data...'):
+                            success, error_message = refresh_data(
+                                st.session_state.selected_site,
+                                site_id  # Pass the METAR station ID
+                            )
+                            if not success:
+                                st.error(error_message)
+
     # Site selection sidebar
     st.sidebar.header("Site Selection")
 
