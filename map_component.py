@@ -4,7 +4,7 @@ import pandas as pd
 import folium
 from streamlit_folium import folium_static
 from math import radians, sin, cos, sqrt, atan2
-
+from mrms_handler import MRMSHandler
 
 def calculate_distance(lat1, lon1, lat2, lon2):
     """Calculate distance between two points in nautical miles"""
@@ -17,15 +17,12 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     distance = R * c
     return distance
 
-
 def load_metar_sites():
     """Load METAR sites from CSV file"""
     try:
         df = pd.read_csv('attached_assets/metar_sites.csv')
-        # Clean up column names and drop empty columns
         df.columns = df.columns.str.strip()
         df = df.dropna(axis=1, how='all')
-        # Ensure required columns exist
         required_columns = ['ID', 'Name', 'Latitude', 'Longitude']
         if not all(col in df.columns for col in required_columns):
             st.error("METAR CSV file is missing required columns")
@@ -35,18 +32,51 @@ def load_metar_sites():
         st.error(f"Error loading METAR sites: {str(e)}")
         return pd.DataFrame()
 
+def create_map(center_lat=39.8283, center_lon=-98.5795, zoom_start=4, show_mrms=True):
+    """Create a folium map with optional MRMS overlay"""
+    m = folium.Map(
+        location=[center_lat, center_lon],
+        zoom_start=zoom_start,
+        width='100%'
+    )
+
+    # Add base tile layer
+    folium.TileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attr='© OpenStreetMap contributors',
+        name='OpenStreetMap'
+    ).add_to(m)
+
+    if show_mrms:
+        mrms = MRMSHandler()
+        mrms_metadata = mrms.get_reflectivity_metadata()
+
+        # Add MRMS reflectivity layer
+        folium.TileLayer(
+            mrms.get_tile_url(),
+            attr=mrms_metadata['attribution'],
+            name='MRMS Reflectivity',
+            opacity=mrms_metadata['opacity'],
+            overlay=True
+        ).add_to(m)
+
+    # Add layer control
+    folium.LayerControl().add_to(m)
+
+    return m
 
 def handle_site_selection():
     """Handle the site selection from the map"""
     from streamlit.components.v1 import html
 
-    # Create a hidden component to handle the JavaScript event
+    m = create_map() # Use the new map creation function
+    folium_static(m)
+
     html(
         """
         <script>
         window.addEventListener('message', function(e) {
             if (e.data.type === 'site_selected') {
-                // Send the site ID to Streamlit
                 window.Streamlit.setComponentValue(e.data.siteId);
             }
         });

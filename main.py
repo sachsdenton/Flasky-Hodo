@@ -16,8 +16,9 @@ import time
 import os
 from typing import Tuple
 from params import compute_bunkers
-from map_component import load_metar_sites, calculate_distance
+from map_component import load_metar_sites, calculate_distance, create_map
 from geopy.distance import distance
+from mrms_handler import MRMSHandler
 
 def calculate_vector_angle(u1: float, v1: float, u2: float, v2: float) -> float:
     """Calculate the angle between two vectors."""
@@ -630,21 +631,20 @@ def main():
         st.session_state.selected_site = None
     if 'last_metar_click' not in st.session_state:
         st.session_state.last_metar_click = None
+    if 'show_mrms' not in st.session_state:
+        st.session_state.show_mrms = True
 
     st.subheader("Select Radar Site")
 
-    # Create a new map with full width styling
-    st.markdown("""
-        <style>
-        .element-container {
-            width: 100%;
-            max-width: none;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    # Add MRMS toggle in the sidebar
+    st.sidebar.header("Map Settings")
+    show_mrms = st.sidebar.checkbox("Show MRMS Radar", value=st.session_state.show_mrms)
+    if show_mrms != st.session_state.show_mrms:
+        st.session_state.show_mrms = show_mrms
+        st.experimental_rerun()
 
-    # Create the map
-    radar_map = create_radar_map()
+    # Create map with MRMS support
+    radar_map = create_map(show_mrms=st.session_state.show_mrms)
 
     # If a site is selected, add METAR sites around it and update view
     if st.session_state.selected_site:
@@ -773,7 +773,7 @@ def main():
             else:
                 st.session_state.metar_data = {
                     'station': metar_station,
-                    'direction': wind_dir,
+                    'direction': winddir,
                     'speed': wind_speed
                 }
                 st.sidebar.success(f"METAR data loaded: {wind_speed}kts @ {wind_dir}°")
