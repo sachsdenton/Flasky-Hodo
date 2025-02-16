@@ -5,6 +5,7 @@ import folium
 from streamlit_folium import folium_static
 from math import radians, sin, cos, sqrt, atan2
 from mrms_handler import MRMSHandler
+from radar_sites import get_sorted_sites
 
 def calculate_distance(lat1, lon1, lat2, lon2):
     """Calculate distance between two points in nautical miles"""
@@ -33,7 +34,7 @@ def load_metar_sites():
         return pd.DataFrame()
 
 def create_map(center_lat=39.8283, center_lon=-98.5795, zoom_start=4, show_mrms=True):
-    """Create a folium map with optional MRMS overlay"""
+    """Create a folium map with optional MRMS overlay and radar sites"""
     m = folium.Map(
         location=[center_lat, center_lon],
         zoom_start=zoom_start,
@@ -59,6 +60,36 @@ def create_map(center_lat=39.8283, center_lon=-98.5795, zoom_start=4, show_mrms=
             opacity=mrms_metadata['opacity'],
             overlay=True
         ).add_to(m)
+
+    # Add radar site markers
+    sites = get_sorted_sites()
+    for site in sites:
+        popup_content = f"""
+        <div>
+            <b>{site.id}</b><br>
+            {site.name}
+        </div>
+        """
+
+        icon = folium.DivIcon(
+            html=f'''
+                <div style="transform: rotate(45deg); 
+                           background-color: red; 
+                           width: 12px; 
+                           height: 12px;">
+                </div>
+            ''',
+            icon_size=(12, 12)
+        )
+
+        marker = folium.Marker(
+            location=[site.lat, site.lon],
+            popup=folium.Popup(popup_content, max_width=300),
+            tooltip=f"{site.id} - {site.name}",
+            icon=icon
+        )
+        marker._name = f"site_{site.id}"
+        marker.add_to(m)
 
     # Add layer control
     folium.LayerControl().add_to(m)
