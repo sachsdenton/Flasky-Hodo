@@ -74,9 +74,9 @@ def create_map(center_lat=39.8283, center_lon=-98.5795, zoom_start=4, show_mrms=
         # Create a custom icon using the PNG image
         icon = folium.CustomIcon(
             icon_image='attached_assets/pngegg.png',
-            icon_size=(30, 40),  # Adjust size as needed
-            icon_anchor=(15, 40),  # Center bottom of the icon
-            popup_anchor=(0, -40)  # Popup appears above the icon
+            icon_size=(15, 20),  # Reduced size from (30, 40)
+            icon_anchor=(7, 20),  # Adjusted anchor point for new size
+            popup_anchor=(0, -20)  # Adjusted popup position for new size
         )
 
         marker = folium.Marker(
