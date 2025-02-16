@@ -71,15 +71,12 @@ def create_map(center_lat=39.8283, center_lon=-98.5795, zoom_start=4, show_mrms=
         </div>
         """
 
-        icon = folium.DivIcon(
-            html=f'''
-                <div style="transform: rotate(45deg); 
-                           background-color: red; 
-                           width: 12px; 
-                           height: 12px;">
-                </div>
-            ''',
-            icon_size=(12, 12)
+        # Create a custom icon using the PNG image
+        icon = folium.CustomIcon(
+            icon_image='attached_assets/pngegg.png',
+            icon_size=(30, 40),  # Adjust size as needed
+            icon_anchor=(15, 40),  # Center bottom of the icon
+            popup_anchor=(0, -40)  # Popup appears above the icon
         )
 
         marker = folium.Marker(
