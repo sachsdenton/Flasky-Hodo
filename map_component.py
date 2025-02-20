@@ -4,8 +4,8 @@ import pandas as pd
 import folium
 from streamlit_folium import folium_static
 from math import radians, sin, cos, sqrt, atan2
-from mrms_handler import MRMSHandler
 from radar_sites import get_sorted_sites
+from mrms_handler import MRMSHandler
 
 def calculate_distance(lat1, lon1, lat2, lon2):
     """Calculate distance between two points in nautical miles"""
@@ -33,82 +33,54 @@ def load_metar_sites():
         st.error(f"Error loading METAR sites: {str(e)}")
         return pd.DataFrame()
 
-def create_map(center_lat=39.8283, center_lon=-98.5795, zoom_start=4, show_mrms=True):
-    """Create a folium map with optional MRMS overlay and radar sites"""
+def create_map(center_lat=39.8283, center_lon=-98.5795, zoom_start=4, show_mrms=False):
+    """Create a folium map with radar sites"""
     m = folium.Map(
         location=[center_lat, center_lon],
         zoom_start=zoom_start,
         width='100%'
     )
 
-    # Add base tile layer
+    # Add base tile layer with reduced max zoom for better performance
     folium.TileLayer(
         'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         attr='© OpenStreetMap contributors',
-        name='OpenStreetMap'
+        name='OpenStreetMap',
+        max_zoom=10
     ).add_to(m)
 
     if show_mrms:
         mrms = MRMSHandler()
         mrms_metadata = mrms.get_reflectivity_metadata()
-
-        # Add MRMS reflectivity layer
         folium.TileLayer(
             mrms.get_tile_url(),
             attr=mrms_metadata['attribution'],
             name='MRMS Reflectivity',
-            opacity=mrms_metadata['opacity'],
+            opacity=0.7,
             overlay=True
         ).add_to(m)
 
-    # Add radar site markers
+    # Add radar site markers with simplified style
     sites = get_sorted_sites()
     for site in sites:
-        popup_content = f"""
-        <div>
-            <b>{site.id}</b><br>
-            {site.name}
-        </div>
-        """
-
-        # Create a custom icon using the PNG image
-        icon = folium.CustomIcon(
-            icon_image='attached_assets/pngegg.png',
-            icon_size=(8, 10),  # Reduced size from (15, 20)
-            icon_anchor=(4, 10),  # Adjusted anchor point for new size
-            popup_anchor=(0, -10)  # Adjusted popup position for new size
-        )
-
-        marker = folium.Marker(
+        # Simple circle marker instead of custom icon
+        folium.CircleMarker(
             location=[site.lat, site.lon],
-            popup=folium.Popup(popup_content, max_width=300),
-            tooltip=f"{site.id} - {site.name}",
-            icon=icon
-        )
-        marker._name = f"site_{site.id}"
-        marker.add_to(m)
+            radius=4,
+            color='red',
+            fill=True,
+            popup=f"{site.id} - {site.name}",
+            tooltip=f"{site.id}",
+            weight=2
+        ).add_to(m)
 
-    # Add layer control
-    folium.LayerControl().add_to(m)
+    # Add layer control if MRMS is enabled
+    if show_mrms:
+        folium.LayerControl().add_to(m)
 
     return m
 
 def handle_site_selection():
     """Handle the site selection from the map"""
-    from streamlit.components.v1 import html
-
-    m = create_map() # Use the new map creation function
+    m = create_map()
     folium_static(m)
-
-    html(
-        """
-        <script>
-        window.addEventListener('message', function(e) {
-            if (e.data.type === 'site_selected') {
-                window.Streamlit.setComponentValue(e.data.siteId);
-            }
-        });
-        </script>
-        """,
-        height=0,
-    )
