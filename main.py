@@ -1020,6 +1020,69 @@ def main():
 
             st.plotly_chart(fig, usecontainer_width=True)
 
+        # Add a summary of derived hodograph data first (if available)
+        if st.session_state.metar_data and all(key in st.session_state.metar_data for key in ['speed', 'direction']):
+            st.subheader("Hodograph Derived Data")
+            
+            metar = st.session_state.metar_data
+            surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
+            
+            # Get the lowest radar point
+            radar_speed = st.session_state.wind_profile.speeds[0]
+            radar_dir = st.session_state.wind_profile.directions[0]
+            radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
+            
+            # Calculate shear depth and magnitude
+            shear_depth, aligned_heights, shear_magnitude = calculate_shear_depth(
+                surface_u, surface_v, st.session_state.wind_profile
+            )
+            
+            summary_data = {
+                "Parameter": ["Shear Depth", "Shear Magnitude", "Surface Wind", "Lowest Radar Wind"],
+                "Value": [
+                    f"{shear_depth * 1000:.0f} meters",
+                    f"{shear_magnitude:.1f} knots",
+                    f"{int(metar['speed'])} knots from {int(metar['direction'])}°",
+                    f"{int(radar_speed)} knots from {int(radar_dir)}°"
+                ]
+            }
+            
+            # Add Bunkers motion if available
+            try:
+                derived_data = {
+                    'wind_dir': st.session_state.wind_profile.directions,
+                    'wind_spd': st.session_state.wind_profile.speeds,
+                    'altitude': st.session_state.wind_profile.heights
+                }
+                bunkers_right, bunkers_left, mean_wind = compute_bunkers(derived_data)
+                
+                summary_data["Parameter"].extend(["Right Mover", "Left Mover", "Mean Wind"])
+                summary_data["Value"].extend([
+                    f"{bunkers_right[1]:.1f} knots from {bunkers_right[0]:.1f}°",
+                    f"{bunkers_left[1]:.1f} knots from {bunkers_left[0]:.1f}°",
+                    f"{mean_wind[1]:.1f} knots from {mean_wind[0]:.1f}°"
+                ])
+                
+                # Add critical angles if storm motion is available
+                if st.session_state.storm_motion:
+                    storm_u, storm_v = calculate_wind_components(
+                        st.session_state.storm_motion['speed'],
+                        st.session_state.storm_motion['direction']
+                    )
+                    
+                    critical_angle = calculate_skoff_angle_points(
+                        surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
+                    )
+                    
+                    summary_data["Parameter"].append("Critical Angle")
+                    summary_data["Value"].append(f"{critical_angle:.1f}°")
+            except Exception as e:
+                st.warning(f"Could not calculate all derived values: {str(e)}")
+                
+            # Display summary data in a dataframe with a wider column
+            summary_df = pd.DataFrame(summary_data)
+            st.dataframe(summary_df, hide_index=True, width=800)
+            
         # Add wind data table with more comprehensive data
         st.subheader("Wind Profile Data")
         
@@ -1065,7 +1128,7 @@ def main():
         shear_direction.append(None)
         
         # Create a comprehensive dataframe
-        data = {
+        wind_data = {
             'Height (m)': [int(h * 1000) for h in heights],
             'Height (ft)': [int(h * 1000 * 3.28084) for h in heights],
             'Speed (kts)': [int(s) for s in speeds],
@@ -1076,69 +1139,8 @@ def main():
             'Shear Dir (°)': shear_direction
         }
         
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(wind_data)
         st.dataframe(df, hide_index=True)
-        
-        # Add a summary of critical values
-        if st.session_state.metar_data and all(key in st.session_state.metar_data for key in ['speed', 'direction']):
-            st.subheader("Critical Values Summary")
-            
-            metar = st.session_state.metar_data
-            surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
-            
-            # Get the lowest radar point
-            radar_speed = st.session_state.wind_profile.speeds[0]
-            radar_dir = st.session_state.wind_profile.directions[0]
-            
-            # Calculate shear depth and magnitude
-            shear_depth, aligned_heights, shear_magnitude = calculate_shear_depth(
-                surface_u, surface_v, st.session_state.wind_profile
-            )
-            
-            summary_data = {
-                "Parameter": ["Shear Depth", "Shear Magnitude", "Surface Wind", "Lowest Radar Wind"],
-                "Value": [
-                    f"{shear_depth * 1000:.0f} meters",
-                    f"{shear_magnitude:.1f} knots",
-                    f"{int(metar['speed'])} knots from {int(metar['direction'])}°",
-                    f"{int(radar_speed)} knots from {int(radar_dir)}°"
-                ]
-            }
-            
-            # Add Bunkers motion if available
-            try:
-                data = {
-                    'wind_dir': st.session_state.wind_profile.directions,
-                    'wind_spd': st.session_state.wind_profile.speeds,
-                    'altitude': st.session_state.wind_profile.heights
-                }
-                bunkers_right, bunkers_left, mean_wind = compute_bunkers(data)
-                
-                summary_data["Parameter"].extend(["Right Mover", "Left Mover", "Mean Wind"])
-                summary_data["Value"].extend([
-                    f"{bunkers_right[1]:.1f} knots from {bunkers_right[0]:.1f}°",
-                    f"{bunkers_left[1]:.1f} knots from {bunkers_left[0]:.1f}°",
-                    f"{mean_wind[1]:.1f} knots from {mean_wind[0]:.1f}°"
-                ])
-                
-                # Add critical angles if storm motion is available
-                if st.session_state.storm_motion:
-                    storm_u, storm_v = calculate_wind_components(
-                        st.session_state.storm_motion['speed'],
-                        st.session_state.storm_motion['direction']
-                    )
-                    
-                    critical_angle = calculate_skoff_angle_points(
-                        surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
-                    )
-                    
-                    summary_data["Parameter"].append("Critical Angle")
-                    summary_data["Value"].append(f"{critical_angle:.1f}°")
-            except Exception as e:
-                st.warning(f"Could not calculate all derived values: {str(e)}")
-                
-            summary_df = pd.DataFrame(summary_data)
-            st.dataframe(summary_df, hide_index=True)
 
     else:
         st.info("Select a radar site and click 'Plot Hodograph' to generate a hodograph.")
