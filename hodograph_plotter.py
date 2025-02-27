@@ -29,7 +29,8 @@ class HodographPlotter:
         # Close any existing figures
         plt.close('all')
 
-        self.fig, self.ax = plt.subplots(figsize=(8, 8))
+        # Create a figure with more vertical space for title and labels
+        self.fig, self.ax = plt.subplots(figsize=(8, 9))
 
         # Add title with site information and time if provided
         title_parts = []
@@ -43,7 +44,8 @@ class HodographPlotter:
         # This placeholder will be used to add a title line for METAR data later
             
         if title_parts:
-            self.fig.suptitle('\n'.join(title_parts), y=0.95)
+            # Set the title higher up with more space between title and plot
+            self.fig.suptitle('\n'.join(title_parts), y=0.98)
 
         # Set up the plot
         self.ax.set_aspect('equal')

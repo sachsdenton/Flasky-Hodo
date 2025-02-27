@@ -154,12 +154,14 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         metar_time_str = ""
         if 'time' in metar and metar['time']:
             metar_time_str = metar['time'].strftime('%H%M UTC')
+        # Add a blank line before METAR info for better spacing
+        title.append("")
         title.append(f"Surface Wind: {int(metar['direction'])}/{int(metar['speed'])} ({metar['station']} {metar_time_str})")
 
     if title:
         fig.update_layout(title={
             'text': '<br>'.join(title),
-            'y': 0.95,
+            'y': 0.98,  # Position title higher to create more space
             'x': 0.5,
             'xanchor': 'center',
             'yanchor': 'top'
@@ -889,8 +891,8 @@ def main():
                 # Get the current title text
                 title = plotter.fig.texts[0].get_text() if plotter.fig.texts else ""
                 
-                # Add METAR information in the specified format
-                metar_title = f"{title}\nSurface Wind: {int(metar['direction'])}/{int(metar['speed'])} ({metar['station']} {metar_time_str})"
+                # Add METAR information in the specified format with additional newlines for spacing
+                metar_title = f"{title}\n\nSurface Wind: {int(metar['direction'])}/{int(metar['speed'])} ({metar['station']} {metar_time_str})"
                 
                 # Update the title
                 plotter.fig.texts[0].set_text(metar_title)
