@@ -147,9 +147,14 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
         title.append(f"{site_id} - {site_name}")
     if valid_time:
         title.append(f"Valid: {valid_time.strftime('%Y-%m-%d %H:%M UTC')}")
-    if st.session_state.metar_data:
+    
+    # Add METAR info in the specified format if available
+    if st.session_state.metar_data and all(key in st.session_state.metar_data for key in ['station', 'direction', 'speed']):
         metar = st.session_state.metar_data
-        title.append(f"METAR: {metar['station']}")
+        metar_time_str = ""
+        if 'time' in metar and metar['time']:
+            metar_time_str = metar['time'].strftime('%H%M UTC')
+        title.append(f"Surface Wind: {int(metar['direction'])}/{int(metar['speed'])} ({metar['station']} {metar_time_str})")
 
     if title:
         fig.update_layout(title={
@@ -475,7 +480,7 @@ def refresh_data(site_id, metar_station=None):
 
         # Fetch METAR data only if a station is provided
         if metar_station and success:
-            wind_dir, wind_speed, error = get_metar(metar_station)
+            wind_dir, wind_speed, obs_time, error = get_metar(metar_station)
             if error:
                 # Don't fail the entire refresh for METAR errors
                 st.warning(f"METAR Error: {error}")
@@ -483,7 +488,8 @@ def refresh_data(site_id, metar_station=None):
                 st.session_state.metar_data = {
                     'station': metar_station,
                     'direction': wind_dir,
-                    'speed': wind_speed
+                    'speed': wind_speed,
+                    'time': obs_time
                 }
 
         if success:
@@ -789,7 +795,7 @@ def main():
 
     if metar_fetch:
         with st.spinner(f'Fetching METAR data from {metar_station}...'):
-            wind_dir, wind_speed, error = get_metar(metar_station)
+            wind_dir, wind_speed, obs_time, error = get_metar(metar_station)
             if error:
                 st.sidebar.error(f"METAR Error: {error}")
                 st.session_state.metar_data = None
@@ -797,7 +803,8 @@ def main():
                 st.session_state.metar_data = {
                     'station': metar_station,
                     'direction': wind_dir,
-                    'speed': wind_speed
+                    'speed': wind_speed,
+                    'time': obs_time
                 }
                 st.sidebar.success(f"METAR data loaded: {wind_speed}kts @ {wind_dir}°")
 
@@ -863,6 +870,22 @@ def main():
                 site_name=site.name if site else None,
                 valid_time=valid_time
             )
+            
+            # Add METAR information to the title if available
+            if show_metar and st.session_state.metar_data and all(key in st.session_state.metar_data for key in ['station', 'direction', 'speed']):
+                metar = st.session_state.metar_data
+                metar_time_str = ""
+                if 'time' in metar and metar['time']:
+                    metar_time_str = metar['time'].strftime('%H%M UTC')
+                
+                # Get the current title text
+                title = plotter.fig.texts[0].get_text() if plotter.fig.texts else ""
+                
+                # Add METAR information in the specified format
+                metar_title = f"{title}\nSurface Wind: {int(metar['direction'])}/{int(metar['speed'])} ({metar['station']} {metar_time_str})"
+                
+                # Update the title
+                plotter.fig.texts[0].set_text(metar_title)
             plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
 
             if show_metar and st.session_state.metar_data:
@@ -986,7 +1009,7 @@ def main():
                         ),
                         name=f"METAR {metar['station']}",
                         hoverinfo='text',
-                        text=f"METAR {metar['station']}<br>Speed: {metar['speed']}kts<br>Direction: {metar['direction']}°"
+                        text=f"METAR {metar['station']}<br>Speed: {metar['speed']}kts<br>Direction: {metar['direction']}°{('<br>Time: ' + metar['time'].strftime('%H%M UTC')) if 'time' in metar and metar['time'] else ''}"
                     ))
 
                     # Add reference vector line extended to edge

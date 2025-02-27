@@ -38,6 +38,9 @@ class HodographPlotter:
         if valid_time:
             time_str = valid_time.strftime('%Y-%m-%d %H:%M UTC')
             title_parts.append(f"Valid: {time_str}")
+        
+        # Add METAR information if available in session state (to be done in main.py)
+        # This placeholder will be used to add a title line for METAR data later
             
         if title_parts:
             self.fig.suptitle('\n'.join(title_parts), y=0.95)
