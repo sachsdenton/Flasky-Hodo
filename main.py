@@ -296,6 +296,11 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                 radar_speed = wind_profile.speeds[0]
                 radar_dir = wind_profile.directions[0]
                 radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
+                
+                # Calculate shear depth and magnitude 
+                shear_depth, aligned_heights, shear_magnitude = calculate_shear_depth(
+                    surface_u, surface_v, wind_profile
+                )
 
                 # Calculate critical angles for both movers
                 right_critical = calculate_skoff_angle_points(
@@ -380,7 +385,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                     ),
                     name=f"METAR {metar['station']}",
                     hoverinfo='text',
-                    text=f"METAR {metar['station']}<br>Speed: {metar['speed']}kts<br>Direction: {metar['direction']}°"
+                    text=f"METAR {metar['station']}<br>Speed: {metar['speed']}kts<br>Direction: {metar['direction']}°{('<br>Time: ' + metar['time'].strftime('%H%M UTC')) if 'time' in metar and metar['time'] else ''}"
                 ))
 
                 # Add reference vector line extended to edge
@@ -906,9 +911,13 @@ def main():
 
                     fig, ax = plotter.get_plot()
 
-                    # Plot METAR point
+                    # Plot METAR point with tooltip that includes timestamp
+                    metar_label = f"METAR {metar['station']}"
+                    if 'time' in metar and metar['time']:
+                        # When hovering, the full info will be shown including timestamp
+                        metar_label += f" ({metar['time'].strftime('%H%M UTC')})"
                     ax.scatter([surface_u], [surface_v], c='red', marker='*', s=150, 
-                              label=f"METAR {metar['station']}")
+                              label=metar_label)
 
                     # Draw surface to radar line
                     ax.plot([surface_u, radar_u], [surface_v, radar_v], 'b--', linewidth=2)
