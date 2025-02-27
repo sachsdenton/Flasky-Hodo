@@ -205,10 +205,21 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
             constrain='domain'
         ),
         showlegend=True,
+        legend=dict(
+            orientation="h",  # Horizontal orientation
+            yanchor="bottom",
+            y=-0.25,  # Position below the plot
+            xanchor="center",
+            x=0.5,  # Center horizontally
+            bgcolor='rgba(255,255,255,0.8)',  # Semi-transparent background
+            bordercolor="LightGrey",
+            borderwidth=1
+        ),
         hovermode='closest',
         width=600,
         height=600,
-        autosize=False,
+        autosize=True,  # Changed to True for better responsiveness
+        margin=dict(t=80, b=120, l=50, r=50),  # Add more bottom margin for the legend
         plot_bgcolor='white'
     )
 
@@ -997,6 +1008,8 @@ def main():
             site = get_site_by_id(st.session_state.selected_site) if st.session_state.selected_site else None
             valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
 
+            # Get the plotly hodograph - no need to add METAR data here as it's already handled in the create_plotly_hodograph 
+            # function for the Analyst view
             fig, max_speed = create_plotly_hodograph(
                 st.session_state.wind_profile,
                 site_id=st.session_state.selected_site,
@@ -1004,138 +1017,128 @@ def main():
                 valid_time=valid_time,
                 plot_type=plot_type
             )
-            if show_metar and st.session_state.metar_data:
-                metar = st.session_state.metar_data
-                if all(key in metar for key in ['speed', 'direction']):
-                    surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
-
-                    # Get the lowest radar point
-                    radar_speed = st.session_state.wind_profile.speeds[0]
-                    radar_dir = st.session_state.wind_profile.directions[0]
-                    radar_u, radar_v = calculate_wind_components(radar_speed, radar_dir)
-
-                    # Calculate shear depth and magnitude
-                    shear_depth, aligned_heights, shear_magnitude = calculate_shear_depth(
-                        surface_u, surface_v, st.session_state.wind_profile
-                    )
-
-                    # Add METAR point and surface-to-radar line
-                    fig.add_trace(go.Scatter(
-                        x=[surface_u, radar_u],
-                        y=[surface_v, radar_v],
-                        mode='lines',
-                        line=dict(color='blue', width=2, dash='dash'),
-                        showlegend=False,
-                        hoverinfo='skip'
-                    ))
-
-                    fig.add_trace(go.Scatter(
-                        x=[surface_u],
-                        y=[surface_v],
-                        mode='markers',
-                        marker=dict(
-                            symbol='star',
-                            size=15,
-                            color='red',
-                        ),
-                        name=f"METAR {metar['station']}",
-                        hoverinfo='text',
-                        text=f"METAR {metar['station']}<br>Speed: {metar['speed']}kts<br>Direction: {metar['direction']}°{('<br>Time: ' + metar['time'].strftime('%H%M UTC')) if 'time' in metar and metar['time'] else ''}"
-                    ))
-
-                    # Add reference vector line extended to edge
-                    end_u, end_v = extend_line_to_edge(surface_u, surface_v, radar_u, radar_v, max_speed)
-                    fig.add_trace(go.Scatter(
-                        x=[surface_u, end_u],
-                        y=[surface_v, end_v],
-                        mode='lines',
-                        line=dict(color='lightgrey', width=1.5, dash='dash'),
-                        name='Ideal Shear Vector',
-                        showlegend=True
-                    ))
-
-                    # Add shear depth and magnitude annotation
-                    fig.add_annotation(
-                        x=0,
-                        y=-max_speed * 0.9,
-                        text=f'Shear Depth: {shear_depth * 1000:.0f}m<br>Shear Magnitude: {shear_magnitude:.0f}kts',
-                        showarrow=False,
-                        font=dict(size=12, color='grey'),
-                        bgcolor='white',
-                        bordercolor='grey',
-                        borderwidth=1
-                    )
-
-
-                    # Only add storm motion if it's been entered
-                    if st.session_state.storm_motion:
-                        storm_u, storm_v = calculate_wind_components(
-                            st.session_state.storm_motion['speed'],
-                            st.session_state.storm_motion['direction']
-                        )
-
-                        # Add Storm Motion point
-                        fig.add_trace(go.Scatter(
-                            x=[storm_u],
-                            y=[storm_v],
-                            mode='markers',
-                            marker=dict(
-                                symbol='triangle-up',
-                                size=15,
-                                color='green',
-                            ),
-                            name="Storm Motion",
-                            hoverinfo='text',
-                            text=f"Storm Motion<br>Speed: {st.session_state.storm_motion['speed']}kts<br>Direction: {st.session_state.storm_motion['direction']}°"
-                        ))
-
-                        # Add connecting lines
-                        for coord_pair in [
-                            dict(
-                                points=([surface_u, storm_u], [surface_v, storm_v]),
-                                color='green'
-                            )
-                        ]:
-                            fig.add_trace(go.Scatter(
-                                x=coord_pair['points'][0],
-                                y=coord_pair['points'][1],
-                                mode='lines',
-                                line=dict(color=coord_pair['color'], width=2, dash='dash'),
-                                showlegend=False,
-                                hoverinfo='skip'
-                            ))
-
-                        # Calculate and display Skoff Critical Angle
-                        critical_angle = calculate_skoff_angle_points(
-                            surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
-                        )
-
-                        # Add annotation for the angle at the bottom
-                        fig.add_annotation(
-                            x=0,
-                            y=-max_speed * 0.8,
-                            text=f'Skoff Critical Angle: {critical_angle:.1f}°',
-                            showarrow=False,
-                            font=dict(size=12, color='blue'),
-                            bgcolor='white',
-                            bordercolor='blue',
-                            borderwidth=1
-                        )
-                else:
-                    st.warning("METAR station selected but wind data not yet available. Please fetch METAR data using the sidebar form.")
 
             st.plotly_chart(fig, usecontainer_width=True)
 
-        # Add wind data table
+        # Add wind data table with more comprehensive data
         st.subheader("Wind Profile Data")
+        
+        # Create height, speed, and direction arrays
+        heights = np.array(st.session_state.wind_profile.heights)
+        speeds = np.array(st.session_state.wind_profile.speeds)
+        directions = np.array(st.session_state.wind_profile.directions)
+        
+        # Calculate U and V components for each level
+        u_components = []
+        v_components = []
+        for s, d in zip(speeds, directions):
+            u, v = calculate_wind_components(s, d)
+            u_components.append(round(u, 1))
+            v_components.append(round(v, 1))
+        
+        # Calculate shear between adjacent layers
+        shear_magnitude = []
+        shear_direction = []
+        
+        for i in range(len(heights)-1):
+            u1, v1 = calculate_wind_components(speeds[i], directions[i])
+            u2, v2 = calculate_wind_components(speeds[i+1], directions[i+1])
+            
+            # Vector difference
+            du = u2 - u1
+            dv = v2 - v1
+            
+            # Magnitude of shear
+            mag = np.sqrt(du**2 + dv**2)
+            
+            # Direction of shear (convert to meteorological convention)
+            dir_rad = np.arctan2(-du, -dv)  # Note the negative signs to convert to meteorological convention
+            dir_deg = np.rad2deg(dir_rad)
+            if dir_deg < 0:
+                dir_deg += 360
+                
+            shear_magnitude.append(round(mag, 1))
+            shear_direction.append(int(dir_deg))
+        
+        # Add a placeholder for the last row
+        shear_magnitude.append(None)
+        shear_direction.append(None)
+        
+        # Create a comprehensive dataframe
         data = {
-            'Height (m)': [int(h * 1000) for h in st.session_state.wind_profile.heights],
-            'Height (ft)': [int(h * 1000 * 3.28084) for h in st.session_state.wind_profile.heights],
-            'Speed (kts)': [int(s) for s in st.session_state.wind_profile.speeds],
-            'Direction (°)': [int(d) for d in st.session_state.wind_profile.directions]
+            'Height (m)': [int(h * 1000) for h in heights],
+            'Height (ft)': [int(h * 1000 * 3.28084) for h in heights],
+            'Speed (kts)': [int(s) for s in speeds],
+            'Direction (°)': [int(d) for d in directions],
+            'U-comp (kts)': u_components,
+            'V-comp (kts)': v_components,
+            'Layer Shear (kts)': shear_magnitude,
+            'Shear Dir (°)': shear_direction
         }
+        
         df = pd.DataFrame(data)
         st.dataframe(df, hide_index=True)
+        
+        # Add a summary of critical values
+        if st.session_state.metar_data and all(key in st.session_state.metar_data for key in ['speed', 'direction']):
+            st.subheader("Critical Values Summary")
+            
+            metar = st.session_state.metar_data
+            surface_u, surface_v = calculate_wind_components(metar['speed'], metar['direction'])
+            
+            # Get the lowest radar point
+            radar_speed = st.session_state.wind_profile.speeds[0]
+            radar_dir = st.session_state.wind_profile.directions[0]
+            
+            # Calculate shear depth and magnitude
+            shear_depth, aligned_heights, shear_magnitude = calculate_shear_depth(
+                surface_u, surface_v, st.session_state.wind_profile
+            )
+            
+            summary_data = {
+                "Parameter": ["Shear Depth", "Shear Magnitude", "Surface Wind", "Lowest Radar Wind"],
+                "Value": [
+                    f"{shear_depth * 1000:.0f} meters",
+                    f"{shear_magnitude:.1f} knots",
+                    f"{int(metar['speed'])} knots from {int(metar['direction'])}°",
+                    f"{int(radar_speed)} knots from {int(radar_dir)}°"
+                ]
+            }
+            
+            # Add Bunkers motion if available
+            try:
+                data = {
+                    'wind_dir': st.session_state.wind_profile.directions,
+                    'wind_spd': st.session_state.wind_profile.speeds,
+                    'altitude': st.session_state.wind_profile.heights
+                }
+                bunkers_right, bunkers_left, mean_wind = compute_bunkers(data)
+                
+                summary_data["Parameter"].extend(["Right Mover", "Left Mover", "Mean Wind"])
+                summary_data["Value"].extend([
+                    f"{bunkers_right[1]:.1f} knots from {bunkers_right[0]:.1f}°",
+                    f"{bunkers_left[1]:.1f} knots from {bunkers_left[0]:.1f}°",
+                    f"{mean_wind[1]:.1f} knots from {mean_wind[0]:.1f}°"
+                ])
+                
+                # Add critical angles if storm motion is available
+                if st.session_state.storm_motion:
+                    storm_u, storm_v = calculate_wind_components(
+                        st.session_state.storm_motion['speed'],
+                        st.session_state.storm_motion['direction']
+                    )
+                    
+                    critical_angle = calculate_skoff_angle_points(
+                        surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
+                    )
+                    
+                    summary_data["Parameter"].append("Critical Angle")
+                    summary_data["Value"].append(f"{critical_angle:.1f}°")
+            except Exception as e:
+                st.warning(f"Could not calculate all derived values: {str(e)}")
+                
+            summary_df = pd.DataFrame(summary_data)
+            st.dataframe(summary_df, hide_index=True)
 
     else:
         st.info("Select a radar site and click 'Plot Hodograph' to generate a hodograph.")
