@@ -876,7 +876,10 @@ def main():
                 valid_time=valid_time
             )
             
-            # Add METAR information to the title if available
+            # First plot the profile (this will set up the plot with the correct scale)
+            plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
+            
+            # Then add METAR information to the title if available
             if show_metar and st.session_state.metar_data and all(key in st.session_state.metar_data for key in ['station', 'direction', 'speed']):
                 metar = st.session_state.metar_data
                 metar_time_str = ""
@@ -891,7 +894,6 @@ def main():
                 
                 # Update the title
                 plotter.fig.texts[0].set_text(metar_title)
-            plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
 
             if show_metar and st.session_state.metar_data:
                 metar = st.session_state.metar_data
