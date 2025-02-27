@@ -8,15 +8,11 @@ from radar_sites import get_sorted_sites
 from mrms_handler import MRMSHandler
 
 def calculate_distance(lat1, lon1, lat2, lon2):
-    """Calculate distance between two points in nautical miles"""
-    R = 3440.065  # Earth's radius in nautical miles
-    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * atan2(sqrt(a), sqrt(1-a))
-    distance = R * c
-    return distance
+    """Calculate distance between two points in nautical miles using geopy"""
+    from geopy.distance import distance
+    # Convert from nautical miles to km and back for consistency
+    dist_nm = distance((lat1, lon1), (lat2, lon2)).nautical
+    return dist_nm
 
 def load_metar_sites():
     """Load METAR sites from CSV file"""

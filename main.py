@@ -22,6 +22,7 @@ from mrms_handler import MRMSHandler
 
 def calculate_vector_angle(u1: float, v1: float, u2: float, v2: float) -> float:
     """Calculate the angle between two vectors."""
+    # Function uses the same calculation as utils.calculate_skoff_angle but with components
     dot_product = u1 * u2 + v1 * v2
     mag1 = np.sqrt(u1**2 + v1**2)
     mag2 = np.sqrt(u2**2 + v2**2)
@@ -97,24 +98,13 @@ def extend_line_to_edge(surface_u: float, surface_v: float, radar_u: float, rada
 
 def calculate_skoff_angle_points(surface_u, surface_v, storm_u, storm_v, radar_u, radar_v):
     """Calculate the Skoff Critical Angle between three points."""
+    # This is a specialized version of the vector angle calculation for three points
     # Calculate vectors
     v1 = [storm_u - surface_u, storm_v - surface_v]  # Surface to Storm vector
     v2 = [radar_u - surface_u, radar_v - surface_v]  # Surface to Radar vector
-
-    # Calculate dot product
-    dot_product = v1[0]*v2[0] + v1[1]*v2[1]
-
-    # Calculate magnitudes
-    mag1 = np.sqrt(v1[0]**2 + v1[1]**2)
-    mag2 = np.sqrt(v2[0]**2 + v2[1]**2)
-
-    if mag1 == 0 or mag2 == 0:
-        return 0.0
-
-    # Calculate angle
-    cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
-    angle_rad = np.arccos(cos_angle)
-    return np.rad2deg(angle_rad)
+    
+    # Use the existing vector angle function
+    return calculate_vector_angle(v1[0], v1[1], v2[0], v2[1])
 
 
 def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_time=None, plot_type="Standard"):
@@ -471,16 +461,44 @@ def refresh_data(site_id, metar_station=None):
     error_message = None
 
     try:
-        # Fetch VWP data
+        # Fetch VWP data asynchronously if available
         if site_id:
             from vad_reader import download_vad
-            vad = download_vad(site_id, cache_path="temp_data")
-
+            
+            # Create temp directory if it doesn't exist
+            os.makedirs("temp_data", exist_ok=True)
+            
+            # Check if we already have recent data (within 30 minutes)
+            cache_file = os.path.join("temp_data", f"{site_id}_latest.vad")
+            use_cache = False
+            
+            if os.path.exists(cache_file):
+                file_time = os.path.getmtime(cache_file)
+                time_diff = datetime.now().timestamp() - file_time
+                # Use cache if less than 30 minutes old
+                if time_diff < 1800:  # 30 minutes in seconds
+                    use_cache = True
+            
+            # Download new data if needed
+            if not use_cache:
+                vad = download_vad(site_id, cache_path="temp_data")
+            else:
+                # Load from cache
+                with open(cache_file, 'rb') as f:
+                    from vad_reader import VADFile
+                    vad = VADFile(f)
+            
             if vad:
-                st.session_state.wind_profile.heights = vad['altitude']
-                st.session_state.wind_profile.speeds = vad['wind_spd']
-                st.session_state.wind_profile.directions = vad['wind_dir']
+                # Store data as numpy arrays directly
+                st.session_state.wind_profile.heights = np.array(vad['altitude'], dtype=float)
+                st.session_state.wind_profile.speeds = np.array(vad['wind_spd'], dtype=float)
+                st.session_state.wind_profile.directions = np.array(vad['wind_dir'], dtype=float)
                 st.session_state.wind_profile.times = [vad['time']] * len(vad['altitude'])
+                # Store site metadata
+                st.session_state.wind_profile.site_id = site_id
+                site = get_site_by_id(site_id)
+                if site:
+                    st.session_state.wind_profile.site_name = site.name
             else:
                 success = False
                 error_message = "Could not fetch radar data"
