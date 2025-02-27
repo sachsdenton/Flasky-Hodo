@@ -97,7 +97,7 @@ def extend_line_to_edge(surface_u: float, surface_v: float, radar_u: float, rada
 
 
 def calculate_skoff_angle_points(surface_u, surface_v, storm_u, storm_v, radar_u, radar_v):
-    """Calculate the Skoff Critical Angle between three points."""
+    """Calculate the Skoff Critical Angle between three points (surface, storm, and radar winds)."""
     # This is a specialized version of the vector angle calculation for three points
     # Calculate vectors
     v1 = [storm_u - surface_u, storm_v - surface_v]  # Surface to Storm vector
@@ -446,7 +446,7 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                         surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
                     )
 
-                    # Add annotation for the angle at the bottom
+                    # Add annotation for the Skoff Critical Angle at the bottom
                     fig.add_annotation(
                         x=0,
                         y=-max_speed * 0.8,
@@ -1074,14 +1074,18 @@ def main():
                         surface_u, surface_v, storm_u, storm_v, radar_u, radar_v
                     )
                     
-                    summary_data["Parameter"].append("Critical Angle")
+                    summary_data["Parameter"].append("Skoff Critical Angle")
                     summary_data["Value"].append(f"{critical_angle:.1f}°")
             except Exception as e:
                 st.warning(f"Could not calculate all derived values: {str(e)}")
                 
-            # Display summary data in a dataframe with a wider column
+            # Display summary data in a dataframe with adjusted width and precision
             summary_df = pd.DataFrame(summary_data)
-            st.dataframe(summary_df, hide_index=True, width=800)
+            
+            # Use columns to create a better layout
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                st.dataframe(summary_df, hide_index=True, width=1000, use_container_width=True)
             
         # Add wind data table with more comprehensive data
         st.subheader("Wind Profile Data")
@@ -1140,7 +1144,8 @@ def main():
         }
         
         df = pd.DataFrame(wind_data)
-        st.dataframe(df, hide_index=True)
+        # Use full width for the wind profile data table
+        st.dataframe(df, hide_index=True, use_container_width=True)
 
     else:
         st.info("Select a radar site and click 'Plot Hodograph' to generate a hodograph.")
