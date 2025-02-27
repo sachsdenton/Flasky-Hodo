@@ -613,10 +613,33 @@ def add_metar_sites_to_map(m, radar_site):
         st.warning(f"Error loading METAR sites: {str(e)}")
 
 
+def reset_app():
+    """Reset all session state variables to their initial values."""
+    # Clear session state variables
+    st.session_state.wind_profile = WindProfile()
+    st.session_state.metar_data = None
+    st.session_state.storm_motion = None
+    st.session_state.plot_type = "Standard"
+    st.session_state.selected_site = None
+    st.session_state.last_metar_click = None
+    st.session_state.show_mrms = True
+    
+    # Clear URL parameters
+    st.query_params.clear()
+    
+    # Display success message
+    st.success("Application has been reset!")
+
+
 def main():
     os.makedirs("temp_data", exist_ok=True)
 
     st.title("Hodograph Analysis Tool")
+    
+    # Add reset button
+    if st.button("Reset Application", help="Reset the application to its initial state"):
+        reset_app()
+        st.rerun()
 
     # Initialize session state variables
     if 'wind_profile' not in st.session_state:
@@ -773,7 +796,7 @@ def main():
             else:
                 st.session_state.metar_data = {
                     'station': metar_station,
-                    'direction': winddir,
+                    'direction': wind_dir,
                     'speed': wind_speed
                 }
                 st.sidebar.success(f"METAR data loaded: {wind_speed}kts @ {wind_dir}°")
