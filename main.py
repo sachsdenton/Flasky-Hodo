@@ -665,6 +665,8 @@ def reset_app():
     st.session_state.selected_site = None
     st.session_state.last_metar_click = None
     st.session_state.show_mrms = True
+    st.session_state.hodograph_displayed = False
+    st.session_state.last_map_interaction = None
     
     # Clear URL parameters
     st.query_params.clear()
@@ -698,6 +700,10 @@ def main():
         st.session_state.last_metar_click = None
     if 'show_mrms' not in st.session_state:
         st.session_state.show_mrms = True
+    if 'hodograph_displayed' not in st.session_state:
+        st.session_state.hodograph_displayed = False
+    if 'last_map_interaction' not in st.session_state:
+        st.session_state.last_map_interaction = None
 
     st.subheader("Select Radar Site")
 
@@ -722,41 +728,55 @@ def main():
 
     # Generate a unique key for the map based on the selected site
     map_key = f"radar_map_{st.session_state.selected_site}" if st.session_state.selected_site else "radar_map"
+    
+    # Create a variable to track the current map interaction state
+    current_map_interaction = {
+        'selected_site': st.session_state.selected_site,
+        'map_key': map_key
+    }
+    
+    # Only update last_map_interaction if it's different from the current state
+    if st.session_state.last_map_interaction != current_map_interaction:
+        st.session_state.last_map_interaction = current_map_interaction
+    
+    # Render the map - this can trigger a re-render when the map is moved or zoomed
     map_data = st_folium(radar_map, height=600, width="100%", key=map_key)
 
-    # Handle map clicks
-    if map_data and "last_object_clicked_tooltip" in map_data:
+    # Handle map clicks - but only actual clicks on markers, not just map movement
+    if map_data and "last_object_clicked_tooltip" in map_data and map_data["last_object_clicked_tooltip"]:
         tooltip = map_data["last_object_clicked_tooltip"]
-        if tooltip:
-            # Extract site ID from tooltip (format: "XXXX - Site Name")
-            site_id = tooltip.split(" - ")[0].strip()
-            try:
-                # Check if it's a radar site
-                site = get_site_by_id(site_id)
-                if site_id != st.session_state.selected_site:
-                    st.session_state.selected_site = site_id
-                    st.query_params["site"] = site_id
-                    st.rerun()
-            except ValueError:
-                # Check if it's a METAR site and hasn't been clicked recently
-                metar_sites = load_metar_sites()
-                current_time = time.time()
-                if (not metar_sites.empty and site_id in metar_sites['ID'].values and 
-                    (st.session_state.last_metar_click is None or 
-                     current_time - st.session_state.last_metar_click > 2)):
-                    st.session_state.metar_data = {'station': site_id}
-                    st.session_state.last_metar_click = current_time
-                    st.query_params["metar"] = site_id
+        # Extract site ID from tooltip (format: "XXXX - Site Name")
+        site_id = tooltip.split(" - ")[0].strip()
+        try:
+            # Check if it's a radar site
+            site = get_site_by_id(site_id)
+            if site_id != st.session_state.selected_site:
+                st.session_state.selected_site = site_id
+                st.query_params["site"] = site_id
+                # Reset the hodograph display state since we're changing sites
+                st.session_state.hodograph_displayed = False
+                st.rerun()
+        except ValueError:
+            # Check if it's a METAR site and hasn't been clicked recently
+            metar_sites = load_metar_sites()
+            current_time = time.time()
+            if (not metar_sites.empty and site_id in metar_sites['ID'].values and 
+                (st.session_state.last_metar_click is None or 
+                 current_time - st.session_state.last_metar_click > 2)):
+                # Save the previous METAR data before updating
+                st.session_state.metar_data = {'station': site_id}
+                st.session_state.last_metar_click = current_time
+                st.query_params["metar"] = site_id
 
-                    # Refresh data for both radar and METAR when a METAR site is selected
-                    if st.session_state.selected_site:  # Only if we have a radar site selected
-                        with st.spinner('Refreshing data...'):
-                            success, error_message = refresh_data(
-                                st.session_state.selected_site,
-                                site_id  # Pass the METAR station ID
-                            )
-                            if not success:
-                                st.error(error_message)
+                # Refresh data for both radar and METAR when a METAR site is selected
+                if st.session_state.selected_site:  # Only if we have a radar site selected
+                    with st.spinner('Refreshing data...'):
+                        success, error_message = refresh_data(
+                            st.session_state.selected_site,
+                            site_id  # Pass the METAR station ID
+                        )
+                        if not success:
+                            st.error(error_message)
 
     # Site selection sidebar
     st.sidebar.header("Site Selection")
@@ -1004,6 +1024,9 @@ def main():
             buf.seek(0)
             st.image(buf)
             plt.close(fig)
+            
+            # Mark that we've successfully displayed a hodograph
+            st.session_state.hodograph_displayed = True
         else:
             site = get_site_by_id(st.session_state.selected_site) if st.session_state.selected_site else None
             valid_time = st.session_state.wind_profile.times[0] if st.session_state.wind_profile.times else None
