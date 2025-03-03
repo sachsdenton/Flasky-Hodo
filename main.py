@@ -894,7 +894,11 @@ def main():
         st.sidebar.error("Please enter both direction and speed for storm motion")
 
 
-    if hasattr(st.session_state.wind_profile.speeds, '__len__') and len(st.session_state.wind_profile.speeds) > 0:
+    # Only show hodograph if we have wind data AND either:
+    # 1. We haven't displayed a hodograph yet, or
+    # 2. The map interaction didn't just cause a redraw
+    if (hasattr(st.session_state.wind_profile.speeds, '__len__') and 
+        len(st.session_state.wind_profile.speeds) > 0):
         st.subheader("Wind Profile Visualization")
 
         col1, col2, col3 = st.columns(3)
@@ -1042,6 +1046,9 @@ def main():
             )
 
             st.plotly_chart(fig, usecontainer_width=True)
+            
+            # Mark that we've successfully displayed a hodograph
+            st.session_state.hodograph_displayed = True
 
         # Add a summary of derived hodograph data first (if available)
         if st.session_state.metar_data and all(key in st.session_state.metar_data for key in ['speed', 'direction']):
