@@ -576,6 +576,18 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                     
                     # Add SRH visualization if checkbox is checked
                     if show_srh:
+                        # Check if we have METAR surface wind data
+                        surface_wind = None
+                        surface_u = None
+                        surface_v = None
+                        
+                        if st.session_state.metar_data and all(key in st.session_state.metar_data for key in ['speed', 'direction']):
+                            surface_wind = {
+                                'speed': st.session_state.metar_data['speed'],
+                                'direction': st.session_state.metar_data['direction']
+                            }
+                            surface_u, surface_v = calculate_wind_components(surface_wind['speed'], surface_wind['direction'])
+                        
                         # Prepare data for SRH calculation
                         data = {
                             'wind_dir': wind_profile.directions,
@@ -583,11 +595,31 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                             'altitude': wind_profile.heights
                         }
                         
+                        # Add surface wind to data if available
+                        if surface_wind:
+                            # Prepend surface wind to the data arrays
+                            data['wind_dir'] = np.insert(data['wind_dir'], 0, surface_wind['direction'])
+                            data['wind_spd'] = np.insert(data['wind_spd'], 0, surface_wind['speed'])
+                            data['altitude'] = np.insert(data['altitude'], 0, 0.0)  # Surface is at 0 km
+                        
                         # Calculate SRH for 0-1km and 0-3km
                         storm_motion_tuple = (st.session_state.storm_motion['direction'], 
                                              st.session_state.storm_motion['speed'])
                         srh_1km = compute_srh(data, storm_motion_tuple, 1)
                         srh_3km = compute_srh(data, storm_motion_tuple, 3)
+                        
+                        # Add SRH value at the bottom of the chart
+                        srh_bottom_text = f"0-3km SRH: {int(srh_3km) if not np.isnan(srh_3km) else 'N/A'} m²/s²"
+                        fig.add_annotation(
+                            x=0,
+                            y=-max_speed * 0.98,
+                            text=srh_bottom_text,
+                            showarrow=False,
+                            font=dict(size=14, color='black'),
+                            bgcolor='rgba(211,211,211,0.5)',
+                            bordercolor='grey',
+                            borderwidth=1
+                        )
                         
                         # Create SRH polygons
                         for height_km, color, srh_value in [
@@ -595,22 +627,42 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                             (3, 'rgba(144, 238, 144, 0.3)', srh_3km)   # lightgreen for 0-3km
                         ]:
                             # Get points for the SRH polygon
-                            srh_polygon_x = [storm_u]  # Start at storm motion
-                            srh_polygon_y = [storm_v]
-                            
-                            # Add wind profile points up to specified height
-                            for i, h in enumerate(wind_profile.heights):
-                                if h <= height_km:
-                                    u, v = calculate_wind_components(
-                                        wind_profile.speeds[i], 
-                                        wind_profile.directions[i]
-                                    )
-                                    srh_polygon_x.append(u)
-                                    srh_polygon_y.append(v)
-                            
-                            # Close the polygon
-                            srh_polygon_x.append(storm_u)
-                            srh_polygon_y.append(storm_v)
+                            if surface_wind:
+                                # Start at METAR surface wind
+                                srh_polygon_x = [surface_u]
+                                srh_polygon_y = [surface_v]
+                                
+                                # Add wind profile points up to specified height
+                                for i, h in enumerate(wind_profile.heights):
+                                    if h <= height_km:
+                                        u, v = calculate_wind_components(
+                                            wind_profile.speeds[i], 
+                                            wind_profile.directions[i]
+                                        )
+                                        srh_polygon_x.append(u)
+                                        srh_polygon_y.append(v)
+                                
+                                # Close the polygon back to surface wind
+                                srh_polygon_x.append(surface_u)
+                                srh_polygon_y.append(surface_v)
+                            else:
+                                # No surface wind, start at storm motion
+                                srh_polygon_x = [storm_u]
+                                srh_polygon_y = [storm_v]
+                                
+                                # Add wind profile points up to specified height
+                                for i, h in enumerate(wind_profile.heights):
+                                    if h <= height_km:
+                                        u, v = calculate_wind_components(
+                                            wind_profile.speeds[i], 
+                                            wind_profile.directions[i]
+                                        )
+                                        srh_polygon_x.append(u)
+                                        srh_polygon_y.append(v)
+                                
+                                # Close the polygon back to storm motion
+                                srh_polygon_x.append(storm_u)
+                                srh_polygon_y.append(storm_v)
                             
                             # Only add the polygon if we have enough points
                             if len(srh_polygon_x) > 2:
@@ -1239,15 +1291,25 @@ def main():
                         
                         # Plot SRH if checkbox is checked
                         if show_srh:
-                            # Add 0-1km SRH
+                            # Get METAR surface wind for SRH calculation if available
+                            surface_wind = None
+                            if st.session_state.metar_data and all(key in st.session_state.metar_data for key in ['speed', 'direction']):
+                                surface_wind = {
+                                    'speed': st.session_state.metar_data['speed'],
+                                    'direction': st.session_state.metar_data['direction']
+                                }
+                            
+                            # Add 0-1km SRH anchored to METAR surface wind
                             srh_1km = plot_srh(ax, st.session_state.wind_profile, 
                                              st.session_state.storm_motion, 
-                                             color='lightblue', alpha=0.3, height_km=1)
+                                             color='lightblue', alpha=0.3, height_km=1,
+                                             surface_wind=surface_wind)
                             
-                            # Add 0-3km SRH
+                            # Add 0-3km SRH anchored to METAR surface wind
                             srh_3km = plot_srh(ax, st.session_state.wind_profile, 
                                              st.session_state.storm_motion, 
-                                             color='green', alpha=0.3, height_km=3)
+                                             color='green', alpha=0.3, height_km=3,
+                                             surface_wind=surface_wind)
                             
                             # Add SRH values to summary data if they're calculated
                             if st.session_state.get('summary_data') is None:
@@ -1258,11 +1320,19 @@ def main():
                             
                             if srh_1km is not None:
                                 st.session_state.summary_data["Parameter"].append("0-1km SRH")
-                                st.session_state.summary_data["Value"].append(f"{int(srh_1km)} m²/s²")
+                                srh_text = "N/A" if np.isnan(srh_1km) else f"{int(srh_1km)} m²/s²"
+                                st.session_state.summary_data["Value"].append(srh_text)
                             
                             if srh_3km is not None:
                                 st.session_state.summary_data["Parameter"].append("0-3km SRH")
-                                st.session_state.summary_data["Value"].append(f"{int(srh_3km)} m²/s²")
+                                srh_text = "N/A" if np.isnan(srh_3km) else f"{int(srh_3km)} m²/s²"
+                                st.session_state.summary_data["Value"].append(srh_text)
+                                
+                            # Add SRH values at the bottom of the chart
+                            plt.figtext(0.5, 0.01, 
+                                      f"0-3km SRH: {int(srh_3km) if not np.isnan(srh_3km) else 'N/A'} m²/s²", 
+                                      ha="center", fontsize=12, 
+                                      bbox={"facecolor":"lightgrey", "alpha":0.5, "pad":5})
                 else:
                     st.warning("METAR station selected but wind data not yet available. Please fetch METAR data using the sidebar form.")
 
