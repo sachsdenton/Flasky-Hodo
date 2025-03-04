@@ -912,8 +912,16 @@ def main():
             height_colors = st.checkbox("Color code by height", value=True)
             # Add option to show/hide half-km markers
             if 'show_half_km' not in st.session_state:
-                st.session_state.show_half_km = True
-            show_half_km = st.checkbox("Show Half KM heights (Gray)", value=st.session_state.show_half_km, key="show_half_km")
+                st.session_state['show_half_km'] = True
+            
+            # When the checkbox is clicked, update session state
+            def update_half_km():
+                st.session_state['show_half_km'] = not st.session_state['show_half_km']
+                
+            # Use the checkbox without a key to avoid the error
+            show_half_km = st.checkbox("Show Half KM heights (Gray)", 
+                                       value=st.session_state['show_half_km'],
+                                       on_change=update_half_km)
         with col3:
             show_metar = st.checkbox("Show METAR data", value=True)
 
