@@ -114,45 +114,59 @@ class HodographPlotter:
         else:
             self.ax.plot(u_comp, v_comp, 'b-', linewidth=2)
 
-        # Instead of regular scatter points, we'll add circles with text for key heights
         # First, scatter all points with smaller markers for reference
         self.ax.scatter(u_comp, v_comp, c='red', s=20, zorder=5, alpha=0.5)
         
-        # Then add labeled circles for kilometer and half-kilometer heights
-        for i, (u, v, h) in enumerate(zip(u_comp, v_comp, heights)):
-            # Convert height to meters
-            height_m = h * 1000
+        # Find all target heights we want to label (0.5, 1, 1.5, 2, 2.5, etc.)
+        # Start at 0.5km and go up to the maximum height rounded up to next 0.5km
+        max_height_m = np.max(heights) * 1000 if len(heights) > 0 else 0
+        
+        # Generate all the target heights in 0.5km increments
+        target_heights_km = np.arange(0.5, max_height_m/1000 + 0.5, 0.5)
+        
+        # For each target height, find the closest actual data point
+        for target_km in target_heights_km:
+            target_m = target_km * 1000  # Convert to meters
             
-            # Check if this point is at a kilometer or half-kilometer increment
-            if height_m >= 500:  # Only show labeled circles for 500m and above
-                is_km = abs(height_m / 1000 - round(height_m / 1000)) < 0.05
-                is_half_km = abs(height_m / 500 - round(height_m / 500)) < 0.1 and round(height_m / 500) % 2 != 0
+            # Find the index of the closest height
+            height_diffs = np.abs(heights * 1000 - target_m)
+            if len(height_diffs) == 0:
+                continue
                 
-                if is_km or is_half_km:
-                    # Determine label text and circle properties
-                    if is_km:
-                        # Whole kilometer
-                        height_label = f'{int(round(height_m / 1000))}'
-                        circle_color = 'blue'
-                        circle_size = 300  # Larger circles for km points
-                        text_color = 'white'
+            closest_idx = np.argmin(height_diffs)
+            
+            # Only use points that are reasonably close to the target height
+            # (within 15% of the target or 100m, whichever is smaller)
+            max_diff = min(target_m * 0.15, 100)  # 15% or 100m max difference
+            
+            if height_diffs[closest_idx] <= max_diff:
+                closest_u = u_comp[closest_idx]
+                closest_v = v_comp[closest_idx]
+                
+                # Determine if it's a full kilometer or half-kilometer
+                is_full_km = abs(target_km - round(target_km)) < 0.01
+                
+                if is_full_km:
+                    # Whole kilometer
+                    height_label = f'{int(target_km)}'
+                    circle_color = 'blue'
+                    circle_size = 300  # Larger circles for km points
+                else:
+                    # Half kilometer
+                    if target_km < 1:
+                        height_label = '.5'
                     else:
-                        # Half kilometer
-                        if height_m < 1000:
-                            height_label = '.5'
-                        else:
-                            height_label = f'{int(height_m // 1000)}.5'
-                        circle_color = 'gray'
-                        circle_size = 250  # Slightly smaller for half km
-                        text_color = 'white'
-                    
-                    # Add the circle with the height label
-                    self.ax.scatter([u], [v], s=circle_size, c=circle_color, zorder=6, 
-                                   edgecolor='black', linewidth=1)
-                    
-                    # Add the text on top of the circle
-                    self.ax.text(u, v, height_label, color=text_color, 
-                                ha='center', va='center', fontweight='bold', zorder=7)
+                        height_label = f'{int(target_km)}.5'
+                    circle_color = 'gray'
+                    circle_size = 250  # Slightly smaller for half km
+                
+                # Add the circle with the height label
+                self.ax.scatter([closest_u], [closest_v], s=circle_size, c=circle_color, zorder=6, 
+                               edgecolor='black', linewidth=1)
+                
+                # Add the text on top of the circle
+                self.ax.text(closest_u, closest_v, height_label, color='white', 
+                            ha='center', va='center', fontweight='bold', fontsize=9, zorder=7)
 
     def add_layer_mean(self, profile, bottom: float, top: float) -> None:
         """
