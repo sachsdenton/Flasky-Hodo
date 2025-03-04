@@ -15,7 +15,7 @@ import io
 import time
 import os
 from typing import Tuple
-from params import compute_bunkers
+from params import compute_bunkers, compute_srh
 from map_component import load_metar_sites, calculate_distance, create_map
 from geopy.distance import distance
 from mrms_handler import MRMSHandler
@@ -530,6 +530,72 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                         bordercolor='blue',
                         borderwidth=1
                     )
+                    
+                    # Add SRH visualization if checkbox is checked
+                    if show_srh:
+                        # Prepare data for SRH calculation
+                        data = {
+                            'wind_dir': wind_profile.directions,
+                            'wind_spd': wind_profile.speeds,
+                            'altitude': wind_profile.heights
+                        }
+                        
+                        # Calculate SRH for 0-1km and 0-3km
+                        storm_motion_tuple = (st.session_state.storm_motion['direction'], 
+                                             st.session_state.storm_motion['speed'])
+                        srh_1km = compute_srh(data, storm_motion_tuple, 1)
+                        srh_3km = compute_srh(data, storm_motion_tuple, 3)
+                        
+                        # Create SRH polygons
+                        for height_km, color, srh_value in [
+                            (1, 'rgba(173, 216, 230, 0.3)', srh_1km),  # lightblue for 0-1km
+                            (3, 'rgba(144, 238, 144, 0.3)', srh_3km)   # lightgreen for 0-3km
+                        ]:
+                            # Get points for the SRH polygon
+                            srh_polygon_x = [storm_u]  # Start at storm motion
+                            srh_polygon_y = [storm_v]
+                            
+                            # Add wind profile points up to specified height
+                            for i, h in enumerate(wind_profile.heights):
+                                if h <= height_km:
+                                    u, v = calculate_wind_components(
+                                        wind_profile.speeds[i], 
+                                        wind_profile.directions[i]
+                                    )
+                                    srh_polygon_x.append(u)
+                                    srh_polygon_y.append(v)
+                            
+                            # Close the polygon
+                            srh_polygon_x.append(storm_u)
+                            srh_polygon_y.append(storm_v)
+                            
+                            # Only add the polygon if we have enough points
+                            if len(srh_polygon_x) > 2:
+                                fig.add_trace(go.Scatter(
+                                    x=srh_polygon_x,
+                                    y=srh_polygon_y,
+                                    fill='toself',
+                                    fillcolor=color,
+                                    line=dict(color='rgba(0,0,0,0)'),
+                                    name=f"{int(height_km*1000)}m SRH: {int(srh_value)} m²/s²",
+                                    hoverinfo='name'
+                                ))
+                            
+                            # Add SRH value annotation
+                            y_offset = -max_speed * (0.5 - 0.05 * height_km)
+                            fig.add_annotation(
+                                x=max_speed * 0.6,
+                                y=y_offset,
+                                text=f"{int(height_km*1000)}m SRH: {int(srh_value)} m²/s²",
+                                showarrow=False,
+                                font=dict(
+                                    size=12, 
+                                    color='black' if height_km == 1 else 'darkgreen'
+                                ),
+                                bgcolor=color,
+                                bordercolor='rgba(0,0,0,0.5)',
+                                borderwidth=1
+                            )
             else:
                 st.warning("METAR station selected but wind data not yet available. Please fetch METAR data using the sidebar form.")
 
