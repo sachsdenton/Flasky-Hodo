@@ -107,7 +107,7 @@ def calculate_skoff_angle_points(surface_u, surface_v, storm_u, storm_v, radar_u
     return calculate_vector_angle(v1[0], v1[1], v2[0], v2[1])
 
 
-def plot_srh(ax, profile, storm_motion, color='green', alpha=0.3, height_km=3):
+def plot_srh(ax, profile, storm_motion, color='green', alpha=0.3, height_km=3, surface_wind=None):
     """
     Plot Storm Relative Helicity on a hodograph.
     
@@ -118,6 +118,8 @@ def plot_srh(ax, profile, storm_motion, color='green', alpha=0.3, height_km=3):
         color: Fill color for SRH area
         alpha: Transparency level
         height_km: Height in km for SRH calculation (typically 1 or 3)
+        surface_wind: Dict with 'direction' and 'speed' keys for METAR surface wind,
+                     if None, the SRH polygon will start at (0,0)
     
     Returns:
         The computed SRH value
@@ -138,6 +140,13 @@ def plot_srh(ax, profile, storm_motion, color='green', alpha=0.3, height_km=3):
         'altitude': profile.heights
     }
     
+    # Add surface wind to data if available
+    if surface_wind is not None and 'direction' in surface_wind and 'speed' in surface_wind:
+        # Prepend surface wind to the data arrays
+        data['wind_dir'] = np.insert(data['wind_dir'], 0, surface_wind['direction'])
+        data['wind_spd'] = np.insert(data['wind_spd'], 0, surface_wind['speed'])
+        data['altitude'] = np.insert(data['altitude'], 0, 0.0)  # Surface is at 0 km
+    
     # Calculate SRH using params.compute_srh function
     srh_value = compute_srh(data, storm_motion_tuple, height_km)
     
@@ -148,30 +157,58 @@ def plot_srh(ax, profile, storm_motion, color='green', alpha=0.3, height_km=3):
     u_comp = []
     v_comp = []
     
-    for speed, direction in zip(profile.speeds, profile.directions):
-        u, v = calculate_wind_components(speed, direction)
-        u_comp.append(u)
-        v_comp.append(v)
+    # Start with surface wind if available
+    if surface_wind is not None and 'direction' in surface_wind and 'speed' in surface_wind:
+        surface_u, surface_v = calculate_wind_components(surface_wind['speed'], surface_wind['direction'])
+        u_comp.append(surface_u)
+        v_comp.append(surface_v)
+        
+        # Add all profile points
+        for speed, direction in zip(profile.speeds, profile.directions):
+            u, v = calculate_wind_components(speed, direction)
+            u_comp.append(u)
+            v_comp.append(v)
+    else:
+        # No surface wind, use existing profile
+        for speed, direction in zip(profile.speeds, profile.directions):
+            u, v = calculate_wind_components(speed, direction)
+            u_comp.append(u)
+            v_comp.append(v)
     
     # Calculate storm-relative wind components
     sr_u_comp = [u - storm_u for u in u_comp]
     sr_v_comp = [v - storm_v for v in v_comp]
     
     # Create ordered lists of points for polygon
-    srh_polygon_x = [0]  # Start at storm motion (origin in storm-relative space)
-    srh_polygon_y = [0]
+    # Start at surface wind if available, otherwise at storm motion
+    if surface_wind is not None and 'direction' in surface_wind and 'speed' in surface_wind:
+        surface_u, surface_v = calculate_wind_components(surface_wind['speed'], surface_wind['direction'])
+        srh_polygon_x = [surface_u]
+        srh_polygon_y = [surface_v]
+        start_idx = 1  # Skip surface wind since we already added it
+    else:
+        srh_polygon_x = [0]  # Start at storm motion (origin in storm-relative space)
+        srh_polygon_y = [0]
+        start_idx = 0
     
     # Add points up to specified height
     max_height_index = 0
-    for i, h in enumerate(profile.heights):
+    heights_to_use = [0] + list(profile.heights) if surface_wind else profile.heights
+    
+    for i, h in enumerate(heights_to_use[start_idx:], start=start_idx):
         if h <= height_km:
             srh_polygon_x.append(u_comp[i])
             srh_polygon_y.append(v_comp[i])
             max_height_index = i
     
-    # Close the polygon back to storm motion
-    srh_polygon_x.append(storm_u)
-    srh_polygon_y.append(storm_v)
+    # Close the polygon back to the starting point
+    if surface_wind is not None and 'direction' in surface_wind and 'speed' in surface_wind:
+        surface_u, surface_v = calculate_wind_components(surface_wind['speed'], surface_wind['direction'])
+        srh_polygon_x.append(surface_u)
+        srh_polygon_y.append(surface_v)
+    else:
+        srh_polygon_x.append(storm_u)
+        srh_polygon_y.append(storm_v)
     
     # Plot the SRH polygon
     srh_label = f"{int(height_km*1000)}m SRH: "
