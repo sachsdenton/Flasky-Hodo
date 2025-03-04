@@ -1,0 +1,99 @@
+A common way to illustrate storm‐relative helicity (SRH) on a hodograph is to plot the wind profile relative to the storm motion and then highlight the area that “sweeps out” as you move upward. Here’s how you can do it step by step:
+
+Plot the Standard Hodograph:
+Begin by plotting the wind vectors (with their eastward and northward components) at various levels (e.g., from the surface up to 3 km) on an x‑y coordinate plane.
+
+Determine and Plot the Storm Motion Vector:
+Identify a representative storm motion (for example, using the Bunkers method or another suitable technique). Plot this vector from the origin on the same hodograph. This vector serves as your reference.
+
+Compute the Storm‑Relative Wind Vectors:
+For each wind observation, subtract the storm motion vector so that you obtain the wind vector relative to the storm. In other words, for each level:
+
+𝑣
+⃗
+rel
+(
+𝑧
+)
+=
+𝑣
+⃗
+(
+𝑧
+)
+−
+𝑐
+⃗
+v
+  
+rel
+​
+ (z)= 
+v
+ (z)− 
+c
+ 
+where 
+𝑐
+⃗
+c
+  is the storm motion.
+
+Plot the Storm‑Relative Hodograph:
+Plot these storm‑relative wind vectors. They usually form a curved line starting from the lowest level and moving upward. This curve represents how the wind changes with height relative to the storm’s motion.
+
+Shade the Area Representing SRH:
+The SRH is proportional to the area between the storm motion vector (often drawn as a straight line or the baseline at the origin in the storm‑relative plot) and the curve of storm‑relative wind vectors. You can shade this area or outline the polygon formed by connecting the successive storm‑relative wind vector endpoints.
+
+Mathematically, if you approximate the integral using discrete wind levels, the SRH is calculated as:
+
+SRH
+=
+∑
+𝑖
+[
+(
+𝑣
+⃗
+rel
+,
+𝑖
+×
+𝑣
+⃗
+rel
+,
+𝑖
++
+1
+)
+⋅
+𝑘
+^
+]
+Δ
+𝑧
+SRH= 
+i
+∑
+​
+ [( 
+v
+  
+rel,i
+​
+ × 
+v
+  
+rel,i+1
+​
+ )⋅ 
+k
+^
+ ]Δz
+In a drawing, each cross product between successive storm‑relative vectors represents a small “trapezoidal” area; the sum of these areas gives you the total SRH.
+
+Interpreting the Diagram:
+
+Positive SRH: If the shaded area is positive (following the right‐hand rule), it indicates a favorable environment for updraft rotation (i.e., the wind shear supports cyclonic rotation).
+Negative SRH: A negative area would indicate the opposite.
