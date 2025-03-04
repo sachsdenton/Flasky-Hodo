@@ -114,53 +114,45 @@ class HodographPlotter:
         else:
             self.ax.plot(u_comp, v_comp, 'b-', linewidth=2)
 
-        # Plot points with larger markers
-        self.ax.scatter(u_comp, v_comp, c='red', s=50, zorder=5)
+        # Instead of regular scatter points, we'll add circles with text for key heights
+        # First, scatter all points with smaller markers for reference
+        self.ax.scatter(u_comp, v_comp, c='red', s=20, zorder=5, alpha=0.5)
         
-        # Add altitude callouts for all kilometer and 500m increments
+        # Then add labeled circles for kilometer and half-kilometer heights
         for i, (u, v, h) in enumerate(zip(u_comp, v_comp, heights)):
             # Convert height to meters
             height_m = h * 1000
             
-            # Format: show every kilometer and half kilometer
-            if height_m >= 500:  # Only show labels for 500m and above
-                # Determine label text
-                if abs(height_m / 1000 - round(height_m / 1000)) < 0.05:
-                    # Whole kilometer
-                    height_label = f'{int(round(height_m / 1000))}km'
-                    connect_style = 'solid'
-                    bbox_color = 'blue'
-                elif abs(height_m / 500 - round(height_m / 500)) < 0.1 and round(height_m / 500) % 2 != 0:
-                    # Half kilometer
-                    if height_m < 1000:
-                        height_label = f'500m'
+            # Check if this point is at a kilometer or half-kilometer increment
+            if height_m >= 500:  # Only show labeled circles for 500m and above
+                is_km = abs(height_m / 1000 - round(height_m / 1000)) < 0.05
+                is_half_km = abs(height_m / 500 - round(height_m / 500)) < 0.1 and round(height_m / 500) % 2 != 0
+                
+                if is_km or is_half_km:
+                    # Determine label text and circle properties
+                    if is_km:
+                        # Whole kilometer
+                        height_label = f'{int(round(height_m / 1000))}'
+                        circle_color = 'blue'
+                        circle_size = 300  # Larger circles for km points
+                        text_color = 'white'
                     else:
-                        height_label = f'{int(height_m // 1000)}.5km'
-                    connect_style = 'dotted'
-                    bbox_color = 'gray'
-                else:
-                    continue
-                
-                # Calculate offset direction (to avoid overlapping labels)
-                angle = (i * 45) % 360  # Distribute labels in different directions
-                dx = 20 * np.cos(np.deg2rad(angle))
-                dy = 20 * np.sin(np.deg2rad(angle))
-                
-                # Display the label with connecting line
-                self.ax.annotate(
-                    height_label, 
-                    xy=(u, v),
-                    xytext=(dx, dy),  # Position farther from point
-                    textcoords='offset points',
-                    fontsize=9,
-                    bbox=dict(boxstyle="round,pad=0.3", fc="white", ec=bbox_color, alpha=0.8),
-                    arrowprops=dict(
-                        arrowstyle='-',
-                        connectionstyle='arc3,rad=0.0',
-                        linestyle=connect_style,
-                        color='gray'
-                    )
-                )
+                        # Half kilometer
+                        if height_m < 1000:
+                            height_label = '.5'
+                        else:
+                            height_label = f'{int(height_m // 1000)}.5'
+                        circle_color = 'gray'
+                        circle_size = 250  # Slightly smaller for half km
+                        text_color = 'white'
+                    
+                    # Add the circle with the height label
+                    self.ax.scatter([u], [v], s=circle_size, c=circle_color, zorder=6, 
+                                   edgecolor='black', linewidth=1)
+                    
+                    # Add the text on top of the circle
+                    self.ax.text(u, v, height_label, color=text_color, 
+                                ha='center', va='center', fontweight='bold', zorder=7)
 
     def add_layer_mean(self, profile, bottom: float, top: float) -> None:
         """
