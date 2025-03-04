@@ -1159,6 +1159,8 @@ def main():
             'direction': storm_direction,
             'speed': storm_speed
         }
+        # Automatically check the SRH checkbox when storm motion is entered
+        st.session_state['show_srh'] = True
         st.sidebar.success(f"Storm motion updated: {storm_speed}kts @ {storm_direction}°")
     elif storm_motion_submit:
         st.sidebar.error("Please enter both direction and speed for storm motion")
