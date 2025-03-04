@@ -1214,9 +1214,9 @@ def main():
         
         # Plot wind barbs on the skew-T diagram
         skew.plot_barbs(
-            pressures=np.linspace(1000, 100, len(heights)) * units('hPa'),  # Estimate pressure levels
-            u_wind=np.array(u_wind) * units('knot'),
-            v_wind=np.array(v_wind) * units('knot')
+            pressure=np.linspace(1000, 100, len(heights)) * units('hPa'),  # Estimate pressure levels
+            u=np.array(u_wind) * units('knot'),
+            v=np.array(v_wind) * units('knot')
         )
         
         # Add gridlines
