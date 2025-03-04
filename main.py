@@ -107,7 +107,80 @@ def calculate_skoff_angle_points(surface_u, surface_v, storm_u, storm_v, radar_u
     return calculate_vector_angle(v1[0], v1[1], v2[0], v2[1])
 
 
-def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_time=None, plot_type="Standard"):
+def plot_srh(ax, profile, storm_motion, color='green', alpha=0.3, height_km=3):
+    """
+    Plot Storm Relative Helicity on a hodograph.
+    
+    Args:
+        ax: Matplotlib axes object
+        profile: WindProfile object
+        storm_motion: tuple of (direction, speed) or dict with 'direction' and 'speed' keys
+        color: Fill color for SRH area
+        alpha: Transparency level
+        height_km: Height in km for SRH calculation (typically 1 or 3)
+    
+    Returns:
+        The computed SRH value
+    """
+    if not profile.validate() or len(profile.speeds) < 2:
+        return None
+    
+    # Format storm motion to the right structure
+    if isinstance(storm_motion, dict):
+        storm_motion_tuple = (storm_motion['direction'], storm_motion['speed'])
+    else:
+        storm_motion_tuple = storm_motion
+    
+    # Prepare data for MetPy SRH calculation
+    data = {
+        'wind_dir': profile.directions,
+        'wind_spd': profile.speeds,
+        'altitude': profile.heights
+    }
+    
+    # Calculate SRH using params.compute_srh function
+    srh_value = compute_srh(data, storm_motion_tuple, height_km)
+    
+    # Calculate storm-relative wind components
+    storm_u, storm_v = calculate_wind_components(storm_motion_tuple[1], storm_motion_tuple[0])
+    
+    # Get hodograph points (u, v) components
+    u_comp = []
+    v_comp = []
+    
+    for speed, direction in zip(profile.speeds, profile.directions):
+        u, v = calculate_wind_components(speed, direction)
+        u_comp.append(u)
+        v_comp.append(v)
+    
+    # Calculate storm-relative wind components
+    sr_u_comp = [u - storm_u for u in u_comp]
+    sr_v_comp = [v - storm_v for v in v_comp]
+    
+    # Create ordered lists of points for polygon
+    srh_polygon_x = [0]  # Start at storm motion (origin in storm-relative space)
+    srh_polygon_y = [0]
+    
+    # Add points up to specified height
+    max_height_index = 0
+    for i, h in enumerate(profile.heights):
+        if h <= height_km:
+            srh_polygon_x.append(u_comp[i])
+            srh_polygon_y.append(v_comp[i])
+            max_height_index = i
+    
+    # Close the polygon back to storm motion
+    srh_polygon_x.append(storm_u)
+    srh_polygon_y.append(storm_v)
+    
+    # Plot the SRH polygon
+    ax.fill(srh_polygon_x, srh_polygon_y, color=color, alpha=alpha, 
+            label=f"{int(height_km*1000)}m SRH: {int(srh_value)} m²/s²")
+    
+    return srh_value
+
+
+def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_time=None, plot_type="Standard", show_srh=False):
     speeds = wind_profile.speeds
     if not hasattr(speeds, '__len__') or len(speeds) == 0:
         max_speed = 100
@@ -913,10 +986,19 @@ def main():
             # Add option to show/hide half-km markers
             if 'show_half_km' not in st.session_state:
                 st.session_state['show_half_km'] = True
-            
             # When the checkbox is clicked, update session state
             def update_half_km():
                 st.session_state['show_half_km'] = not st.session_state['show_half_km']
+                
+            def update_srh():
+                st.session_state['show_srh'] = not st.session_state['show_srh']
+                
+            # Add option to show/hide SRH
+            if 'show_srh' not in st.session_state:
+                st.session_state['show_srh'] = False
+            show_srh = st.checkbox("Show Storm Relative Helicity (SRH)", value=st.session_state['show_srh'], 
+                                 help="Display storm relative helicity on the hodograph",
+                                 on_change=update_srh)
                 
             # Use the checkbox without a key to avoid the error
             show_half_km = st.checkbox("Show Half KM heights (Gray)", 
@@ -1031,6 +1113,33 @@ def main():
                                ha='center', va='center',
                                bbox=dict(facecolor='white', edgecolor='blue', alpha=0.8),
                                fontsize=10)
+                        
+                        # Plot SRH if checkbox is checked
+                        if show_srh:
+                            # Add 0-1km SRH
+                            srh_1km = plot_srh(ax, st.session_state.wind_profile, 
+                                             st.session_state.storm_motion, 
+                                             color='lightblue', alpha=0.3, height_km=1)
+                            
+                            # Add 0-3km SRH
+                            srh_3km = plot_srh(ax, st.session_state.wind_profile, 
+                                             st.session_state.storm_motion, 
+                                             color='green', alpha=0.3, height_km=3)
+                            
+                            # Add SRH values to summary data if they're calculated
+                            if st.session_state.get('summary_data') is None:
+                                st.session_state.summary_data = {
+                                    "Parameter": [],
+                                    "Value": []
+                                }
+                            
+                            if srh_1km is not None:
+                                st.session_state.summary_data["Parameter"].append("0-1km SRH")
+                                st.session_state.summary_data["Value"].append(f"{int(srh_1km)} m²/s²")
+                            
+                            if srh_3km is not None:
+                                st.session_state.summary_data["Parameter"].append("0-3km SRH")
+                                st.session_state.summary_data["Value"].append(f"{int(srh_3km)} m²/s²")
                 else:
                     st.warning("METAR station selected but wind data not yet available. Please fetch METAR data using the sidebar form.")
 
@@ -1054,7 +1163,8 @@ def main():
                 site_id=st.session_state.selected_site,
                 site_name=site.name if site else None,
                 valid_time=valid_time,
-                plot_type=plot_type
+                plot_type=plot_type,
+                show_srh=show_srh
             )
 
             st.plotly_chart(fig, usecontainer_width=True)
