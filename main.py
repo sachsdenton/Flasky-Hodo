@@ -1188,6 +1188,37 @@ def main():
         df = pd.DataFrame(wind_data)
         # Use full width for the wind profile data table
         st.dataframe(df, hide_index=True, use_container_width=True)
+        
+        # Add wind barbs visualization
+        st.subheader("Wind Barbs")
+        
+        # Create a figure for wind barbs
+        fig, ax = plt.subplots(figsize=(10, 5))
+        
+        # Set up the figure
+        max_height = max(heights) * 1000  # Convert to meters
+        ax.set_xlim(0, len(heights))
+        ax.set_ylim(0, max_height)
+        ax.set_xlabel('Level Number')
+        ax.set_ylabel('Height (m)')
+        ax.grid(True, linestyle='--', alpha=0.7)
+        
+        # Plot wind barbs - Convert to standard meteorological convention (from)
+        for i, (height, speed, direction) in enumerate(zip(heights, speeds, directions)):
+            # Convert to u, v components for barbs
+            u, v = calculate_wind_components(speed, direction)
+            # Plot the barb at the appropriate level
+            ax.barbs(i, height * 1000, u, v, length=6, pivot='middle', sizes=dict(emptybarb=0.25, spacing=0.2, height=0.5))
+            
+            # Add text annotation with height, speed, and direction
+            ax.text(i + 0.2, height * 1000, f"{int(height * 1000)}m\n{int(speed)}kts\n{int(direction)}°", 
+                   fontsize=8, verticalalignment='center')
+        
+        # Adjust layout
+        plt.tight_layout()
+        
+        # Display the plot in Streamlit
+        st.pyplot(fig)
 
     else:
         st.info("Select a radar site and click 'Plot Hodograph' to generate a hodograph.")
