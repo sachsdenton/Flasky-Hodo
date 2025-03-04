@@ -107,7 +107,7 @@ def calculate_skoff_angle_points(surface_u, surface_v, storm_u, storm_v, radar_u
     return calculate_vector_angle(v1[0], v1[1], v2[0], v2[1])
 
 
-def plot_srh(ax, profile, storm_motion, color='green', alpha=0.3, height_km=3, surface_wind=None):
+def plot_srh(ax, profile, storm_motion, color='green', alpha=0.3, height_km=3.0, surface_wind=None):
     """
     Plot Storm Relative Helicity on a hodograph.
     
@@ -117,7 +117,7 @@ def plot_srh(ax, profile, storm_motion, color='green', alpha=0.3, height_km=3, s
         storm_motion: tuple of (direction, speed) or dict with 'direction' and 'speed' keys
         color: Fill color for SRH area
         alpha: Transparency level
-        height_km: Height in km for SRH calculation (typically 1 or 3)
+        height_km: Height in km for SRH calculation (typically 0.5, 1, or 3)
         surface_wind: Dict with 'direction' and 'speed' keys for METAR surface wind,
                      if None, the SRH polygon will start at (0,0)
     
@@ -220,26 +220,8 @@ def plot_srh(ax, profile, storm_motion, color='green', alpha=0.3, height_km=3, s
     ax.fill(srh_polygon_x, srh_polygon_y, color=color, alpha=alpha, 
             label=srh_label)
     
-    # Display the SRH value on the plot at the bottom
-    # Get the max speed for positioning
-    max_speed_val = np.max(profile.speeds) if len(profile.speeds) > 0 else 50
-    if surface_wind is not None and 'speed' in surface_wind:
-        max_speed_val = max(max_speed_val, surface_wind['speed'])
-    
-    # Position SRH text below the hodograph
-    y_offset = -max_speed_val * 0.8
-    
-    # Format box and style to match plotly implementation
-    box_props = dict(
-        boxstyle='round,pad=0.5',
-        facecolor=color,
-        alpha=0.7,
-        edgecolor='black'
-    )
-    
-    # Add the SRH annotation
-    ax.text(0, y_offset, srh_label, fontsize=10, 
-            ha='center', va='center', bbox=box_props)
+    # The SRH value calculation and display will be handled by the caller function
+    # that manages multiple SRH values positioning
     
     return srh_value
 
@@ -623,27 +605,46 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                             data['wind_spd'] = np.insert(data['wind_spd'], 0, surface_wind['speed'])
                             data['altitude'] = np.insert(data['altitude'], 0, 0.0)  # Surface is at 0 km
                         
-                        # Calculate SRH for 0-1km and 0-3km
+                        # Calculate SRH for 0-500m, 0-1km, and 0-3km
                         storm_motion_tuple = (st.session_state.storm_motion['direction'], 
                                              st.session_state.storm_motion['speed'])
+                        srh_500m = compute_srh(data, storm_motion_tuple, 0.5)
                         srh_1km = compute_srh(data, storm_motion_tuple, 1)
                         srh_3km = compute_srh(data, storm_motion_tuple, 3)
                         
-                        # Add SRH value at the bottom of the chart
-                        srh_bottom_text = f"0-3km SRH: {int(srh_3km) if not np.isnan(srh_3km) else 'N/A'} m²/s²"
-                        fig.add_annotation(
-                            x=0,
-                            y=-max_speed * 0.98,
-                            text=srh_bottom_text,
-                            showarrow=False,
-                            font=dict(size=14, color='black'),
-                            bgcolor='rgba(211,211,211,0.5)',
-                            bordercolor='grey',
-                            borderwidth=1
-                        )
+                        # Add all three SRH values at the bottom left of the chart
+                        srh_values = [
+                            {'text': f"0-500m SRH: {int(srh_500m) if not np.isnan(srh_500m) else 'N/A'} m²/s²", 
+                             'y_factor': 0.75, 
+                             'color': 'rgba(255,160,122,0.7)'}, # lightsalmon
+                            {'text': f"0-1km SRH: {int(srh_1km) if not np.isnan(srh_1km) else 'N/A'} m²/s²", 
+                             'y_factor': 0.85, 
+                             'color': 'rgba(173,216,230,0.7)'}, # lightblue
+                            {'text': f"0-3km SRH: {int(srh_3km) if not np.isnan(srh_3km) else 'N/A'} m²/s²", 
+                             'y_factor': 0.95, 
+                             'color': 'rgba(144,238,144,0.7)'} # lightgreen
+                        ]
+                        
+                        # Position annotations at bottom left
+                        x_pos = -max_speed * 0.9  # Left side of plot
+                        
+                        for srh_info in srh_values:
+                            fig.add_annotation(
+                                x=x_pos,
+                                y=-max_speed * srh_info['y_factor'],
+                                text=srh_info['text'],
+                                showarrow=False,
+                                font=dict(size=12, color='black'),
+                                bgcolor=srh_info['color'],
+                                bordercolor='black',
+                                borderwidth=1,
+                                xanchor='left',
+                                align='left'
+                            )
                         
                         # Create SRH polygons
                         for height_km, color, srh_value in [
+                            (0.5, 'rgba(255, 160, 122, 0.3)', srh_500m),  # lightsalmon for 0-500m
                             (1, 'rgba(173, 216, 230, 0.3)', srh_1km),  # lightblue for 0-1km
                             (3, 'rgba(144, 238, 144, 0.3)', srh_3km)   # lightgreen for 0-3km
                         ]:
@@ -719,8 +720,8 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                                 text=annotation_text,
                                 showarrow=False,
                                 font=dict(
-                                    size=12, 
-                                    color='black' if height_km == 1 else 'darkgreen'
+                                    size=12,
+                                    color='darkred' if height_km == 0.5 else ('black' if height_km == 1 else 'darkgreen')
                                 ),
                                 bgcolor=color,
                                 bordercolor='rgba(0,0,0,0.5)',
@@ -1320,6 +1321,12 @@ def main():
                                     'direction': st.session_state.metar_data['direction']
                                 }
                             
+                            # Add 0-500m SRH anchored to METAR surface wind
+                            srh_500m = plot_srh(ax, st.session_state.wind_profile, 
+                                              st.session_state.storm_motion, 
+                                              color='lightsalmon', alpha=0.3, height_km=0.5,
+                                              surface_wind=surface_wind)
+                            
                             # Add 0-1km SRH anchored to METAR surface wind
                             srh_1km = plot_srh(ax, st.session_state.wind_profile, 
                                              st.session_state.storm_motion, 
@@ -1329,8 +1336,40 @@ def main():
                             # Add 0-3km SRH anchored to METAR surface wind
                             srh_3km = plot_srh(ax, st.session_state.wind_profile, 
                                              st.session_state.storm_motion, 
-                                             color='green', alpha=0.3, height_km=3,
+                                             color='lightgreen', alpha=0.3, height_km=3,
                                              surface_wind=surface_wind)
+                            
+                            # Position SRH texts in the bottom left instead of center bottom
+                            # Get max speed to determine text positioning
+                            max_speed = plotter.max_speed
+                            x_pos = -max_speed * 0.9  # Left side of plot
+                            
+                            # Format box properties for SRH text
+                            srh_box_props = [
+                                dict(boxstyle='round,pad=0.2', facecolor='lightsalmon', alpha=0.7, edgecolor='black'),
+                                dict(boxstyle='round,pad=0.2', facecolor='lightblue', alpha=0.7, edgecolor='black'),
+                                dict(boxstyle='round,pad=0.2', facecolor='lightgreen', alpha=0.7, edgecolor='black')
+                            ]
+                            
+                            # Add all SRH values as text annotations at the bottom left
+                            srh_values = [
+                                (srh_500m, "0-500m SRH", 0.75),
+                                (srh_1km, "0-1km SRH", 0.85),
+                                (srh_3km, "0-3km SRH", 0.95)
+                            ]
+                            
+                            for i, (srh_value, label, y_factor) in enumerate(srh_values):
+                                y_pos = -max_speed * y_factor
+                                if srh_value is not None:
+                                    srh_text = f"{label}: "
+                                    if np.isnan(srh_value):
+                                        srh_text += "N/A"
+                                    else:
+                                        srh_text += f"{int(srh_value)} m²/s²"
+                                    
+                                    ax.text(x_pos, y_pos, srh_text, fontsize=9,
+                                            ha='left', va='center', 
+                                            bbox=srh_box_props[i])
                             
                             # Add SRH values to summary data if they're calculated
                             if st.session_state.get('summary_data') is None:
@@ -1339,6 +1378,11 @@ def main():
                                     "Value": []
                                 }
                             
+                            if srh_500m is not None:
+                                st.session_state.summary_data["Parameter"].append("0-500m SRH")
+                                srh_text = "N/A" if np.isnan(srh_500m) else f"{int(srh_500m)} m²/s²"
+                                st.session_state.summary_data["Value"].append(srh_text)
+                                
                             if srh_1km is not None:
                                 st.session_state.summary_data["Parameter"].append("0-1km SRH")
                                 srh_text = "N/A" if np.isnan(srh_1km) else f"{int(srh_1km)} m²/s²"
@@ -1348,12 +1392,6 @@ def main():
                                 st.session_state.summary_data["Parameter"].append("0-3km SRH")
                                 srh_text = "N/A" if np.isnan(srh_3km) else f"{int(srh_3km)} m²/s²"
                                 st.session_state.summary_data["Value"].append(srh_text)
-                                
-                            # Add SRH values at the bottom of the chart
-                            plt.figtext(0.5, 0.01, 
-                                      f"0-3km SRH: {int(srh_3km) if not np.isnan(srh_3km) else 'N/A'} m²/s²", 
-                                      ha="center", fontsize=12, 
-                                      bbox={"facecolor":"lightgrey", "alpha":0.5, "pad":5})
                 else:
                     st.warning("METAR station selected but wind data not yet available. Please fetch METAR data using the sidebar form.")
 
