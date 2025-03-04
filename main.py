@@ -1189,17 +1189,12 @@ def main():
         # Use full width for the wind profile data table
         st.dataframe(df, hide_index=True, use_container_width=True)
         
-        # Add wind barbs visualization using MetPy
-        st.subheader("Wind Barbs")
+        # Add wind barbs visualization
+        st.subheader("Wind Barbs Profile")
         
         # Import MetPy
-        from metpy.plots import SkewT
         import metpy.plots as mpplots
         from metpy.units import units
-        
-        # Create a figure for the skew-T diagram
-        fig = plt.figure(figsize=(10, 10))
-        skew = SkewT(fig, rotation=45)
         
         # Prepare data for plotting
         height_m = heights * 1000  # Convert to meters
@@ -1212,81 +1207,45 @@ def main():
             u_wind.append(u)
             v_wind.append(v)
         
-        # Plot wind barbs on the skew-T diagram
-        skew.plot_barbs(
-            pressure=np.linspace(1000, 100, len(heights)) * units('hPa'),  # Estimate pressure levels
-            u=np.array(u_wind) * units('knot'),
-            v=np.array(v_wind) * units('knot')
-        )
+        # Create a figure for vertical wind profile with barbs
+        fig, ax = plt.subplots(figsize=(10, 12))
         
-        # Add gridlines
-        skew.plot_dry_adiabats(alpha=0.1)
-        skew.plot_moist_adiabats(alpha=0.1)
-        skew.plot_mixing_lines(alpha=0.1)
-        
-        # Set better limits
-        skew.ax.set_ylim(1050, 100)
-        skew.ax.set_xlim(-50, 50)
-        
-        # Add height labels on the right side
-        ax_height = skew.ax.twinx()
-        ax_height.set_ylim(skew.ax.get_ylim())
-        ax_height.set_ylabel('Height (m)')
-        
-        # Add estimated height markers on the right side
-        height_levels = []
-        pressure_levels = []
-        
-        # Estimate pressure from height using standard atmosphere approximation
-        for h in height_m:
-            # Simple approximation: p = 1013.25 * (1 - 2.25577e-5 * h)^5.25588
-            pressure = 1013.25 * (1 - 2.25577e-5 * h)**5.25588
-            pressure_levels.append(pressure)
-            height_levels.append(h)
-        
-        # Add height markers with labels
-        for h, p, s, d in zip(height_levels, pressure_levels, speeds, directions):
-            ax_height.text(
-                52, p, f"{int(h)}m, {int(s)}kt/{int(d)}°", 
-                fontsize=8, verticalalignment='center', horizontalalignment='left'
-            )
-        
-        # Add title
-        if hasattr(st.session_state.wind_profile, 'site_id') and st.session_state.wind_profile.site_id:
-            plt.title(f"Wind Profile: {st.session_state.wind_profile.site_id}")
-        
-        # Adjust layout
-        plt.tight_layout()
-        
-        # Display the plot in Streamlit
-        st.pyplot(fig)
-        
-        # Add a more traditional wind barb visualization for clarity
-        st.subheader("Vertical Wind Profile")
-        
-        # Create a figure for a simple vertical wind profile
-        fig, ax = plt.subplots(figsize=(10, 8))
-        
-        # Plot wind barbs
+        # Create a y-axis that represents height
         y_pos = np.arange(len(heights))
+        
+        # Plot wind barbs along the height axis
+        # Using standard meteorological convention
         ax.barbs(
-            np.zeros_like(y_pos), y_pos, 
+            np.zeros_like(y_pos), height_m,  # Place barbs along the y-axis at heights
             np.array(u_wind), np.array(v_wind),
             length=7, pivot='middle', 
             sizes=dict(emptybarb=0.25, spacing=0.2, height=0.5),
-            transform=ax.get_yaxis_transform()  # Align to y-axis
+            linewidth=1.5
         )
         
         # Set axis labels and limits
-        ax.set_yticks(y_pos)
-        ax.set_yticklabels([f"{int(h*1000)}m" for h in heights])
-        ax.set_ylabel('Height')
-        ax.set_xlabel('Wind (knots)')
-        ax.set_xlim(-1, 1)  # Small range for barbs centered on zero
+        ax.set_yticks(height_m)
+        ax.set_yticklabels([f"{int(h)}m" for h in height_m])
+        ax.set_ylabel('Height (meters)', fontsize=12)
+        ax.set_xlabel('', fontsize=12)
+        ax.set_xlim(-2, 2)  # Small range for barbs centered on zero
         
         # Add text with speed and direction information
-        for i, (s, d) in enumerate(zip(speeds, directions)):
-            ax.text(0.5, i, f"{int(s)}kt @ {int(d)}°", fontsize=10)
+        for i, (h, s, d) in enumerate(zip(height_m, speeds, directions)):
+            ax.text(0.5, h, f"{int(s)}kt @ {int(d)}°", fontsize=10, ha='left', va='center')
+        
+        # Add North direction indicator
+        ax.text(0, max(height_m) * 1.05, "NORTH", fontsize=12, 
+                ha='center', va='bottom', weight='bold')
+        
+        # Add arrow to indicate North
+        ax.arrow(0, max(height_m) * 1.03, 0, -max(height_m) * 0.03, 
+                head_width=0.2, head_length=max(height_m) * 0.02, 
+                fc='black', ec='black')
+        
+        # Add title
+        if hasattr(st.session_state.wind_profile, 'site_id') and st.session_state.wind_profile.site_id:
+            plt.title(f"Wind Profile: {st.session_state.wind_profile.site_id}", fontsize=14)
         
         # Add gridlines
         ax.grid(True, axis='y', linestyle='--', alpha=0.7)
