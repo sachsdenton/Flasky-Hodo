@@ -174,8 +174,14 @@ def plot_srh(ax, profile, storm_motion, color='green', alpha=0.3, height_km=3):
     srh_polygon_y.append(storm_v)
     
     # Plot the SRH polygon
+    srh_label = f"{int(height_km*1000)}m SRH: "
+    if np.isnan(srh_value):
+        srh_label += "N/A"
+    else:
+        srh_label += f"{int(srh_value)} m²/s²"
+    
     ax.fill(srh_polygon_x, srh_polygon_y, color=color, alpha=alpha, 
-            label=f"{int(height_km*1000)}m SRH: {int(srh_value)} m²/s²")
+            label=srh_label)
     
     return srh_value
 
@@ -571,22 +577,36 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
                             
                             # Only add the polygon if we have enough points
                             if len(srh_polygon_x) > 2:
+                                srh_label = f"{int(height_km*1000)}m SRH: "
+                                if np.isnan(srh_value):
+                                    srh_label += "N/A"
+                                else:
+                                    srh_label += f"{int(srh_value)} m²/s²"
+                                
                                 fig.add_trace(go.Scatter(
                                     x=srh_polygon_x,
                                     y=srh_polygon_y,
                                     fill='toself',
                                     fillcolor=color,
                                     line=dict(color='rgba(0,0,0,0)'),
-                                    name=f"{int(height_km*1000)}m SRH: {int(srh_value)} m²/s²",
+                                    name=srh_label,
                                     hoverinfo='name'
                                 ))
                             
                             # Add SRH value annotation
                             y_offset = -max_speed * (0.5 - 0.05 * height_km)
+                            
+                            # Format the annotation text to handle NaN
+                            annotation_text = f"{int(height_km*1000)}m SRH: "
+                            if np.isnan(srh_value):
+                                annotation_text += "N/A"
+                            else:
+                                annotation_text += f"{int(srh_value)} m²/s²"
+                                
                             fig.add_annotation(
                                 x=max_speed * 0.6,
                                 y=y_offset,
-                                text=f"{int(height_km*1000)}m SRH: {int(srh_value)} m²/s²",
+                                text=annotation_text,
                                 showarrow=False,
                                 font=dict(
                                     size=12, 
@@ -1366,71 +1386,43 @@ def main():
         st.dataframe(df, hide_index=True, use_container_width=True)
         
         # Add wind barbs visualization
-        st.subheader("Wind Barbs Profile")
+        st.subheader("Wind Profile Table")
         
-        # Import MetPy
-        import metpy.plots as mpplots
-        from metpy.units import units
-        
-        # Prepare data for plotting
+        # Create a figure showing wind speed and direction at various heights without MetPy dependency
+        # Convert heights to meters for display
         height_m = heights * 1000  # Convert to meters
         
-        # Convert wind components
-        u_wind = []
-        v_wind = []
-        for s, d in zip(speeds, directions):
-            u, v = calculate_wind_components(s, d)
-            u_wind.append(u)
-            v_wind.append(v)
+        # Create a simple plot with wind directions and speeds by height
+        fig, ax = plt.subplots(figsize=(10, 8))
         
-        # Create a figure for vertical wind profile with barbs
-        fig, ax = plt.subplots(figsize=(10, 12))
+        # Plot lines connecting the points
+        ax.plot(speeds, height_m, 'b-', label='Wind Speed')
         
-        # Create a y-axis that represents height
-        y_pos = np.arange(len(heights))
+        # Add points for each level
+        ax.scatter(speeds, height_m, c='blue', s=50)
         
-        # Plot wind barbs along the height axis
-        # Using standard meteorological convention
-        ax.barbs(
-            np.zeros_like(y_pos), height_m,  # Place barbs along the y-axis at heights
-            np.array(u_wind), np.array(v_wind),
-            length=7, pivot='middle', 
-            sizes=dict(emptybarb=0.25, spacing=0.2, height=0.5),
-            linewidth=1.5
-        )
-        
-        # Set axis labels and limits
-        ax.set_yticks(height_m)
-        ax.set_yticklabels([f"{int(h)}m" for h in height_m])
-        ax.set_ylabel('Height (meters)', fontsize=12)
-        ax.set_xlabel('', fontsize=12)
-        ax.set_xlim(-2, 2)  # Small range for barbs centered on zero
-        
-        # Add text with speed and direction information
+        # Add text labels with direction
         for i, (h, s, d) in enumerate(zip(height_m, speeds, directions)):
-            ax.text(0.5, h, f"{int(s)}kt @ {int(d)}°", fontsize=10, ha='left', va='center')
+            ax.text(s + 2, h, f"{int(d)}°", fontsize=10, ha='left', va='center')
         
-        # Add North direction indicator
-        ax.text(0, max(height_m) * 1.05, "NORTH", fontsize=12, 
-                ha='center', va='bottom', weight='bold')
-        
-        # Add arrow to indicate North
-        ax.arrow(0, max(height_m) * 1.03, 0, -max(height_m) * 0.03, 
-                head_width=0.2, head_length=max(height_m) * 0.02, 
-                fc='black', ec='black')
-        
-        # Add title
+        # Set labels and title
+        ax.set_xlabel('Wind Speed (knots)', fontsize=12)
+        ax.set_ylabel('Height (meters)', fontsize=12)
         if hasattr(st.session_state.wind_profile, 'site_id') and st.session_state.wind_profile.site_id:
-            plt.title(f"Wind Profile: {st.session_state.wind_profile.site_id}", fontsize=14)
+            ax.set_title(f"Wind Profile: {st.session_state.wind_profile.site_id}", fontsize=14)
         
-        # Add gridlines
-        ax.grid(True, axis='y', linestyle='--', alpha=0.7)
+        # Add gridlines and legend
+        ax.grid(True, linestyle='--', alpha=0.7)
+        ax.legend()
         
         # Adjust layout
         plt.tight_layout()
         
         # Display the plot in Streamlit
         st.pyplot(fig)
+        
+        # Show a notice about MetPy
+        st.info("For more advanced wind barb visualizations, install the MetPy package.")
 
     else:
         st.info("Select a radar site and click 'Plot Hodograph' to generate a hodograph.")
