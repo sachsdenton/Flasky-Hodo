@@ -124,8 +124,18 @@ class HodographPlotter:
         # Generate all the target heights in 0.5km increments
         target_heights_km = np.arange(0.5, max_height_m/1000 + 0.5, 0.5)
         
-        # For each target height, find the closest actual data point
+        # Generate heights at 1km increments first to prioritize them
+        km_targets = []
+        half_km_targets = []
+        
         for target_km in target_heights_km:
+            if abs(target_km - round(target_km)) < 0.01:  # Full kilometer
+                km_targets.append(target_km)
+            else:  # Half kilometer
+                half_km_targets.append(target_km)
+        
+        # Process full km targets first
+        for target_km in km_targets:
             target_m = target_km * 1000  # Convert to meters
             
             # Find the index of the closest height
@@ -135,30 +145,53 @@ class HodographPlotter:
                 
             closest_idx = np.argmin(height_diffs)
             
-            # Only use points that are reasonably close to the target height
-            # (within 15% of the target or 100m, whichever is smaller)
-            max_diff = min(target_m * 0.15, 100)  # 15% or 100m max difference
+            # Use points that are within 500m (more lenient to ensure we get kilometer labels)
+            max_diff = 500  # 500m max difference for full kilometers
             
             if height_diffs[closest_idx] <= max_diff:
                 closest_u = u_comp[closest_idx]
                 closest_v = v_comp[closest_idx]
                 
-                # Determine if it's a full kilometer or half-kilometer
-                is_full_km = abs(target_km - round(target_km)) < 0.01
+                # Whole kilometer
+                height_label = f'{int(target_km)}'
+                circle_color = 'blue'
+                circle_size = 300  # Larger circles for km points
                 
-                if is_full_km:
-                    # Whole kilometer
-                    height_label = f'{int(target_km)}'
-                    circle_color = 'blue'
-                    circle_size = 300  # Larger circles for km points
+                # Add the circle with the height label
+                self.ax.scatter([closest_u], [closest_v], s=circle_size, c=circle_color, zorder=6, 
+                               edgecolor='black', linewidth=1)
+                
+                # Add the text on top of the circle
+                self.ax.text(closest_u, closest_v, height_label, color='white', 
+                            ha='center', va='center', fontweight='bold', fontsize=9, zorder=7)
+        
+        # Then process half km targets
+        for target_km in half_km_targets:
+            target_m = target_km * 1000  # Convert to meters
+            
+            # Find the index of the closest height
+            height_diffs = np.abs(heights * 1000 - target_m)
+            if len(height_diffs) == 0:
+                continue
+                
+            closest_idx = np.argmin(height_diffs)
+            
+            # Use points that are within 250m (more lenient than before)
+            max_diff = 250  # 250m max difference for half kilometers
+            
+            if height_diffs[closest_idx] <= max_diff:
+                closest_u = u_comp[closest_idx]
+                closest_v = v_comp[closest_idx]
+                
+                # Special case for 0.5km, show as .5
+                if abs(target_km - 0.5) < 0.01:
+                    height_label = '.5'
                 else:
-                    # Half kilometer
-                    if target_km < 1:
-                        height_label = '.5'
-                    else:
-                        height_label = f'{int(target_km)}.5'
-                    circle_color = 'gray'
-                    circle_size = 250  # Slightly smaller for half km
+                    # All other half-kilometers show as whole numbers
+                    height_label = f'{int(target_km)}'
+                
+                circle_color = 'gray'
+                circle_size = 250  # Slightly smaller for half km
                 
                 # Add the circle with the height label
                 self.ax.scatter([closest_u], [closest_v], s=circle_size, c=circle_color, zorder=6, 
