@@ -910,6 +910,10 @@ def main():
             plot_type = st.radio("Plot Type", ["Standard", "Analyst"], key="plot_type")
         with col2:
             height_colors = st.checkbox("Color code by height", value=True)
+            # Add option to show/hide half-km markers
+            if 'show_half_km' not in st.session_state:
+                st.session_state.show_half_km = True
+            show_half_km = st.checkbox("Show Half KM heights (Gray)", value=st.session_state.show_half_km, key="show_half_km")
         with col3:
             show_metar = st.checkbox("Show METAR data", value=True)
 
@@ -932,7 +936,7 @@ def main():
             )
             
             # First plot the profile (this will set up the plot with the correct scale)
-            plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors)
+            plotter.plot_profile(st.session_state.wind_profile, height_colors=height_colors, show_half_km=show_half_km)
             
             # Then add METAR information to the title if available
             if show_metar and st.session_state.metar_data and all(key in st.session_state.metar_data for key in ['station', 'direction', 'speed']):

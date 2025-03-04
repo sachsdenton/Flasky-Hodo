@@ -70,13 +70,14 @@ class HodographPlotter:
             self.ax.text(0, self.max_speed + 2, 'S', ha='center')
             self.ax.text(self.max_speed + 2, 0, 'W', va='center')
 
-    def plot_profile(self, profile, height_colors: bool = True) -> None:
+    def plot_profile(self, profile, height_colors: bool = True, show_half_km: bool = True) -> None:
         """
         Plot wind profile on the hodograph.
 
         Args:
             profile: WindProfile object containing the data
             height_colors: Whether to color code by height
+            show_half_km: Whether to show half-kilometer markers (gray circles)
         """
         if not profile.validate():
             raise ValueError("Invalid wind profile data")
@@ -165,41 +166,42 @@ class HodographPlotter:
                 self.ax.text(closest_u, closest_v, height_label, color='white', 
                             ha='center', va='center', fontweight='bold', fontsize=9, zorder=7)
         
-        # Then process half km targets
-        for target_km in half_km_targets:
-            target_m = target_km * 1000  # Convert to meters
-            
-            # Find the index of the closest height
-            height_diffs = np.abs(heights * 1000 - target_m)
-            if len(height_diffs) == 0:
-                continue
+        # Then process half km targets if enabled
+        if show_half_km:  # Only show half-km markers if enabled
+            for target_km in half_km_targets:
+                target_m = target_km * 1000  # Convert to meters
                 
-            closest_idx = np.argmin(height_diffs)
-            
-            # Use points that are within 250m (more lenient than before)
-            max_diff = 250  # 250m max difference for half kilometers
-            
-            if height_diffs[closest_idx] <= max_diff:
-                closest_u = u_comp[closest_idx]
-                closest_v = v_comp[closest_idx]
+                # Find the index of the closest height
+                height_diffs = np.abs(heights * 1000 - target_m)
+                if len(height_diffs) == 0:
+                    continue
+                    
+                closest_idx = np.argmin(height_diffs)
                 
-                # Special case for 0.5km, show as .5
-                if abs(target_km - 0.5) < 0.01:
-                    height_label = '.5'
-                else:
-                    # All other half-kilometers show as whole numbers
-                    height_label = f'{int(target_km)}'
+                # Use points that are within 250m (more lenient than before)
+                max_diff = 250  # 250m max difference for half kilometers
                 
-                circle_color = 'gray'
-                circle_size = 250  # Slightly smaller for half km
-                
-                # Add the circle with the height label
-                self.ax.scatter([closest_u], [closest_v], s=circle_size, c=circle_color, zorder=6, 
-                               edgecolor='black', linewidth=1)
-                
-                # Add the text on top of the circle
-                self.ax.text(closest_u, closest_v, height_label, color='white', 
-                            ha='center', va='center', fontweight='bold', fontsize=9, zorder=7)
+                if height_diffs[closest_idx] <= max_diff:
+                    closest_u = u_comp[closest_idx]
+                    closest_v = v_comp[closest_idx]
+                    
+                    # Special case for 0.5km, show as .5
+                    if abs(target_km - 0.5) < 0.01:
+                        height_label = '.5'
+                    else:
+                        # All other half-kilometers show as whole numbers
+                        height_label = f'{int(target_km)}'
+                    
+                    circle_color = 'gray'
+                    circle_size = 250  # Slightly smaller for half km
+                    
+                    # Add the circle with the height label
+                    self.ax.scatter([closest_u], [closest_v], s=circle_size, c=circle_color, zorder=6, 
+                                   edgecolor='black', linewidth=1)
+                    
+                    # Add the text on top of the circle
+                    self.ax.text(closest_u, closest_v, height_label, color='white', 
+                                ha='center', va='center', fontweight='bold', fontsize=9, zorder=7)
 
     def add_layer_mean(self, profile, bottom: float, top: float) -> None:
         """
