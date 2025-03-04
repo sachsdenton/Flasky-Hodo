@@ -117,32 +117,50 @@ class HodographPlotter:
         # Plot points with larger markers
         self.ax.scatter(u_comp, v_comp, c='red', s=50, zorder=5)
         
-        # Add altitude callouts for 500m and 1km increments
+        # Add altitude callouts for all kilometer and 500m increments
         for i, (u, v, h) in enumerate(zip(u_comp, v_comp, heights)):
             # Convert height to meters
             height_m = h * 1000
             
-            # Check for 1km increments
-            if abs(round(height_m / 1000) - height_m / 1000) < 0.05 and height_m > 0:
-                height_label = f'{int(round(height_m / 1000))}km'
+            # Format: show every kilometer and half kilometer
+            if height_m >= 500:  # Only show labels for 500m and above
+                # Determine label text
+                if abs(height_m / 1000 - round(height_m / 1000)) < 0.05:
+                    # Whole kilometer
+                    height_label = f'{int(round(height_m / 1000))}km'
+                    connect_style = 'solid'
+                    bbox_color = 'blue'
+                elif abs(height_m / 500 - round(height_m / 500)) < 0.1 and round(height_m / 500) % 2 != 0:
+                    # Half kilometer
+                    if height_m < 1000:
+                        height_label = f'500m'
+                    else:
+                        height_label = f'{int(height_m // 1000)}.5km'
+                    connect_style = 'dotted'
+                    bbox_color = 'gray'
+                else:
+                    continue
                 
-            # Check for 500m points
-            elif abs(round(height_m / 500) * 500 - height_m) < 25 and height_m > 0 and round(height_m / 500) % 2 != 0:
-                height_label = f'500m'
-                if height_m > 1000:
-                    height_label = f'{int(height_m // 1000)}.5km'
-            else:
-                continue
+                # Calculate offset direction (to avoid overlapping labels)
+                angle = (i * 45) % 360  # Distribute labels in different directions
+                dx = 20 * np.cos(np.deg2rad(angle))
+                dy = 20 * np.sin(np.deg2rad(angle))
                 
-            # Display the label
-            self.ax.annotate(
-                height_label, 
-                xy=(u, v),
-                xytext=(5, 5),  # Offset text from point
-                textcoords='offset points',
-                fontsize=8,
-                bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.7)
-            )
+                # Display the label with connecting line
+                self.ax.annotate(
+                    height_label, 
+                    xy=(u, v),
+                    xytext=(dx, dy),  # Position farther from point
+                    textcoords='offset points',
+                    fontsize=9,
+                    bbox=dict(boxstyle="round,pad=0.3", fc="white", ec=bbox_color, alpha=0.8),
+                    arrowprops=dict(
+                        arrowstyle='-',
+                        connectionstyle='arc3,rad=0.0',
+                        linestyle=connect_style,
+                        color='gray'
+                    )
+                )
 
     def add_layer_mean(self, profile, bottom: float, top: float) -> None:
         """
