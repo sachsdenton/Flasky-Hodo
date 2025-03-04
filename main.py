@@ -220,6 +220,27 @@ def plot_srh(ax, profile, storm_motion, color='green', alpha=0.3, height_km=3, s
     ax.fill(srh_polygon_x, srh_polygon_y, color=color, alpha=alpha, 
             label=srh_label)
     
+    # Display the SRH value on the plot at the bottom
+    # Get the max speed for positioning
+    max_speed_val = np.max(profile.speeds) if len(profile.speeds) > 0 else 50
+    if surface_wind is not None and 'speed' in surface_wind:
+        max_speed_val = max(max_speed_val, surface_wind['speed'])
+    
+    # Position SRH text below the hodograph
+    y_offset = -max_speed_val * 0.8
+    
+    # Format box and style to match plotly implementation
+    box_props = dict(
+        boxstyle='round,pad=0.5',
+        facecolor=color,
+        alpha=0.7,
+        edgecolor='black'
+    )
+    
+    # Add the SRH annotation
+    ax.text(0, y_offset, srh_label, fontsize=10, 
+            ha='center', va='center', bbox=box_props)
+    
     return srh_value
 
 
