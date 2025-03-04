@@ -114,8 +114,23 @@ class HodographPlotter:
         else:
             self.ax.plot(u_comp, v_comp, 'b-', linewidth=2)
 
-        # Plot points
-        self.ax.scatter(u_comp, v_comp, c='red', s=30, zorder=5)
+        # Plot points with larger markers
+        self.ax.scatter(u_comp, v_comp, c='red', s=50, zorder=5)
+        
+        # Add altitude callouts for 1km increments
+        for i, (u, v, h) in enumerate(zip(u_comp, v_comp, heights)):
+            # Round height to nearest km
+            height_km = round(h * 1000 / 1000)
+            # Only add labels at exact 1km increments
+            if abs(height_km - h * 1000 / 1000) < 0.05 and height_km > 0:
+                self.ax.annotate(
+                    f'{height_km}km', 
+                    xy=(u, v),
+                    xytext=(5, 5),  # Offset text from point
+                    textcoords='offset points',
+                    fontsize=8,
+                    bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.7)
+                )
 
     def add_layer_mean(self, profile, bottom: float, top: float) -> None:
         """
