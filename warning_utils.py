@@ -116,8 +116,11 @@ def extract_storm_motion(description: str) -> Dict[str, Any]:
     # Try the patterns in order
     match = re.search(direction_degrees_pattern, description, re.IGNORECASE)
     if match:
-        # Direction is directly mentioned in degrees in the warning
-        motion_info["direction_degrees"] = int(match.group(2))
+        # Direction is directly mentioned in degrees in the warning (moving toward)
+        # To get the direction it's coming from, add 180 degrees and normalize to 0-359
+        toward_degrees = int(match.group(2))
+        motion_info["direction_degrees"] = (toward_degrees + 180) % 360
+        
         # Convert MPH to knots (1 mph ≈ 0.868976 knots)
         motion_info["speed_mph"] = int(match.group(3))
         motion_info["speed_knots"] = int(round(motion_info["speed_mph"] * 0.868976))
@@ -130,7 +133,7 @@ def extract_storm_motion(description: str) -> Dict[str, Any]:
         motion_info["speed_mph"] = int(match.group(2))
         motion_info["speed_knots"] = int(round(motion_info["speed_mph"] * 0.868976))
         
-        # Convert cardinal direction to degrees
+        # Convert cardinal direction to degrees (direction moving toward)
         cardinal_to_degrees = {
             "NORTH": 0, "NORTHEAST": 45, "EAST": 90, "SOUTHEAST": 135,
             "SOUTH": 180, "SOUTHWEST": 225, "WEST": 270, "NORTHWEST": 315,
@@ -139,7 +142,9 @@ def extract_storm_motion(description: str) -> Dict[str, Any]:
         }
         
         if cardinal_direction in cardinal_to_degrees:
-            motion_info["direction_degrees"] = cardinal_to_degrees[cardinal_direction]
+            # Get direction moving toward, then add 180 degrees to get direction coming from
+            toward_degrees = cardinal_to_degrees[cardinal_direction]
+            motion_info["direction_degrees"] = (toward_degrees + 180) % 360
         
     return motion_info
 
