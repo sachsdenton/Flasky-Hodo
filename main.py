@@ -938,7 +938,7 @@ def reset_app():
     st.session_state.selected_site = None
     st.session_state.last_metar_click = None
     st.session_state.show_mrms = True
-    st.session_state.show_warnings = False
+    st.session_state.show_warnings = True
     st.session_state.hodograph_displayed = False
     st.session_state.last_map_interaction = None
     
@@ -975,7 +975,7 @@ def main():
     if 'show_mrms' not in st.session_state:
         st.session_state.show_mrms = True
     if 'show_warnings' not in st.session_state:
-        st.session_state.show_warnings = False
+        st.session_state.show_warnings = True
     if 'hodograph_displayed' not in st.session_state:
         st.session_state.hodograph_displayed = False
     if 'last_map_interaction' not in st.session_state:
