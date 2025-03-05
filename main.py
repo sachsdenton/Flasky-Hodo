@@ -1562,8 +1562,8 @@ def main():
         # Convert heights to meters for display
         height_m = heights * 1000  # Convert to meters
         
-        # Create a simple plot with wind speeds by height
-        fig2, ax2 = plt.subplots(figsize=(8, 8))
+        # Create a plot with wind speeds by height including wind barbs
+        fig2, ax2 = plt.subplots(figsize=(10, 8))
         
         # Plot lines connecting the points
         ax2.plot(speeds, height_m, 'b-', label='Wind Speed')
@@ -1571,16 +1571,32 @@ def main():
         # Add points for each level
         ax2.scatter(speeds, height_m, c='blue', s=50)
         
-        # Add text labels with direction
+        # Add wind barbs at each level
+        # First, we need to convert to u and v components
+        u_comp = np.array([calculate_wind_components(s, d)[0] for s, d in zip(speeds, directions)])
+        v_comp = np.array([calculate_wind_components(s, d)[1] for s, d in zip(speeds, directions)])
+        
+        # Draw wind barbs at each data point
+        for i, (s, h, u, v) in enumerate(zip(speeds, height_m, u_comp, v_comp)):
+            # Place barbs at the point location, use standard NWS wind barb notation
+            ax2.barbs(s, h, u, v, length=6, pivot='middle', 
+                     sizes=dict(emptybarb=0.05, spacing=0.2, height=0.5))
+        
+        # Add text labels with speed and direction
         for i, (h, s, d) in enumerate(zip(height_m, speeds, directions)):
-            ax2.text(s + 2, h, f"{int(d)}°", fontsize=10, ha='left', va='center')
+            ax2.text(s + 2, h, f"{int(s)}kts, {int(d)}°", fontsize=9, ha='left', va='center')
         
         # Set labels and title
         ax2.set_xlabel('Wind Speed (knots)', fontsize=12)
         ax2.set_ylabel('Height (meters)', fontsize=12)
         
         if hasattr(st.session_state.wind_profile, 'site_id') and st.session_state.wind_profile.site_id:
-            ax2.set_title(f"Wind Speed Profile: {st.session_state.wind_profile.site_id}", fontsize=14)
+            ax2.set_title(f"Wind Profile with Barbs: {st.session_state.wind_profile.site_id}", fontsize=14)
+        
+        # Add a legend explaining wind barbs
+        barb_legend = plt.figtext(0.15, 0.02, 
+                               "Wind Barb Legend: Half-barb = 5 kts, Full barb = 10 kts, Flag = 50 kts", 
+                               fontsize=10, ha='left')
         
         # Add gridlines
         ax2.grid(True, linestyle='--', alpha=0.7)
