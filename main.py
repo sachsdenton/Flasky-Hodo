@@ -1594,7 +1594,7 @@ def main():
                  length=6, pivot='middle', sizes=dict(emptybarb=0.05, spacing=0.2, height=0.5))
         
         # Add an invisible line to set the x-axis range
-        max_speed = np.max(speeds) * 1.2 if speeds else 100
+        max_speed = np.max(speeds) * 1.2 if len(speeds) > 0 else 100
         ax2.plot([0, max_speed], [height_m[0], height_m[0]], alpha=0)
         
         # Set labels
