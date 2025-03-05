@@ -19,9 +19,8 @@ from params import compute_bunkers, compute_srh
 from map_component import load_metar_sites, calculate_distance, create_map
 from geopy.distance import distance
 from mrms_handler import MRMSHandler
-# Import metpy for wind barb plotting
+# Import metpy for meteorological calculations
 import metpy.calc as mpcalc
-from metpy.plots import add_metpy_logo, SkewT
 from metpy.units import units
 
 def calculate_vector_angle(u1: float, v1: float, u2: float, v2: float) -> float:
@@ -1557,59 +1556,7 @@ def main():
         # Use full width for the wind profile data table
         st.dataframe(df, hide_index=True, use_container_width=True)
         
-        # Add wind barbs visualization
-        st.subheader("Wind Profile Visualization")
-        
-        # Create a SkewT plot from MetPy for proper wind barbs visualization
-        fig = plt.figure(figsize=(10, 10))
-        
-        # Create a blank SkewT diagram (we'll only use it for the wind barbs)
-        skew = SkewT(fig, rotation=0)  # Rotation of 0 gives a non-skewed axis
-        
-        # Convert data to proper units for MetPy
-        p = np.array([1000 - (h * 10) for h in heights]) * units.hPa  # Convert heights to pressure levels
-        u = np.array([calculate_wind_components(s, d)[0] for s, d in zip(speeds, directions)]) * units.knots
-        v = np.array([calculate_wind_components(s, d)[1] for s, d in zip(speeds, directions)]) * units.knots
-        
-        # Plot wind barbs at each pressure level
-        skew.plot_barbs(p, u, v)
-        
-        # Remove temperature and other SkewT elements since we only want wind barbs
-        # Customize the appearance of the plot
-        ax = plt.gca()
-        for line in ax.lines:
-            if line.get_color() == 'r' or line.get_color() == 'k':  # Temperature and dewpoint lines
-                line.set_visible(False)
-                
-        # Add a secondary y-axis for height in meters
-        heights_km = np.array(heights)
-        height_m = heights_km * 1000
-        
-        # Add labels at each level
-        for i, (h, s, d) in enumerate(zip(heights_km, speeds, directions)):
-            ax.text(0.05, p[i].magnitude, f"{int(h*1000)}m: {int(s)}kts, {int(d)}°", 
-                   transform=ax.get_yaxis_transform(), fontsize=10, va='center')
-            
-        # Set axis labels
-        ax.set_xlabel('Wind Barbs - Each barb = 10 kts, flag = 50 kts', fontsize=12)
-        ax.set_ylabel('Pressure (hPa) / Height', fontsize=12)
-        
-        # Add a title
-        if hasattr(st.session_state.wind_profile, 'site_id') and st.session_state.wind_profile.site_id:
-            plt.title(f"Wind Profile with Barbs: {st.session_state.wind_profile.site_id}", fontsize=14)
-            
-        # Add a legend for wind barbs
-        plt.figtext(0.15, 0.02, 
-                   "Wind Barb Legend: Half-barb = 5 kts, Full barb = 10 kts, Flag = 50 kts", 
-                   fontsize=10, ha='left')
-            
-        # Adjust layout
-        plt.tight_layout()
-        
-        # Display the plot in Streamlit
-        st.pyplot(fig)
-        
-        # Add a separate plot that shows speed profile with height
+        # Add wind speed profile plot with height
         st.subheader("Wind Speed Profile")
         
         # Convert heights to meters for display
