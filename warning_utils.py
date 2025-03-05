@@ -116,9 +116,8 @@ def extract_storm_motion(description: str) -> Dict[str, Any]:
     # Try the patterns in order
     match = re.search(direction_degrees_pattern, description, re.IGNORECASE)
     if match:
-        motion_info["cardinal_direction"] = match.group(1).title()
-        # Direction is the bearing (where the storm is moving toward)
-        motion_info["bearing_degrees"] = int(match.group(2))
+        # Direction is directly mentioned in degrees in the warning
+        motion_info["direction_degrees"] = int(match.group(2))
         # Convert MPH to knots (1 mph ≈ 0.868976 knots)
         motion_info["speed_mph"] = int(match.group(3))
         motion_info["speed_knots"] = int(round(motion_info["speed_mph"] * 0.868976))
@@ -126,21 +125,21 @@ def extract_storm_motion(description: str) -> Dict[str, Any]:
         
     match = re.search(direction_pattern, description, re.IGNORECASE) or re.search(direction_pattern_alt, description, re.IGNORECASE)
     if match:
-        motion_info["cardinal_direction"] = match.group(1).title()
+        cardinal_direction = match.group(1).upper()
         # Convert MPH to knots (1 mph ≈ 0.868976 knots)
         motion_info["speed_mph"] = int(match.group(2))
         motion_info["speed_knots"] = int(round(motion_info["speed_mph"] * 0.868976))
         
-        # Convert cardinal direction to approximate bearing (degrees)
-        cardinal_to_bearing = {
+        # Convert cardinal direction to degrees
+        cardinal_to_degrees = {
             "NORTH": 0, "NORTHEAST": 45, "EAST": 90, "SOUTHEAST": 135,
             "SOUTH": 180, "SOUTHWEST": 225, "WEST": 270, "NORTHWEST": 315,
             "N": 0, "NE": 45, "E": 90, "SE": 135,
             "S": 180, "SW": 225, "W": 270, "NW": 315
         }
-        direction_key = motion_info["cardinal_direction"].upper()
-        if direction_key in cardinal_to_bearing:
-            motion_info["bearing_degrees"] = cardinal_to_bearing[direction_key]
+        
+        if cardinal_direction in cardinal_to_degrees:
+            motion_info["direction_degrees"] = cardinal_to_degrees[cardinal_direction]
         
     return motion_info
 
@@ -159,14 +158,10 @@ def get_warning_popup_content(warning: Dict[str, Any]) -> str:
         motion = warning["storm_motion"]
         storm_motion_html = '<div style="margin-top: 10px; padding: 8px; background-color: #f5f5f5; border-radius: 4px;">'
         
-        if "cardinal_direction" in motion and "speed_knots" in motion:
+        if "direction_degrees" in motion and "speed_knots" in motion:
             storm_motion_html += f'<p style="margin: 0;"><b>Storm Motion:</b></p>'
-            storm_motion_html += f'<p style="margin: 0;"><b>Bearing:</b> {motion["cardinal_direction"]}'
-            
-            if "bearing_degrees" in motion:
-                storm_motion_html += f' ({motion["bearing_degrees"]}°)'
-                
-            storm_motion_html += f'</p><p style="margin: 0;"><b>Speed:</b> {motion["speed_knots"]} knots</p>'
+            storm_motion_html += f'<p style="margin: 0;"><b>Storm Direction (degrees):</b> {motion["direction_degrees"]}°</p>'
+            storm_motion_html += f'<p style="margin: 0;"><b>Storm Speed (knots):</b> {motion["speed_knots"]}</p>'
         
         storm_motion_html += '</div>'
     
