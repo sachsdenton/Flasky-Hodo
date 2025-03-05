@@ -980,13 +980,6 @@ def main():
 
     st.subheader("Select Radar Site")
 
-    # Add MRMS toggle in the sidebar
-    st.sidebar.header("Map Settings")
-    show_mrms = st.sidebar.checkbox("Show MRMS Radar", value=st.session_state.show_mrms)
-    if show_mrms != st.session_state.show_mrms:
-        st.session_state.show_mrms = show_mrms
-        st.experimental_rerun()
-
     # Create map with MRMS support
     radar_map = create_map(show_mrms=st.session_state.show_mrms)
 
