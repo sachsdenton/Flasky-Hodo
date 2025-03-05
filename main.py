@@ -1560,68 +1560,89 @@ def main():
         # Add wind barbs visualization
         st.subheader("Wind Profile Visualization")
         
-        # Convert heights to meters for display
-        height_m = heights * 1000  # Convert to meters
+        # Create a SkewT plot from MetPy for proper wind barbs visualization
+        fig = plt.figure(figsize=(10, 10))
         
-        # Create a figure with two subplots side by side (line plot and wind barbs)
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 8), sharey=True)
+        # Create a blank SkewT diagram (we'll only use it for the wind barbs)
+        skew = SkewT(fig, rotation=0)  # Rotation of 0 gives a non-skewed axis
         
-        # Plot 1: Speed profile
-        ax1.plot(speeds, height_m, 'b-', label='Wind Speed')
-        ax1.scatter(speeds, height_m, c='blue', s=50)
+        # Convert data to proper units for MetPy
+        p = np.array([1000 - (h * 10) for h in heights]) * units.hPa  # Convert heights to pressure levels
+        u = np.array([calculate_wind_components(s, d)[0] for s, d in zip(speeds, directions)]) * units.knots
+        v = np.array([calculate_wind_components(s, d)[1] for s, d in zip(speeds, directions)]) * units.knots
         
-        # Add labels with directions
-        for i, (h, s, d) in enumerate(zip(height_m, speeds, directions)):
-            ax1.text(s + 2, h, f"{int(d)}°", fontsize=10, ha='left', va='center')
+        # Plot wind barbs at each pressure level
+        skew.plot_barbs(p, u, v)
         
-        ax1.set_xlabel('Wind Speed (knots)', fontsize=12)
-        ax1.set_ylabel('Height (meters)', fontsize=12)
-        ax1.grid(True, linestyle='--', alpha=0.7)
-        ax1.legend()
+        # Remove temperature and other SkewT elements since we only want wind barbs
+        # Customize the appearance of the plot
+        ax = plt.gca()
+        for line in ax.lines:
+            if line.get_color() == 'r' or line.get_color() == 'k':  # Temperature and dewpoint lines
+                line.set_visible(False)
+                
+        # Add a secondary y-axis for height in meters
+        heights_km = np.array(heights)
+        height_m = heights_km * 1000
         
-        # Plot 2: Wind barbs with MetPy
-        # Convert data to MetPy units
-        u_comp_array = np.array([calculate_wind_components(s, d)[0] for s, d in zip(speeds, directions)]) * units.knots
-        v_comp_array = np.array([calculate_wind_components(s, d)[1] for s, d in zip(speeds, directions)]) * units.knots
-        heights_array = np.array(height_m) * units.meter
+        # Add labels at each level
+        for i, (h, s, d) in enumerate(zip(heights_km, speeds, directions)):
+            ax.text(0.05, p[i].magnitude, f"{int(h*1000)}m: {int(s)}kts, {int(d)}°", 
+                   transform=ax.get_yaxis_transform(), fontsize=10, va='center')
+            
+        # Set axis labels
+        ax.set_xlabel('Wind Barbs - Each barb = 10 kts, flag = 50 kts', fontsize=12)
+        ax.set_ylabel('Pressure (hPa) / Height', fontsize=12)
         
-        # Plot wind barbs at each height
-        # Create a zero-array at each height for the x-position of wind barbs
-        zero_array = np.zeros_like(heights_array)
-        
-        # Plot the wind barbs
-        ax2.barbs(zero_array, heights_array, u_comp_array, v_comp_array, 
-                 length=6, pivot='middle', sizes=dict(emptybarb=0.05, spacing=0.2, height=0.5))
-        
-        # Add an invisible line to set the x-axis range
-        max_speed = np.max(speeds) * 1.2 if len(speeds) > 0 else 100
-        ax2.plot([0, max_speed], [height_m[0], height_m[0]], alpha=0)
-        
-        # Set labels
-        ax2.set_xlabel('Wind Barbs', fontsize=12)
-        ax2.set_title('Wind Barbs by Height', fontsize=12)
-        ax2.grid(True, linestyle='--', alpha=0.7)
-        
-        # Add a legend for wind barbs
-        wind_legend = [
-            plt.Line2D([0], [0], marker=r'$\uparrow$', color='w', markerfacecolor='k', 
-                       markersize=15, label='5 kts'),
-            plt.Line2D([0], [0], marker=r'$\uparrow$', color='w', markerfacecolor='k', 
-                       markersize=15, linestyle='-', label='10 kts'),
-            plt.Line2D([0], [0], marker=r'$\triangle$', color='w', markerfacecolor='k', 
-                       markersize=15, label='50 kts')
-        ]
-        ax2.legend(handles=wind_legend, loc='upper right')
-        
-        # Set overall title
+        # Add a title
         if hasattr(st.session_state.wind_profile, 'site_id') and st.session_state.wind_profile.site_id:
-            fig.suptitle(f"Wind Profile: {st.session_state.wind_profile.site_id}", fontsize=14)
-        
+            plt.title(f"Wind Profile with Barbs: {st.session_state.wind_profile.site_id}", fontsize=14)
+            
+        # Add a legend for wind barbs
+        plt.figtext(0.15, 0.02, 
+                   "Wind Barb Legend: Half-barb = 5 kts, Full barb = 10 kts, Flag = 50 kts", 
+                   fontsize=10, ha='left')
+            
         # Adjust layout
         plt.tight_layout()
         
         # Display the plot in Streamlit
         st.pyplot(fig)
+        
+        # Add a separate plot that shows speed profile with height
+        st.subheader("Wind Speed Profile")
+        
+        # Convert heights to meters for display
+        height_m = heights * 1000  # Convert to meters
+        
+        # Create a simple plot with wind speeds by height
+        fig2, ax2 = plt.subplots(figsize=(8, 8))
+        
+        # Plot lines connecting the points
+        ax2.plot(speeds, height_m, 'b-', label='Wind Speed')
+        
+        # Add points for each level
+        ax2.scatter(speeds, height_m, c='blue', s=50)
+        
+        # Add text labels with direction
+        for i, (h, s, d) in enumerate(zip(height_m, speeds, directions)):
+            ax2.text(s + 2, h, f"{int(d)}°", fontsize=10, ha='left', va='center')
+        
+        # Set labels and title
+        ax2.set_xlabel('Wind Speed (knots)', fontsize=12)
+        ax2.set_ylabel('Height (meters)', fontsize=12)
+        
+        if hasattr(st.session_state.wind_profile, 'site_id') and st.session_state.wind_profile.site_id:
+            ax2.set_title(f"Wind Speed Profile: {st.session_state.wind_profile.site_id}", fontsize=14)
+        
+        # Add gridlines
+        ax2.grid(True, linestyle='--', alpha=0.7)
+        
+        # Adjust layout
+        plt.tight_layout()
+        
+        # Display the second plot in Streamlit
+        st.pyplot(fig2)
 
     else:
         st.info("Select a radar site and click 'Plot Hodograph' to generate a hodograph.")
