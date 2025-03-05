@@ -938,6 +938,7 @@ def reset_app():
     st.session_state.selected_site = None
     st.session_state.last_metar_click = None
     st.session_state.show_mrms = True
+    st.session_state.show_warnings = False
     st.session_state.hodograph_displayed = False
     st.session_state.last_map_interaction = None
     
@@ -973,15 +974,36 @@ def main():
         st.session_state.last_metar_click = None
     if 'show_mrms' not in st.session_state:
         st.session_state.show_mrms = True
+    if 'show_warnings' not in st.session_state:
+        st.session_state.show_warnings = False
     if 'hodograph_displayed' not in st.session_state:
         st.session_state.hodograph_displayed = False
     if 'last_map_interaction' not in st.session_state:
         st.session_state.last_map_interaction = None
 
+    # Add options for map display
+    col1, col2 = st.columns(2)
+    with col1:
+        show_mrms = st.checkbox("Show MRMS Reflectivity", value=st.session_state.show_mrms, 
+                              help="Display multi-radar reflectivity mosaic on the map")
+        if show_mrms != st.session_state.show_mrms:
+            st.session_state.show_mrms = show_mrms
+            st.rerun()
+    
+    with col2:
+        show_warnings = st.checkbox("Show Active Warnings", value=st.session_state.show_warnings,
+                                  help="Display active severe thunderstorm and tornado warnings")
+        if show_warnings != st.session_state.show_warnings:
+            st.session_state.show_warnings = show_warnings
+            st.rerun()
+            
     st.subheader("Select Radar Site")
 
-    # Create map with MRMS support
-    radar_map = create_map(show_mrms=st.session_state.show_mrms)
+    # Create map with MRMS and warnings support
+    radar_map = create_map(
+        show_mrms=st.session_state.show_mrms,
+        show_warnings=st.session_state.show_warnings
+    )
 
     # If a site is selected, add METAR sites around it and update view
     if st.session_state.selected_site:

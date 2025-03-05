@@ -92,6 +92,10 @@ def get_warning_popup_content(warning: Dict[str, Any]) -> str:
     expires = format_warning_time(warning.get("expires", ""))
     effective = format_warning_time(warning.get("effective", ""))
     
+    # Pre-process description to replace newlines with <br> tags
+    description = warning.get('description', 'No description available.')
+    description_html = description.replace('\n', '<br>')
+    
     return f"""
     <div style="max-width: 300px;">
         <h4 style="color: {get_warning_color(warning['event'])};">{warning['event']}</h4>
@@ -102,7 +106,7 @@ def get_warning_popup_content(warning: Dict[str, Any]) -> str:
         <p><b>Certainty:</b> {warning.get('certainty', 'Unknown')}</p>
         <details>
             <summary>Description</summary>
-            <p>{warning.get('description', 'No description available.').replace('\n', '<br>')}</p>
+            <p>{description_html}</p>
         </details>
     </div>
     """
