@@ -51,13 +51,21 @@ def fetch_active_warnings() -> List[Dict[str, Any]]:
                     
                     # Get description and extract storm motion information
                     description = prop.get("description", "")
-                    storm_motion = extract_storm_motion(description)
+                    
+                    # Get eventMotionDescription if available (new NWS API format)
+                    event_motion_description = None
+                    if "parameters" in prop and "eventMotionDescription" in prop["parameters"]:
+                        event_motion_description = prop["parameters"]["eventMotionDescription"][0] if prop["parameters"]["eventMotionDescription"] else None
+                    
+                    # Extract storm motion using both description and eventMotionDescription
+                    storm_motion = extract_storm_motion(description, event_motion_description)
                     
                     warning_data = {
                         "id": prop.get("id", ""),
                         "event": event,
                         "headline": prop.get("headline", ""),
                         "description": description,
+                        "eventMotionDescription": event_motion_description,  # Store for debugging
                         "severity": prop.get("severity", ""),
                         "certainty": prop.get("certainty", ""),
                         "urgency": prop.get("urgency", ""),
@@ -93,17 +101,32 @@ def get_warning_color(event_type: str) -> str:
     else:
         return "yellow"
         
-def extract_storm_motion(description: str) -> Dict[str, Any]:
+def extract_storm_motion(description: str, event_motion_description: Optional[str] = None) -> Dict[str, Any]:
     """
-    Extract storm motion information from warning description.
+    Extract storm motion information from warning description or eventMotionDescription field.
     
     Args:
         description: The warning description text
+        event_motion_description: The eventMotionDescription field from NWS API
         
     Returns:
         Dictionary with direction and speed if found, otherwise empty
     """
     motion_info = {}
+    
+    # Check if we have eventMotionDescription first (new NWS API format)
+    if event_motion_description:
+        # Pattern for "...storm...236DEG...17KT...34.44,-87.97"
+        motion_pattern = r"\.\.\.storm\.\.\.(\d+)DEG\.\.\.(\d+)KT"
+        match = re.search(motion_pattern, event_motion_description)
+        if match:
+            # Direction is already in degrees (direction storm is coming from)
+            motion_info["direction_degrees"] = int(match.group(1))
+            # Speed is already in knots
+            motion_info["speed_knots"] = int(match.group(2))
+            return motion_info
+    
+    # Fallback to original description parsing if eventMotionDescription doesn't contain what we need
     
     # Common patterns for storm motion in NWS warnings
     # Pattern for "MOVING EAST AT 30 MPH" format
@@ -167,6 +190,10 @@ def get_warning_popup_content(warning: Dict[str, Any]) -> str:
             storm_motion_html += f'<p style="margin: 0;"><b>Storm Motion:</b></p>'
             storm_motion_html += f'<p style="margin: 0;"><b>Storm Direction (degrees):</b> {motion["direction_degrees"]}°</p>'
             storm_motion_html += f'<p style="margin: 0;"><b>Storm Speed (knots):</b> {motion["speed_knots"]}</p>'
+        
+        # Add eventMotionDescription for debugging if available
+        if warning.get("eventMotionDescription"):
+            storm_motion_html += f'<p style="margin: 0; font-size: 0.8em; color: #666;"><b>Raw Data:</b> {warning["eventMotionDescription"]}</p>'
         
         storm_motion_html += '</div>'
     
