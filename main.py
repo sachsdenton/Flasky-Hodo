@@ -739,40 +739,48 @@ def create_plotly_hodograph(wind_profile, site_id=None, site_name=None, valid_ti
     return fig, max_speed
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def fetch_vad_data(site_id):
+    """
+    Fetch VAD data with caching.
+    
+    Args:
+        site_id: Radar site identifier
+        
+    Returns:
+        Tuple of (vad_data, error_message)
+    """
+    try:
+        from vad_reader import download_vad, VADFile
+        
+        # Create temp directory if it doesn't exist
+        os.makedirs("temp_data", exist_ok=True)
+        
+        # Download VAD data with caching handled by Streamlit
+        vad = download_vad(site_id, cache_path="temp_data")
+        
+        if not vad:
+            return None, "Could not fetch radar data"
+            
+        return vad, None
+        
+    except Exception as e:
+        return None, f"Error fetching VAD data: {str(e)}"
+
 def refresh_data(site_id, metar_station=None):
     """Refresh both VWP and METAR data."""
     success = True
     error_message = None
 
     try:
-        # Fetch VWP data asynchronously if available
+        # Fetch VWP data if available using cached function
         if site_id:
-            from vad_reader import download_vad
+            vad, error = fetch_vad_data(site_id)
             
-            # Create temp directory if it doesn't exist
-            os.makedirs("temp_data", exist_ok=True)
-            
-            # Check if we already have recent data (within 30 minutes)
-            cache_file = os.path.join("temp_data", f"{site_id}_latest.vad")
-            use_cache = False
-            
-            if os.path.exists(cache_file):
-                file_time = os.path.getmtime(cache_file)
-                time_diff = datetime.now().timestamp() - file_time
-                # Use cache if less than 30 minutes old
-                if time_diff < 1800:  # 30 minutes in seconds
-                    use_cache = True
-            
-            # Download new data if needed
-            if not use_cache:
-                vad = download_vad(site_id, cache_path="temp_data")
-            else:
-                # Load from cache
-                with open(cache_file, 'rb') as f:
-                    from vad_reader import VADFile
-                    vad = VADFile(f)
-            
-            if vad:
+            if error:
+                success = False
+                error_message = error
+            elif vad:
                 # Store data as numpy arrays directly
                 st.session_state.wind_profile.heights = np.array(vad['altitude'], dtype=float)
                 st.session_state.wind_profile.speeds = np.array(vad['wind_spd'], dtype=float)
@@ -811,6 +819,7 @@ def refresh_data(site_id, metar_station=None):
     return success, error_message
 
 
+@st.cache_data(ttl=60)  # Cache map creation for 1 minute
 def create_radar_map():
     """Create a folium map with radar site markers."""
     sites = get_sorted_sites()
