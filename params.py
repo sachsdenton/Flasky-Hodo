@@ -1,10 +1,11 @@
 
 import numpy as np
+from utils import calculate_wind_components
 
+# Aliasing calculate_wind_components for backward compatibility
+# This avoids duplicate implementations of the same functionality
 def vec2comp(wdir, wspd):
-    u = -wspd * np.sin(np.radians(wdir))
-    v = -wspd * np.cos(np.radians(wdir))
-    return u, v
+    return calculate_wind_components(wspd, wdir)
 
 def comp2vec(u, v):
     vmag = np.hypot(u, v)

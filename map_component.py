@@ -30,8 +30,9 @@ def load_metar_sites():
         st.error(f"Error loading METAR sites: {str(e)}")
         return pd.DataFrame()
 
+@st.cache_data(ttl=60)  # Cache map creation for 1 minute
 def create_map(center_lat=39.8283, center_lon=-98.5795, zoom_start=4, show_mrms=False, show_warnings=False):
-    """Create a folium map with radar sites"""
+    """Create a folium map with radar sites. Uses clustering for better performance."""
     m = folium.Map(
         location=[center_lat, center_lon],
         zoom_start=zoom_start,
@@ -57,7 +58,11 @@ def create_map(center_lat=39.8283, center_lon=-98.5795, zoom_start=4, show_mrms=
             overlay=True
         ).add_to(m)
 
-    # Add radar site markers with simplified style
+    # Create marker cluster for radar sites to improve performance
+    from folium.plugins import MarkerCluster
+    marker_cluster = MarkerCluster(name="Radar Sites")
+    
+    # Add radar site markers to the cluster
     sites = get_sorted_sites()
     for site in sites:
         # Simple circle marker instead of custom icon
@@ -69,7 +74,10 @@ def create_map(center_lat=39.8283, center_lon=-98.5795, zoom_start=4, show_mrms=
             popup=f"{site.id} - {site.name}",
             tooltip=f"{site.id}",
             weight=2
-        ).add_to(m)
+        ).add_to(marker_cluster)
+    
+    # Add the cluster to the map
+    marker_cluster.add_to(m)
     
     # Add warnings if enabled
     if show_warnings:
