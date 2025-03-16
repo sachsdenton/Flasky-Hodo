@@ -18,7 +18,7 @@ class HodographPlotter:
         max_speed = float(np.max(speeds))  # Convert to float to handle numpy types
         return int(np.ceil(max_speed / 10.0)) * 10
 
-    @st.cache_data(ttl=60)  # Cache plot setup for 1 minute
+    # Remove caching from class methods that need to access self
     def setup_plot(self, site_id: Optional[str] = None, site_name: Optional[str] = None, valid_time: Optional[datetime] = None) -> None:
         """
         Initialize the hodograph plot with dynamic maximum range.
@@ -72,7 +72,7 @@ class HodographPlotter:
             self.ax.text(0, self.max_speed + 2, 'S', ha='center')
             self.ax.text(self.max_speed + 2, 0, 'W', va='center')
 
-    @st.cache_data(ttl=60)  # Cache profile plotting for 1 minute
+    # Remove caching from this method too
     def plot_profile(self, profile, height_colors: bool = True, show_half_km: bool = True) -> None:
         """
         Plot wind profile on the hodograph.
