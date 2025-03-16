@@ -1,11 +1,14 @@
 import re
 import requests
+import streamlit as st
 from typing import Tuple, Optional, Dict, Any
 from datetime import datetime
 
+@st.cache_data(ttl=300)  # Cache for 5 minutes
 def get_metar(station_id: str) -> Tuple[Optional[float], Optional[float], Optional[datetime], Optional[str]]:
     """
     Fetch METAR data for a given station and extract wind information.
+    Results are cached for 5 minutes to reduce API calls.
 
     Args:
         station_id (str): 4-letter ICAO station identifier

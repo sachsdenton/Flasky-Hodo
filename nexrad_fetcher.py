@@ -3,6 +3,7 @@ Handles fetching VAD data from NEXRAD sites.
 """
 import os
 import shutil
+import streamlit as st
 from datetime import datetime
 from typing import Optional
 from vad_reader import download_vad
@@ -16,9 +17,11 @@ class NEXRADFetcher:
         if not os.path.exists(self.temp_dir):
             os.makedirs(self.temp_dir)
 
+    @st.cache_data(ttl=300)  # Cache for 5 minutes
     def fetch_latest(self, site_id: str) -> Optional[str]:
         """
         Fetch the latest VAD file for a given radar site.
+        Results are cached for 5 minutes to reduce API calls.
 
         Args:
             site_id: Radar site identifier (e.g., 'KTLX')
@@ -30,7 +33,7 @@ class NEXRADFetcher:
         output_path = os.path.join(self.temp_dir, f"{site_id.lower()}_latest.vad")
 
         try:
-            # Use the original VAD plotter's download function
+            # Use the original VAD plotter's download function with caching
             vad = download_vad(site_id, cache_path=self.temp_dir)
             return output_path if vad else None
 
