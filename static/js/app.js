@@ -431,7 +431,7 @@ async function generateCompleteAnalysis() {
             document.getElementById('mobileHodographTab').disabled = false;
             
             // Switch to hodograph tab based on screen size
-            if (window.innerWidth <= 768) {
+            if (window.innerWidth <= 1024) {
                 switchMobileTab('hodograph');
             } else {
                 switchTab('hodograph');
@@ -471,7 +471,7 @@ async function resetApplication() {
         document.getElementById('mobileHodographTab').disabled = true;
         
         // Reset to map tab (or controls on mobile)
-        if (window.innerWidth <= 768) {
+        if (window.innerWidth <= 1024) {
             switchMobileTab('controls');
         } else {
             switchTab('map');

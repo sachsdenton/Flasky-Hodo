@@ -53,6 +53,13 @@ header h1 {
     padding: 0;
 }
 
+/* Show mobile tabs on smaller screens */
+@media (max-width: 1024px) {
+    .mobile-tab-nav {
+        display: flex;
+    }
+}
+
 .mobile-tab-btn {
     flex: 1;
     padding: 1rem;
@@ -485,11 +492,8 @@ input[type="number"]:focus {
 }
 
 /* Responsive design */
-@media (max-width: 768px) {
-    /* Show mobile tab navigation */
-    .mobile-tab-nav {
-        display: flex;
-    }
+@media (max-width: 1024px) {
+    /* Mobile tab navigation is already shown via earlier rule */
     
     /* Adjust content wrapper for mobile */
     .content-wrapper {
@@ -573,8 +577,12 @@ input[type="number"]:focus {
     }
 }
 
-@media (min-width: 769px) {
+@media (min-width: 1025px) {
     /* Desktop layout - hide mobile tabs and show sidebar */
+    .mobile-tab-nav {
+        display: none !important;
+    }
+    
     .content-wrapper {
         flex-direction: row;
     }
