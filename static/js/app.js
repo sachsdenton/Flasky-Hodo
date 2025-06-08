@@ -23,7 +23,59 @@ document.addEventListener('DOMContentLoaded', function() {
     if (window.innerWidth <= 1024) {
         switchMobileTab('controls');
     }
+    
+    // Handle window resize for responsive layout
+    window.addEventListener('resize', handleResize);
 });
+
+// Handle window resize events
+function handleResize() {
+    const isMobile = window.innerWidth <= 1024;
+    const wasInitializedForMobile = map && map.getContainer().id === 'mobileMap';
+    
+    // If screen size category changed, reinitialize map
+    if (isMobile && !wasInitializedForMobile) {
+        // Switching to mobile layout
+        if (currentTab === 'map' || currentTab === 'controls') {
+            switchMobileTab('controls');
+        }
+    } else if (!isMobile && wasInitializedForMobile) {
+        // Switching to desktop layout - reinitialize map in desktop container
+        reinitializeDesktopMap();
+    }
+    
+    // Always invalidate map size after resize
+    setTimeout(() => {
+        if (map) map.invalidateSize();
+    }, 300);
+}
+
+// Reinitialize map for desktop layout
+function reinitializeDesktopMap() {
+    if (map) {
+        map.remove();
+        map = null;
+    }
+    
+    // Create new map in desktop container
+    map = L.map('map').setView([39.8283, -98.5795], 4);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 10
+    }).addTo(map);
+    
+    // Re-add all existing markers and layers
+    if (radarSites.length > 0) {
+        addRadarSitesToMap();
+    }
+    if (selectedSite && metarMarkers.length > 0) {
+        loadNearbyMetarSites(selectedSite);
+    }
+    if (warningLayers.length > 0) {
+        loadWarnings();
+    }
+}
 
 // Initialize mobile map (recreate map instance for mobile container)
 function initializeMobileMap() {
