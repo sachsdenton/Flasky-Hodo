@@ -20,6 +20,41 @@ document.addEventListener('DOMContentLoaded', function() {
     loadWarnings();
 });
 
+// Initialize mobile map (shared map instance)
+function initializeMobileMap() {
+    // Mobile uses the same map instance, just ensure it's properly sized
+    if (map && document.getElementById('mobileMap')) {
+        // Move map to mobile container if needed
+        const mobileMapContainer = document.getElementById('mobileMap');
+        if (!mobileMapContainer.hasChildNodes()) {
+            // Map is already initialized in the desktop view, just resize
+            setTimeout(() => {
+                if (map) map.invalidateSize();
+            }, 100);
+        }
+    }
+}
+
+// Copy hodograph content to mobile view
+function copyHodographToMobile() {
+    const desktopDisplay = document.getElementById('hodographDisplay');
+    const mobileDisplay = document.getElementById('mobileHodographDisplay');
+    const desktopDetails = document.getElementById('analysisDetails');
+    const mobileDetails = document.getElementById('mobileAnalysisDetails');
+    const desktopParams = document.getElementById('parametersDisplay');
+    const mobileParams = document.getElementById('mobileParametersDisplay');
+    
+    if (desktopDisplay && mobileDisplay) {
+        mobileDisplay.innerHTML = desktopDisplay.innerHTML;
+    }
+    if (desktopDetails && mobileDetails) {
+        mobileDetails.innerHTML = desktopDetails.innerHTML;
+    }
+    if (desktopParams && mobileParams) {
+        mobileParams.innerHTML = desktopParams.innerHTML;
+    }
+}
+
 // Initialize Leaflet map
 function initializeMap() {
     map = L.map('map').setView([39.8283, -98.5795], 4);
@@ -285,8 +320,8 @@ function switchMobileTab(tabName) {
     });
     document.querySelector(`.mobile-tab-btn[data-tab="${tabName}"]`).classList.add('active');
     
-    // Update panel visibility
-    document.querySelectorAll('.controls-panel, .map-panel, .hodograph-panel').forEach(panel => {
+    // Update panel visibility - mobile panels
+    document.querySelectorAll('.controls-panel, .mobile-map-panel, .mobile-hodograph-panel').forEach(panel => {
         panel.classList.remove('active');
     });
     
@@ -294,12 +329,16 @@ function switchMobileTab(tabName) {
         document.getElementById('controlsPanel').classList.add('active');
     } else if (tabName === 'map') {
         document.getElementById('mapPanel').classList.add('active');
+        // Initialize mobile map if needed
+        initializeMobileMap();
         // Refresh map size when switching to map tab
         setTimeout(() => {
             if (map) map.invalidateSize();
         }, 300);
     } else if (tabName === 'hodograph') {
         document.getElementById('hodographPanel').classList.add('active');
+        // Copy hodograph content to mobile view
+        copyHodographToMobile();
     }
     
     currentTab = tabName;

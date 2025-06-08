@@ -45,12 +45,19 @@ header h1 {
     overflow: hidden;
 }
 
-/* Mobile tab navigation - visible by default for testing */
+/* Mobile tab navigation - hidden on desktop */
 .mobile-tab-nav {
-    display: flex;
+    display: none;
     background: white;
     border-bottom: 1px solid #ddd;
     padding: 0;
+}
+
+/* Show mobile tabs on smaller screens */
+@media (max-width: 1024px) {
+    .mobile-tab-nav {
+        display: flex !important;
+    }
 }
 
 .mobile-tab-btn {
@@ -93,15 +100,17 @@ header h1 {
     box-shadow: 2px 0 4px rgba(0,0,0,0.05);
 }
 
-/* Map panel */
-.map-panel {
+/* Desktop main view with tabs */
+.main-view {
     flex: 1;
-    position: relative;
-    background: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
 }
 
-/* Hodograph panel */
-.hodograph-panel {
+/* Mobile panels - hidden on desktop */
+.mobile-map-panel,
+.mobile-hodograph-panel {
     display: none;
     flex: 1;
     background: white;
@@ -486,18 +495,19 @@ input[type="number"]:focus {
 
 /* Responsive design */
 @media (max-width: 1024px) {
-    /* Mobile tab navigation is already shown via earlier rule */
-    
     /* Adjust content wrapper for mobile */
     .content-wrapper {
         flex-direction: column;
         position: relative;
     }
     
-    /* Hide all panels by default on mobile */
-    .controls-panel,
-    .map-panel,
-    .hodograph-panel {
+    /* Hide desktop main view on mobile */
+    .main-view {
+        display: none;
+    }
+    
+    /* Hide controls panel by default on mobile */
+    .controls-panel {
         display: none;
         width: 100%;
         border: none;
@@ -505,9 +515,14 @@ input[type="number"]:focus {
     }
     
     /* Show active panel on mobile */
-    .controls-panel.active,
-    .map-panel.active,
-    .hodograph-panel.active {
+    .controls-panel.active {
+        display: block;
+        flex: 1;
+    }
+    
+    /* Show mobile panels when active */
+    .mobile-map-panel.active,
+    .mobile-hodograph-panel.active {
         display: block;
         flex: 1;
     }
@@ -584,11 +599,13 @@ input[type="number"]:focus {
         display: block !important;
     }
     
-    .map-panel {
-        display: block !important;
+    .main-view {
+        display: flex !important;
     }
     
-    .hodograph-panel.active {
-        display: block !important;
+    /* Hide mobile panels on desktop */
+    .mobile-map-panel,
+    .mobile-hodograph-panel {
+        display: none !important;
     }
 }
