@@ -20,6 +20,41 @@ document.addEventListener('DOMContentLoaded', function() {
     loadWarnings();
 });
 
+// Initialize mobile map (shared map instance)
+function initializeMobileMap() {
+    // Mobile uses the same map instance, just ensure it's properly sized
+    if (map && document.getElementById('mobileMap')) {
+        // Move map to mobile container if needed
+        const mobileMapContainer = document.getElementById('mobileMap');
+        if (!mobileMapContainer.hasChildNodes()) {
+            // Map is already initialized in the desktop view, just resize
+            setTimeout(() => {
+                if (map) map.invalidateSize();
+            }, 100);
+        }
+    }
+}
+
+// Copy hodograph content to mobile view
+function copyHodographToMobile() {
+    const desktopDisplay = document.getElementById('hodographDisplay');
+    const mobileDisplay = document.getElementById('mobileHodographDisplay');
+    const desktopDetails = document.getElementById('analysisDetails');
+    const mobileDetails = document.getElementById('mobileAnalysisDetails');
+    const desktopParams = document.getElementById('parametersDisplay');
+    const mobileParams = document.getElementById('mobileParametersDisplay');
+    
+    if (desktopDisplay && mobileDisplay) {
+        mobileDisplay.innerHTML = desktopDisplay.innerHTML;
+    }
+    if (desktopDetails && mobileDetails) {
+        mobileDetails.innerHTML = desktopDetails.innerHTML;
+    }
+    if (desktopParams && mobileParams) {
+        mobileParams.innerHTML = desktopParams.innerHTML;
+    }
+}
+
 // Initialize Leaflet map
 function initializeMap() {
     map = L.map('map').setView([39.8283, -98.5795], 4);
@@ -226,6 +261,7 @@ function setupEventListeners() {
 
 // Setup tab navigation
 function setupTabNavigation() {
+    // Desktop tab navigation
     const tabButtons = document.querySelectorAll('.tab-btn');
     
     tabButtons.forEach(button => {
@@ -234,6 +270,18 @@ function setupTabNavigation() {
             
             const targetTab = this.getAttribute('data-tab');
             switchTab(targetTab);
+        });
+    });
+    
+    // Mobile tab navigation
+    const mobileTabButtons = document.querySelectorAll('.mobile-tab-btn');
+    
+    mobileTabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            if (this.disabled) return;
+            
+            const targetTab = this.getAttribute('data-tab');
+            switchMobileTab(targetTab);
         });
     });
 }
@@ -259,6 +307,38 @@ function switchTab(tabName) {
         }, 300);
     } else if (tabName === 'hodograph') {
         document.getElementById('hodographPane').classList.add('active');
+    }
+    
+    currentTab = tabName;
+}
+
+// Switch between mobile tabs
+function switchMobileTab(tabName) {
+    // Update mobile tab buttons
+    document.querySelectorAll('.mobile-tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`.mobile-tab-btn[data-tab="${tabName}"]`).classList.add('active');
+    
+    // Update panel visibility - mobile panels
+    document.querySelectorAll('.controls-panel, .mobile-map-panel, .mobile-hodograph-panel').forEach(panel => {
+        panel.classList.remove('active');
+    });
+    
+    if (tabName === 'controls') {
+        document.getElementById('controlsPanel').classList.add('active');
+    } else if (tabName === 'map') {
+        document.getElementById('mapPanel').classList.add('active');
+        // Initialize mobile map if needed
+        initializeMobileMap();
+        // Refresh map size when switching to map tab
+        setTimeout(() => {
+            if (map) map.invalidateSize();
+        }, 300);
+    } else if (tabName === 'hodograph') {
+        document.getElementById('hodographPanel').classList.add('active');
+        // Copy hodograph content to mobile view
+        copyHodographToMobile();
     }
     
     currentTab = tabName;
@@ -387,7 +467,14 @@ async function generateCompleteAnalysis() {
             
             // Enable and switch to hodograph tab
             document.getElementById('hodographTab').disabled = false;
-            switchTab('hodograph');
+            document.getElementById('mobileHodographTab').disabled = false;
+            
+            // Switch to hodograph tab based on screen size
+            if (window.innerWidth <= 1024) {
+                switchMobileTab('hodograph');
+            } else {
+                switchTab('hodograph');
+            }
             
             showMessage('Complete hodograph analysis generated successfully', 'success');
         }
@@ -420,9 +507,14 @@ async function resetApplication() {
         
         document.getElementById('plotHodographBtn').disabled = true;
         document.getElementById('hodographTab').disabled = true;
+        document.getElementById('mobileHodographTab').disabled = true;
         
-        // Reset to map tab
-        switchTab('map');
+        // Reset to map tab (or controls on mobile)
+        if (window.innerWidth <= 1024) {
+            switchMobileTab('controls');
+        } else {
+            switchTab('map');
+        }
         
         document.getElementById('metarStation').value = '';
         document.getElementById('stormDirection').value = '';
