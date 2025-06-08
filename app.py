@@ -160,12 +160,7 @@ def generate_hodograph():
         # Plot the wind profile
         plotter.plot_profile(wind_profile, height_colors=True, show_half_km=show_half_km)
         
-        # Add METAR surface wind if provided
-        if metar_direction is not None and metar_speed is not None:
-            metar_u, metar_v = calculate_wind_components(metar_speed, metar_direction)
-            fig, ax = plotter.get_plot()
-            ax.plot(metar_u, metar_v, 'ko', markersize=8, label=f'METAR Surface Wind')
-            ax.legend()
+        # Remove duplicate METAR plotting - will be handled in main plotting section
         
         # Prepare meteorological data for plotting
         storm_motion_data = None
@@ -191,11 +186,67 @@ def generate_hodograph():
             metar_u, metar_v = calculate_wind_components(metar_data['speed'], metar_data['direction'])
             ax.plot(metar_u, metar_v, 'ko', markersize=10, label='Surface Wind', zorder=10)
             
-        # Draw critical angle lines and shear vector analysis
+        # Add SRH shading and critical angle analysis
+        critical_angle_value = None
         if storm_motion_data and metar_data and len(wind_profile.speeds) > 0:
             # Get surface and storm motion components
             surface_u, surface_v = calculate_wind_components(metar_data['speed'], metar_data['direction'])
             storm_u, storm_v = calculate_wind_components(storm_motion_data['speed'], storm_motion_data['direction'])
+            
+            # Add SRH shading for 0-1km and 0-3km
+            try:
+                # Prepare wind profile data with surface wind
+                u_comp = [surface_u]
+                v_comp = [surface_v]
+                heights = [0.0]
+                
+                for i, (speed, direction) in enumerate(zip(wind_profile.speeds, wind_profile.directions)):
+                    u, v = calculate_wind_components(speed, direction)
+                    u_comp.append(u)
+                    v_comp.append(v)
+                    heights.append(wind_profile.heights[i])
+                
+                # Convert to numpy arrays
+                u_comp = np.array(u_comp)
+                v_comp = np.array(v_comp)
+                heights = np.array(heights)
+                
+                # Create SRH polygon for 0-1km (light green)
+                srh_1km_u = []
+                srh_1km_v = []
+                for i, height in enumerate(heights):
+                    if height <= 1000:  # 1km = 1000m
+                        srh_1km_u.append(u_comp[i])
+                        srh_1km_v.append(v_comp[i])
+                
+                if len(srh_1km_u) > 2:
+                    # Close the polygon by connecting back to storm motion
+                    srh_1km_u.append(storm_u)
+                    srh_1km_v.append(storm_v)
+                    srh_1km_u.append(srh_1km_u[0])  # Close to start
+                    srh_1km_v.append(srh_1km_v[0])
+                    
+                    ax.fill(srh_1km_u, srh_1km_v, color='lightgreen', alpha=0.3, label='SRH 0-1km', zorder=1)
+                
+                # Create SRH polygon for 0-3km (light blue)
+                srh_3km_u = []
+                srh_3km_v = []
+                for i, height in enumerate(heights):
+                    if height <= 3000:  # 3km = 3000m
+                        srh_3km_u.append(u_comp[i])
+                        srh_3km_v.append(v_comp[i])
+                
+                if len(srh_3km_u) > 2:
+                    # Close the polygon by connecting back to storm motion
+                    srh_3km_u.append(storm_u)
+                    srh_3km_v.append(storm_v)
+                    srh_3km_u.append(srh_3km_u[0])  # Close to start
+                    srh_3km_v.append(srh_3km_v[0])
+                    
+                    ax.fill(srh_3km_u, srh_3km_v, color='lightblue', alpha=0.2, label='SRH 0-3km', zorder=0)
+                    
+            except Exception as e:
+                print(f"Error adding SRH shading: {e}")
             
             # Find points within shear vector (±10 degree window from surface-to-lowest radar point)
             if len(wind_profile.speeds) > 0:
@@ -240,7 +291,7 @@ def generate_hodograph():
                     end_u, end_v = shear_points_u[-1], shear_points_v[-1]
                     ax.plot([surface_u, end_u], [surface_v, end_v], 'b--', linewidth=2, alpha=0.8, label='Surface-Shear', zorder=9)
                     
-                    # Calculate and display critical angle
+                    # Calculate critical angle for parameter display
                     v1_u, v1_v = storm_u - surface_u, storm_v - surface_v
                     v2_u, v2_v = end_u - surface_u, end_v - surface_v
                     
@@ -249,15 +300,7 @@ def generate_hodograph():
                         mag1 = np.sqrt(v1_u**2 + v1_v**2)
                         mag2 = np.sqrt(v2_u**2 + v2_v**2)
                         cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
-                        critical_angle = np.rad2deg(np.arccos(cos_angle))
-                        
-                        # Add critical angle annotation
-                        mid_u = (surface_u + storm_u + end_u) / 3
-                        mid_v = (surface_v + storm_v + end_v) / 3
-                        ax.annotate(f'Critical Angle: {critical_angle:.1f}°', 
-                                  xy=(mid_u, mid_v), fontsize=10, fontweight='bold',
-                                  bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.8),
-                                  zorder=11)
+                        critical_angle_value = np.rad2deg(np.arccos(cos_angle))
         
         # Add meteorological parameters text directly on the plot
         if storm_motion_data:
@@ -302,6 +345,10 @@ def generate_hodograph():
                         param_text.append(f'Bunkers RM: {bunkers_rm[0]:.0f}°/{bunkers_rm[1]:.0f}kt')
                 except:
                     pass
+                
+                # Add critical angle below Bunkers data
+                if critical_angle_value is not None:
+                    param_text.append(f'Critical Angle: {critical_angle_value:.1f}°')
                 
                 # Display parameters text box in upper left corner
                 if param_text:
