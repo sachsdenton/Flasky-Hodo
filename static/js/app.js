@@ -428,7 +428,14 @@ async function generateCompleteAnalysis() {
             
             // Enable and switch to hodograph tab
             document.getElementById('hodographTab').disabled = false;
-            switchTab('hodograph');
+            document.getElementById('mobileHodographTab').disabled = false;
+            
+            // Switch to hodograph tab based on screen size
+            if (window.innerWidth <= 768) {
+                switchMobileTab('hodograph');
+            } else {
+                switchTab('hodograph');
+            }
             
             showMessage('Complete hodograph analysis generated successfully', 'success');
         }
@@ -461,9 +468,14 @@ async function resetApplication() {
         
         document.getElementById('plotHodographBtn').disabled = true;
         document.getElementById('hodographTab').disabled = true;
+        document.getElementById('mobileHodographTab').disabled = true;
         
-        // Reset to map tab
-        switchTab('map');
+        // Reset to map tab (or controls on mobile)
+        if (window.innerWidth <= 768) {
+            switchMobileTab('controls');
+        } else {
+            switchTab('map');
+        }
         
         document.getElementById('metarStation').value = '';
         document.getElementById('stormDirection').value = '';
