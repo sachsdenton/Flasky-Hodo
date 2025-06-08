@@ -25,25 +25,31 @@ class WindProfile:
             bool: True if successful, False otherwise
         """
         try:
-            with open(file_path, 'rb') as f:
-                self.vad_file = VADFile(f)
-
-            # Clear existing data
+            # Clear existing data first
             self.clear_data()
-
-            # Extract data from VAD file (already numpy arrays)
-            self.heights = self.vad_file['altitude'].astype(float)
-            self.speeds = self.vad_file['wind_spd'].astype(float)
-            self.directions = self.vad_file['wind_dir'].astype(float)
             
-            # Get time from VAD file (single datetime object)
-            time = self.vad_file['time']
-            self.times = [time] * len(self.heights)
+            # Load VAD file and extract data immediately while file is open
+            with open(file_path, 'rb') as f:
+                vad_file = VADFile(f)
+                
+                # Extract data immediately (already numpy arrays)
+                self.heights = vad_file['altitude'].astype(float)
+                self.speeds = vad_file['wind_spd'].astype(float)
+                self.directions = vad_file['wind_dir'].astype(float)
+                
+                # Get time from VAD file (single datetime object)
+                time = vad_file['time']
+                self.times = [time] * len(self.heights)
+                
+                # Store the VAD file object for later use
+                self.vad_file = vad_file
 
             return True
 
         except Exception as e:
             print(f"Error reading NEXRAD file: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def clear_data(self) -> None:
