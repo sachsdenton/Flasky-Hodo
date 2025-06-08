@@ -289,31 +289,7 @@ async function loadVadDataAutomatically(site) {
     }
 }
 
-// Load VAD data for selected site
-async function loadVadData() {
-    if (!selectedSite) {
-        showMessage('Please select a radar site first', 'error');
-        return;
-    }
-    
-    try {
-        showLoading('Loading VAD data...');
-        const response = await fetch(`/api/vad-data/${selectedSite.id}`);
-        const data = await response.json();
-        
-        if (data.error) {
-            showMessage('VAD Error: ' + data.error, 'error');
-        } else {
-            showMessage(`VAD data loaded: ${data.data_points} points, max height: ${data.max_height.toFixed(0)}m`, 'success');
-            document.getElementById('plotHodographBtn').disabled = false;
-        }
-        
-        hideLoading();
-    } catch (error) {
-        showMessage('Error loading VAD data: ' + error.message, 'error');
-        hideLoading();
-    }
-}
+
 
 
 
@@ -447,12 +423,16 @@ async function resetApplication() {
         stormMotion = null;
         
         document.getElementById('siteInfo').innerHTML = '<p>Click on a radar site on the map to select it</p>';
-        document.getElementById('analysisInfo').innerHTML = '';
-        document.getElementById('hodographContainer').innerHTML = '<p>Select a radar site and click "Generate Hodograph Analysis"</p>';
-        document.getElementById('parametersContainer').innerHTML = '';
+        document.getElementById('vadStatus').innerHTML = '';
+        document.getElementById('analysisDetails').innerHTML = '';
+        document.getElementById('hodographDisplay').innerHTML = '<p>Generate hodograph analysis to view results</p>';
+        document.getElementById('parametersDisplay').innerHTML = '';
         
-        document.getElementById('loadVadBtn').disabled = true;
         document.getElementById('plotHodographBtn').disabled = true;
+        document.getElementById('hodographTab').disabled = true;
+        
+        // Reset to map tab
+        switchTab('map');
         
         document.getElementById('metarStation').value = '';
         document.getElementById('stormDirection').value = '';
