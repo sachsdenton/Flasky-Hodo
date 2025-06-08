@@ -155,7 +155,8 @@ def generate_hodograph():
         site_name = site.name if site else None
         
         # Setup plot with minimal title (we'll add comprehensive title later)
-        plotter.setup_plot(site_id=site_id, site_name=site_name, valid_time=datetime.now())
+        from datetime import datetime as dt_class
+        plotter.setup_plot(site_id=site_id, site_name=site_name, valid_time=dt_class.now())
         
         # Plot the wind profile
         plotter.plot_profile(wind_profile, height_colors=True, show_half_km=show_half_km)
@@ -372,63 +373,27 @@ def generate_hodograph():
         if site:
             title_lines.append(f'{site.id} - {site.name.upper()}')
         
-        # Get VAD valid time from wind profile data
+        # Get VAD valid time from wind profile data (simplified)
         if hasattr(wind_profile, 'times') and len(wind_profile.times) > 0:
             vad_time = wind_profile.times[0]  # Use first timestamp
-            if isinstance(vad_time, datetime):
+            if hasattr(vad_time, 'strftime'):
                 utc_str = vad_time.strftime('%Y-%m-%d %H:%M')
-                # Convert to CST (UTC-6)
-                import pytz
-                try:
-                    utc_tz = pytz.UTC
-                    cst_tz = pytz.timezone('US/Central')
-                    utc_time = utc_tz.localize(vad_time) if vad_time.tzinfo is None else vad_time
-                    cst_time = utc_time.astimezone(cst_tz)
-                    cst_str = cst_time.strftime('%H%M')
-                    title_lines.append(f'Valid: {utc_str}UTC  ({cst_str}CST)')
-                except:
-                    title_lines.append(f'Valid: {utc_str}UTC')
+                title_lines.append(f'Valid: {utc_str}UTC')
+            else:
+                title_lines.append(f'Valid: VAD Data Available')
         else:
             # Use current time as fallback
-            current_time = datetime.now()
+            from datetime import datetime as dt_class
+            current_time = dt_class.now()
             title_lines.append(f'Valid: {current_time.strftime("%Y-%m-%d %H:%M")}UTC')
         
         # Add empty line
         title_lines.append('')
         
-        # Add surface wind information
+        # Add surface wind information (simplified)
         if metar_data:
-            # Get the closest METAR station ID from the request
             metar_station_id = request.args.get('metar_station', 'METAR')
-            if metar_station_id:
-                # Get METAR observation time
-                try:
-                    import requests
-                    metar_url = f"https://aviationweather.gov/api/data/metar?ids={metar_station_id}&format=json"
-                    response = requests.get(metar_url, timeout=5)
-                    if response.status_code == 200:
-                        metar_json = response.json()
-                        if metar_json and len(metar_json) > 0:
-                            obs_time = metar_json[0].get('reportTime', '')
-                            if obs_time:
-                                # Parse observation time
-                                from datetime import datetime
-                                try:
-                                    obs_dt = datetime.fromisoformat(obs_time.replace('Z', '+00:00'))
-                                    obs_str = obs_dt.strftime('%H%M')
-                                    title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id} {obs_str}UTC)')
-                                except:
-                                    title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
-                            else:
-                                title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
-                        else:
-                            title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
-                    else:
-                        title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
-                except:
-                    title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
-            else:
-                title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f}')
+            title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
         
         # Set the comprehensive title
         title_text = '\n'.join(title_lines)
