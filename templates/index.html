@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hodograph Analysis Tool</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Hodograph Analysis Tool</h1>
+            <button id="resetBtn" class="btn btn-secondary">Reset Application</button>
+        </header>
+
+        <div class="main-content">
+            <!-- Left Sidebar -->
+            <div class="sidebar">
+                <div class="control-section">
+                    <h3>Radar Site Selection</h3>
+                    <div class="site-info" id="siteInfo">
+                        <p>Click on a radar site on the map to select it</p>
+                    </div>
+                    <button id="loadVadBtn" class="btn btn-primary" disabled>Load VAD Data</button>
+                </div>
+
+                <div class="control-section">
+                    <h3>METAR Data</h3>
+                    <input type="text" id="metarStation" placeholder="Enter METAR station (e.g., KOKC)" maxlength="4">
+                    <button id="loadMetarBtn" class="btn btn-primary">Load METAR</button>
+                    <div class="metar-info" id="metarInfo"></div>
+                </div>
+
+                <div class="control-section">
+                    <h3>Storm Motion</h3>
+                    <div class="input-group">
+                        <label for="stormDirection">Direction (°):</label>
+                        <input type="number" id="stormDirection" min="0" max="360" placeholder="0-360">
+                    </div>
+                    <div class="input-group">
+                        <label for="stormSpeed">Speed (knots):</label>
+                        <input type="number" id="stormSpeed" min="0" max="100" placeholder="0-100">
+                    </div>
+                    <button id="setStormMotionBtn" class="btn btn-primary">Set Storm Motion</button>
+                </div>
+
+                <div class="control-section">
+                    <h3>Plot Options</h3>
+                    <div class="checkbox-group">
+                        <label>
+                            <input type="checkbox" id="showHalfKm" checked> Show Half-km Markers
+                        </label>
+                    </div>
+                    <button id="plotHodographBtn" class="btn btn-success" disabled>Plot Hodograph</button>
+                </div>
+
+                <div class="control-section">
+                    <h3>Map Options</h3>
+                    <div class="checkbox-group">
+                        <label>
+                            <input type="checkbox" id="showWarnings" checked> Show Warnings
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map Container -->
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="results-panel" id="resultsPanel">
+                <h3>Hodograph Analysis</h3>
+                <div class="hodograph-container" id="hodographContainer">
+                    <p>Load VAD data and click "Plot Hodograph" to generate analysis</p>
+                </div>
+                <div class="parameters-container" id="parametersContainer"></div>
+            </div>
+        </div>
+
+        <!-- Status Messages -->
+        <div class="status-messages" id="statusMessages"></div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <p id="loadingText">Loading...</p>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

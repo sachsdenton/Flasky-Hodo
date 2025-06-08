@@ -17,4 +17,6 @@ dependencies = [
     "twilio>=9.4.4",
     "openai>=1.63.0",
     "metpy>=1.6.3",
+    "flask>=3.1.1",
+    "flask-cors>=6.0.0",
 ]

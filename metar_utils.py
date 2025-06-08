@@ -1,10 +1,30 @@
 import re
 import requests
-import streamlit as st
 from typing import Tuple, Optional, Dict, Any
 from datetime import datetime
+import time
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
+# Simple caching mechanism for Flask
+_cache = {}
+_cache_ttl = {}
+
+def cache_data(ttl=300):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            cache_key = f"{func.__name__}_{str(args)}_{str(sorted(kwargs.items()))}"
+            current_time = time.time()
+            
+            if cache_key in _cache and current_time - _cache_ttl.get(cache_key, 0) < ttl:
+                return _cache[cache_key]
+            
+            result = func(*args, **kwargs)
+            _cache[cache_key] = result
+            _cache_ttl[cache_key] = current_time
+            return result
+        return wrapper
+    return decorator
+
+@cache_data(ttl=300)  # Cache for 5 minutes
 def get_metar(station_id: str) -> Tuple[Optional[float], Optional[float], Optional[datetime], Optional[str]]:
     """
     Fetch METAR data for a given station and extract wind information.
