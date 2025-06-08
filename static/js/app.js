@@ -18,21 +18,79 @@ document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
     setupTabNavigation();
     loadWarnings();
+    
+    // Set initial tab state based on screen size
+    if (window.innerWidth <= 1024) {
+        switchMobileTab('controls');
+    }
 });
 
-// Initialize mobile map (shared map instance)
+// Initialize mobile map (recreate map instance for mobile container)
 function initializeMobileMap() {
-    // Mobile uses the same map instance, just ensure it's properly sized
-    if (map && document.getElementById('mobileMap')) {
-        // Move map to mobile container if needed
-        const mobileMapContainer = document.getElementById('mobileMap');
-        if (!mobileMapContainer.hasChildNodes()) {
-            // Map is already initialized in the desktop view, just resize
-            setTimeout(() => {
-                if (map) map.invalidateSize();
-            }, 100);
+    const mobileMapContainer = document.getElementById('mobileMap');
+    
+    if (mobileMapContainer) {
+        // Remove existing map if it exists
+        if (map) {
+            map.remove();
+            map = null;
+        }
+        
+        // Create new map in mobile container
+        map = L.map('mobileMap').setView([39.8283, -98.5795], 4);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 10
+        }).addTo(map);
+        
+        // Re-add all existing markers and layers
+        if (radarSites.length > 0) {
+            addRadarSitesToMap();
+        }
+        if (metarMarkers.length > 0) {
+            // Re-add METAR markers if they exist
+            recreateMetarMarkers();
+        }
+        if (warningLayers.length > 0) {
+            // Re-add warning layers
+            recreateWarningLayers();
         }
     }
+}
+
+// Recreate METAR markers for mobile map
+function recreateMetarMarkers() {
+    // Clear existing markers first
+    metarMarkers.forEach(marker => {
+        try {
+            map.removeLayer(marker);
+        } catch (e) {
+            // Marker might not be on current map instance
+        }
+    });
+    metarMarkers = [];
+    
+    // If we have a selected site, reload nearby METAR sites
+    if (selectedSite) {
+        loadNearbyMetarSites(selectedSite);
+    }
+}
+
+// Recreate warning layers for mobile map
+function recreateWarningLayers() {
+    // Clear existing warning layers
+    warningLayers.forEach(layer => {
+        try {
+            map.removeLayer(layer);
+        } catch (e) {
+            // Layer might not be on current map instance
+        }
+    });
+    warningLayers = [];
+    
+    // Reload warnings
+    loadWarnings();
 }
 
 // Copy hodograph content to mobile view
@@ -57,12 +115,19 @@ function copyHodographToMobile() {
 
 // Initialize Leaflet map
 function initializeMap() {
-    map = L.map('map').setView([39.8283, -98.5795], 4);
+    // Determine which container to use based on screen size
+    const isMobile = window.innerWidth <= 1024;
+    const mapContainer = isMobile ? 'mobileMap' : 'map';
     
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 10
-    }).addTo(map);
+    // Only initialize if map doesn't exist
+    if (!map) {
+        map = L.map(mapContainer).setView([39.8283, -98.5795], 4);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 10
+        }).addTo(map);
+    }
 }
 
 // Load radar sites from API
