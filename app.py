@@ -167,20 +167,155 @@ def generate_hodograph():
             ax.plot(metar_u, metar_v, 'ko', markersize=8, label=f'METAR Surface Wind')
             ax.legend()
         
-        # Add storm motion if provided
+        # Prepare meteorological data for plotting
         storm_motion_data = None
         storm_motion_tuple = None
+        metar_data = None
+        
         if storm_direction is not None and storm_speed is not None:
             storm_motion_data = {'direction': storm_direction, 'speed': storm_speed}
             storm_motion_tuple = (storm_direction, storm_speed)
-            storm_u, storm_v = calculate_wind_components(storm_speed, storm_direction)
-            fig, ax = plotter.get_plot()
-            ax.plot(storm_u, storm_v, 'rs', markersize=10, label=f'Storm Motion')
-            ax.legend()
+            
+        if metar_direction is not None and metar_speed is not None:
+            metar_data = {'direction': metar_direction, 'speed': metar_speed}
+        
+        # Calculate and add meteorological annotations to the plot
+        fig, ax = plotter.get_plot()
+        
+        # Add storm motion and surface wind markers
+        if storm_motion_data:
+            storm_u, storm_v = calculate_wind_components(storm_motion_data['speed'], storm_motion_data['direction'])
+            ax.plot(storm_u, storm_v, 'rs', markersize=12, label='Storm Motion', zorder=10)
+            
+        if metar_data:
+            metar_u, metar_v = calculate_wind_components(metar_data['speed'], metar_data['direction'])
+            ax.plot(metar_u, metar_v, 'ko', markersize=10, label='Surface Wind', zorder=10)
+            
+        # Draw critical angle lines and shear vector analysis
+        if storm_motion_data and metar_data and len(wind_profile.speeds) > 0:
+            # Get surface and storm motion components
+            surface_u, surface_v = calculate_wind_components(metar_data['speed'], metar_data['direction'])
+            storm_u, storm_v = calculate_wind_components(storm_motion_data['speed'], storm_motion_data['direction'])
+            
+            # Find points within shear vector (±10 degree window from surface-to-lowest radar point)
+            if len(wind_profile.speeds) > 0:
+                # Get lowest radar point
+                radar_u, radar_v = calculate_wind_components(wind_profile.speeds[0], wind_profile.directions[0])
+                
+                # Calculate reference vector (surface to lowest radar point)
+                ref_u, ref_v = radar_u - surface_u, radar_v - surface_v
+                
+                # Find all points within ±10 degrees of reference vector
+                shear_points_u = [surface_u]
+                shear_points_v = [surface_v]
+                
+                for i, (speed, direction) in enumerate(zip(wind_profile.speeds, wind_profile.directions)):
+                    point_u, point_v = calculate_wind_components(speed, direction)
+                    vector_u, vector_v = point_u - surface_u, point_v - surface_v
+                    
+                    # Calculate angle between reference vector and current vector
+                    if np.sqrt(ref_u**2 + ref_v**2) > 0 and np.sqrt(vector_u**2 + vector_v**2) > 0:
+                        dot_product = ref_u * vector_u + ref_v * vector_v
+                        mag_ref = np.sqrt(ref_u**2 + ref_v**2)
+                        mag_vec = np.sqrt(vector_u**2 + vector_v**2)
+                        cos_angle = np.clip(dot_product / (mag_ref * mag_vec), -1.0, 1.0)
+                        angle = np.rad2deg(np.arccos(cos_angle))
+                        
+                        if angle <= 10.0:  # Within ±10 degrees
+                            shear_points_u.append(point_u)
+                            shear_points_v.append(point_v)
+                        else:
+                            break  # Stop at first point outside the window
+                
+                # Draw shear vector line (thick line through aligned points)
+                if len(shear_points_u) > 1:
+                    ax.plot(shear_points_u, shear_points_v, 'g-', linewidth=4, alpha=0.7, label='Shear Vector', zorder=8)
+                
+                # Draw critical angle lines
+                # Line from surface to storm motion
+                ax.plot([surface_u, storm_u], [surface_v, storm_v], 'r--', linewidth=2, alpha=0.8, label='Surface-Storm', zorder=9)
+                
+                # Line from surface to end of shear vector
+                if len(shear_points_u) > 1:
+                    end_u, end_v = shear_points_u[-1], shear_points_v[-1]
+                    ax.plot([surface_u, end_u], [surface_v, end_v], 'b--', linewidth=2, alpha=0.8, label='Surface-Shear', zorder=9)
+                    
+                    # Calculate and display critical angle
+                    v1_u, v1_v = storm_u - surface_u, storm_v - surface_v
+                    v2_u, v2_v = end_u - surface_u, end_v - surface_v
+                    
+                    if np.sqrt(v1_u**2 + v1_v**2) > 0 and np.sqrt(v2_u**2 + v2_v**2) > 0:
+                        dot_product = v1_u * v2_u + v1_v * v2_v
+                        mag1 = np.sqrt(v1_u**2 + v1_v**2)
+                        mag2 = np.sqrt(v2_u**2 + v2_v**2)
+                        cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
+                        critical_angle = np.rad2deg(np.arccos(cos_angle))
+                        
+                        # Add critical angle annotation
+                        mid_u = (surface_u + storm_u + end_u) / 3
+                        mid_v = (surface_v + storm_v + end_v) / 3
+                        ax.annotate(f'Critical Angle: {critical_angle:.1f}°', 
+                                  xy=(mid_u, mid_v), fontsize=10, fontweight='bold',
+                                  bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.8),
+                                  zorder=11)
+        
+        # Add meteorological parameters text directly on the plot
+        if storm_motion_data:
+            # Calculate parameters for text display
+            param_data = {
+                'wind_dir': np.array(wind_profile.directions),
+                'wind_spd': np.array(wind_profile.speeds),
+                'altitude': np.array(wind_profile.heights)
+            }
+            
+            # Add surface wind if available
+            if metar_data:
+                param_data['wind_dir'] = np.insert(param_data['wind_dir'], 0, metar_data['direction'])
+                param_data['wind_spd'] = np.insert(param_data['wind_spd'], 0, metar_data['speed'])
+                param_data['altitude'] = np.insert(param_data['altitude'], 0, 0.0)
+            
+            try:
+                # Calculate key parameters
+                from params import compute_srh, compute_shear_mag
+                srh_0_1 = compute_srh(param_data, storm_motion_tuple, 1000)
+                srh_0_3 = compute_srh(param_data, storm_motion_tuple, 3000)
+                shear_1km = compute_shear_mag(param_data, 1000)
+                shear_3km = compute_shear_mag(param_data, 3000)
+                
+                # Create parameter text
+                param_text = []
+                if not np.isnan(srh_0_1):
+                    param_text.append(f'SRH 0-1km: {srh_0_1:.0f} m²/s²')
+                if not np.isnan(srh_0_3):
+                    param_text.append(f'SRH 0-3km: {srh_0_3:.0f} m²/s²')
+                if not np.isnan(shear_1km):
+                    param_text.append(f'0-1km Shear: {shear_1km:.0f} kt')
+                if not np.isnan(shear_3km):
+                    param_text.append(f'0-3km Shear: {shear_3km:.0f} kt')
+                
+                # Add Bunkers storm motion
+                try:
+                    from params import compute_bunkers
+                    bunkers_result = compute_bunkers(param_data)
+                    if bunkers_result and len(bunkers_result) >= 2:
+                        bunkers_rm = bunkers_result[0]
+                        param_text.append(f'Bunkers RM: {bunkers_rm[0]:.0f}°/{bunkers_rm[1]:.0f}kt')
+                except:
+                    pass
+                
+                # Display parameters text box in upper left corner
+                if param_text:
+                    param_str = '\n'.join(param_text)
+                    ax.text(0.02, 0.98, param_str, transform=ax.transAxes, fontsize=10,
+                           verticalalignment='top', bbox=dict(boxstyle="round,pad=0.5", 
+                           facecolor="lightblue", alpha=0.8), zorder=12)
+            except Exception as e:
+                print(f"Error adding parameters to plot: {e}")
+        
+        ax.legend(loc='upper right', fontsize=9)
         
         # Save plot to base64 string
         img_buffer = io.BytesIO()
-        fig, ax = plotter.get_plot()
         plt.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
         img_buffer.seek(0)
         img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
