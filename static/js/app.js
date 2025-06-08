@@ -325,6 +325,7 @@ async function generateCompleteAnalysis() {
                 
                 if (!metarResult.error) {
                     metarData = metarResult;
+                    metarData.station_id = metarStation; // Add station ID to metarData
                     metarInfo = `METAR: ${metarResult.speed}kts @ ${metarResult.direction}°`;
                     showMessage(`METAR data loaded: ${metarResult.speed}kts @ ${metarResult.direction}°`, 'info');
                 }
@@ -361,6 +362,7 @@ async function generateCompleteAnalysis() {
         if (metarData) {
             params.append('metar_direction', metarData.direction);
             params.append('metar_speed', metarData.speed);
+            params.append('metar_station', metarData.station_id);
         }
         
         const hodographResponse = await fetch(`/api/hodograph?${params}`);

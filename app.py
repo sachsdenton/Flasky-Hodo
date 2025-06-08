@@ -390,10 +390,36 @@ def generate_hodograph():
         # Add empty line
         title_lines.append('')
         
-        # Add surface wind information (simplified)
+        # Add surface wind information with station ID and timestamp
         if metar_data:
             metar_station_id = request.args.get('metar_station', 'METAR')
-            title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
+            
+            # Get METAR observation time from the API
+            try:
+                import requests
+                metar_url = f"https://aviationweather.gov/api/data/metar?ids={metar_station_id}&format=json"
+                response = requests.get(metar_url, timeout=5)
+                if response.status_code == 200:
+                    metar_json = response.json()
+                    if metar_json and len(metar_json) > 0:
+                        obs_time = metar_json[0].get('reportTime', '')
+                        if obs_time:
+                            # Extract time from ISO format (e.g., "2025-06-08T22:53:00Z")
+                            try:
+                                from datetime import datetime as dt_class
+                                obs_dt = dt_class.fromisoformat(obs_time.replace('Z', '+00:00'))
+                                obs_str = obs_dt.strftime('%H%M')
+                                title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id} {obs_str}UTC)')
+                            except:
+                                title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
+                        else:
+                            title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
+                    else:
+                        title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
+                else:
+                    title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
+            except:
+                title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
         
         # Set the comprehensive title
         title_text = '\n'.join(title_lines)
