@@ -206,14 +206,8 @@ function setupEventListeners() {
     // Load VAD data button
     document.getElementById('loadVadBtn').addEventListener('click', loadVadData);
     
-    // Load METAR data button
-    document.getElementById('loadMetarBtn').addEventListener('click', loadMetarData);
-    
-    // Set storm motion button
-    document.getElementById('setStormMotionBtn').addEventListener('click', setStormMotion);
-    
-    // Plot hodograph button
-    document.getElementById('plotHodographBtn').addEventListener('click', plotHodograph);
+    // Plot hodograph button (now handles everything)
+    document.getElementById('plotHodographBtn').addEventListener('click', generateCompleteAnalysis);
     
     // Show warnings checkbox
     document.getElementById('showWarnings').addEventListener('change', function() {
@@ -222,13 +216,6 @@ function setupEventListeners() {
         } else {
             warningLayers.forEach(layer => map.removeLayer(layer));
             warningLayers = [];
-        }
-    });
-    
-    // METAR station input enter key
-    document.getElementById('metarStation').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            loadMetarData();
         }
     });
 }
@@ -259,76 +246,63 @@ async function loadVadData() {
     }
 }
 
-// Load METAR data
-async function loadMetarData() {
-    const station = document.getElementById('metarStation').value.trim().toUpperCase();
-    
-    if (!station) {
-        showMessage('Please enter a METAR station ID', 'error');
+
+
+// Generate complete analysis (VAD + METAR + Storm Motion + Hodograph)
+async function generateCompleteAnalysis() {
+    if (!selectedSite) {
+        showMessage('Please select a radar site first', 'error');
         return;
     }
     
     try {
-        showLoading('Loading METAR data...');
-        const response = await fetch(`/api/metar/${station}`);
-        const data = await response.json();
+        showLoading('Loading VAD data and generating analysis...');
         
-        if (data.error) {
-            showMessage('METAR Error: ' + data.error, 'error');
-            document.getElementById('metarInfo').innerHTML = '';
-            metarData = null;
-        } else {
-            metarData = data;
-            document.getElementById('metarInfo').innerHTML = `
-                <p><strong>Station:</strong> ${data.station}</p>
-                <p><strong>Wind:</strong> ${data.speed}kts @ ${data.direction}°</p>
-                <p><strong>Time:</strong> ${new Date(data.time).toLocaleString()}</p>
-            `;
-            showMessage(`METAR data loaded: ${data.speed}kts @ ${data.direction}°`, 'success');
+        // Step 1: Load VAD data
+        const vadResponse = await fetch(`/api/vad-data/${selectedSite.id}`);
+        const vadData = await vadResponse.json();
+        
+        if (vadData.error) {
+            showMessage('VAD Error: ' + vadData.error, 'error');
+            hideLoading();
+            return;
         }
         
-        hideLoading();
-    } catch (error) {
-        showMessage('Error loading METAR data: ' + error.message, 'error');
-        hideLoading();
-    }
-}
-
-// Set storm motion
-function setStormMotion() {
-    const direction = parseFloat(document.getElementById('stormDirection').value);
-    const speed = parseFloat(document.getElementById('stormSpeed').value);
-    
-    if (isNaN(direction) || isNaN(speed)) {
-        showMessage('Please enter both direction and speed for storm motion', 'error');
-        return;
-    }
-    
-    if (direction < 0 || direction > 360) {
-        showMessage('Direction must be between 0 and 360 degrees', 'error');
-        return;
-    }
-    
-    if (speed < 0 || speed > 100) {
-        showMessage('Speed must be between 0 and 100 knots', 'error');
-        return;
-    }
-    
-    stormMotion = { direction, speed };
-    showMessage(`Storm motion set: ${speed}kts @ ${direction}°`, 'success');
-}
-
-// Plot hodograph
-async function plotHodograph() {
-    if (!selectedSite) {
-        showMessage('Please select a radar site and load VAD data first', 'error');
-        return;
-    }
-    
-    try {
+        showMessage(`VAD data loaded: ${vadData.data_points} points`, 'info');
+        
+        // Step 2: Load METAR data if station provided
+        let metarInfo = '';
+        const metarStation = document.getElementById('metarStation').value.trim().toUpperCase();
+        if (metarStation) {
+            try {
+                const metarResponse = await fetch(`/api/metar/${metarStation}`);
+                const metarResult = await metarResponse.json();
+                
+                if (!metarResult.error) {
+                    metarData = metarResult;
+                    metarInfo = `METAR: ${metarResult.speed}kts @ ${metarResult.direction}°`;
+                    showMessage(`METAR data loaded: ${metarResult.speed}kts @ ${metarResult.direction}°`, 'info');
+                }
+            } catch (error) {
+                console.log('METAR data not available or invalid station');
+            }
+        }
+        
+        // Step 3: Get storm motion if provided
+        let stormInfo = '';
+        const stormDirection = parseFloat(document.getElementById('stormDirection').value);
+        const stormSpeed = parseFloat(document.getElementById('stormSpeed').value);
+        
+        if (!isNaN(stormDirection) && !isNaN(stormSpeed) && 
+            stormDirection >= 0 && stormDirection <= 360 && 
+            stormSpeed >= 0 && stormSpeed <= 100) {
+            stormMotion = { direction: stormDirection, speed: stormSpeed };
+            stormInfo = `Storm Motion: ${stormSpeed}kts @ ${stormDirection}°`;
+        }
+        
         showLoading('Generating hodograph...');
         
-        // Build query parameters
+        // Step 4: Generate hodograph
         const params = new URLSearchParams({
             site_id: selectedSite.id,
             show_half_km: document.getElementById('showHalfKm').checked
@@ -344,38 +318,44 @@ async function plotHodograph() {
             params.append('metar_speed', metarData.speed);
         }
         
-        const response = await fetch(`/api/hodograph?${params}`);
-        const data = await response.json();
+        const hodographResponse = await fetch(`/api/hodograph?${params}`);
+        const hodographData = await hodographResponse.json();
         
-        if (data.error) {
-            showMessage('Hodograph Error: ' + data.error, 'error');
+        if (hodographData.error) {
+            showMessage('Hodograph Error: ' + hodographData.error, 'error');
         } else {
             // Display hodograph image
             document.getElementById('hodographContainer').innerHTML = `
-                <img src="data:image/png;base64,${data.image}" alt="Hodograph" />
+                <img src="data:image/png;base64,${hodographData.image}" alt="Hodograph" />
             `;
             
             // Display parameters if available
-            if (data.parameters && Object.keys(data.parameters).length > 0) {
+            if (hodographData.parameters && Object.keys(hodographData.parameters).length > 0) {
                 let parametersHtml = '<h4>Storm Parameters</h4>';
-                if (data.parameters.srh_0_5 !== undefined) {
-                    parametersHtml += `<p><strong>SRH 0-0.5km:</strong> ${data.parameters.srh_0_5} m²/s²</p>`;
+                if (hodographData.parameters.srh_0_5 !== undefined) {
+                    parametersHtml += `<p><strong>SRH 0-0.5km:</strong> ${hodographData.parameters.srh_0_5} m²/s²</p>`;
                 }
-                if (data.parameters.srh_0_1 !== undefined) {
-                    parametersHtml += `<p><strong>SRH 0-1km:</strong> ${data.parameters.srh_0_1} m²/s²</p>`;
+                if (hodographData.parameters.srh_0_1 !== undefined) {
+                    parametersHtml += `<p><strong>SRH 0-1km:</strong> ${hodographData.parameters.srh_0_1} m²/s²</p>`;
                 }
-                if (data.parameters.srh_0_3 !== undefined) {
-                    parametersHtml += `<p><strong>SRH 0-3km:</strong> ${data.parameters.srh_0_3} m²/s²</p>`;
+                if (hodographData.parameters.srh_0_3 !== undefined) {
+                    parametersHtml += `<p><strong>SRH 0-3km:</strong> ${hodographData.parameters.srh_0_3} m²/s²</p>`;
                 }
                 document.getElementById('parametersContainer').innerHTML = parametersHtml;
             }
             
-            showMessage('Hodograph generated successfully', 'success');
+            // Update analysis info
+            let analysisInfoHtml = `<p><strong>Site:</strong> ${selectedSite.id}</p>`;
+            if (metarInfo) analysisInfoHtml += `<p>${metarInfo}</p>`;
+            if (stormInfo) analysisInfoHtml += `<p>${stormInfo}</p>`;
+            document.getElementById('analysisInfo').innerHTML = analysisInfoHtml;
+            
+            showMessage('Complete hodograph analysis generated successfully', 'success');
         }
         
         hideLoading();
     } catch (error) {
-        showMessage('Error generating hodograph: ' + error.message, 'error');
+        showMessage('Error generating analysis: ' + error.message, 'error');
         hideLoading();
     }
 }
@@ -394,8 +374,8 @@ async function resetApplication() {
         stormMotion = null;
         
         document.getElementById('siteInfo').innerHTML = '<p>Click on a radar site on the map to select it</p>';
-        document.getElementById('metarInfo').innerHTML = '';
-        document.getElementById('hodographContainer').innerHTML = '<p>Load VAD data and click "Plot Hodograph" to generate analysis</p>';
+        document.getElementById('analysisInfo').innerHTML = '';
+        document.getElementById('hodographContainer').innerHTML = '<p>Select a radar site and click "Generate Hodograph Analysis"</p>';
         document.getElementById('parametersContainer').innerHTML = '';
         
         document.getElementById('loadVadBtn').disabled = true;

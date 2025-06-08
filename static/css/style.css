@@ -214,7 +214,8 @@ input[type="number"]:focus {
 
 /* Info sections */
 .site-info,
-.metar-info {
+.metar-info,
+.analysis-info {
     background: #f8f9fa;
     padding: 1rem;
     border-radius: 4px;
@@ -224,12 +225,14 @@ input[type="number"]:focus {
 }
 
 .site-info p,
-.metar-info p {
+.metar-info p,
+.analysis-info p {
     margin-bottom: 0.5rem;
 }
 
 .site-info p:last-child,
-.metar-info p:last-child {
+.metar-info p:last-child,
+.analysis-info p:last-child {
     margin-bottom: 0;
 }
 

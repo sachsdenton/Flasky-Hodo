@@ -32,16 +32,46 @@ class NEXRADFetcher:
         Returns:
             Path to downloaded file or None if failed
         """
+        # Check cache first
+        cache_key = f"fetch_{site_id.upper()}"
+        current_time = time.time()
+        
+        if (cache_key in _fetch_cache and 
+            current_time - _fetch_cache_ttl.get(cache_key, 0) < 300):
+            return _fetch_cache[cache_key]
+        
         self._ensure_temp_dir()
-        output_path = os.path.join(self.temp_dir, f"{site_id.lower()}_latest.vad")
 
         try:
             # Use the original VAD plotter's download function with caching
             vad = download_vad(site_id, cache_path=self.temp_dir)
-            return output_path if vad else None
+            
+            if vad:
+                # The download_vad function already saves the file with the proper name
+                # We need to find the actual file that was created
+                for filename in os.listdir(self.temp_dir):
+                    if filename.startswith(site_id.upper()) and filename.endswith('.vad'):
+                        file_path = os.path.join(self.temp_dir, filename)
+                        _fetch_cache[cache_key] = file_path
+                        _fetch_cache_ttl[cache_key] = current_time
+                        return file_path
+                
+                # If no file found with expected pattern, look for any .vad file
+                for filename in os.listdir(self.temp_dir):
+                    if filename.endswith('.vad'):
+                        file_path = os.path.join(self.temp_dir, filename)
+                        _fetch_cache[cache_key] = file_path
+                        _fetch_cache_ttl[cache_key] = current_time
+                        return file_path
+            
+            _fetch_cache[cache_key] = None
+            _fetch_cache_ttl[cache_key] = current_time
+            return None
 
         except Exception as e:
-            print(f"Error fetching VAD data: {e}")
+            print(f"Error fetching VAD data for {site_id}: {e}")
+            _fetch_cache[cache_key] = None
+            _fetch_cache_ttl[cache_key] = current_time
             return None
 
     def cleanup(self):
