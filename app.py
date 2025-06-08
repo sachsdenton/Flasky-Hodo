@@ -154,7 +154,7 @@ def generate_hodograph():
         site = get_site_by_id(site_id) if site_id else None
         site_name = site.name if site else None
         
-        # Setup plot
+        # Setup plot with minimal title (we'll add comprehensive title later)
         plotter.setup_plot(site_id=site_id, site_name=site_name, valid_time=datetime.now())
         
         # Plot the wind profile
@@ -325,16 +325,18 @@ def generate_hodograph():
                 shear_1km = compute_shear_mag(param_data, 1000)
                 shear_3km = compute_shear_mag(param_data, 3000)
                 
-                # Create parameter text
+                # Create parameter text with requested order
                 param_text = []
-                if not np.isnan(srh_0_1):
-                    param_text.append(f'SRH 0-1km: {srh_0_1:.0f} m²/s²')
-                if not np.isnan(srh_0_3):
-                    param_text.append(f'SRH 0-3km: {srh_0_3:.0f} m²/s²')
+                
+                # Wind shear values first
                 if not np.isnan(shear_1km):
                     param_text.append(f'0-1km Shear: {shear_1km:.0f} kt')
                 if not np.isnan(shear_3km):
                     param_text.append(f'0-3km Shear: {shear_3km:.0f} kt')
+                
+                # Storm motion (input storm motion)
+                if storm_motion_data:
+                    param_text.append(f'Storm Motion: {storm_motion_data["direction"]:.0f}°/{storm_motion_data["speed"]:.0f}kt')
                 
                 # Add Bunkers storm motion
                 try:
@@ -350,6 +352,12 @@ def generate_hodograph():
                 if critical_angle_value is not None:
                     param_text.append(f'Critical Angle: {critical_angle_value:.1f}°')
                 
+                # Add both SRH values below critical angle
+                if not np.isnan(srh_0_1):
+                    param_text.append(f'SRH 0-1km: {srh_0_1:.0f} m²/s²')
+                if not np.isnan(srh_0_3):
+                    param_text.append(f'SRH 0-3km: {srh_0_3:.0f} m²/s²')
+                
                 # Display parameters text box in upper left corner
                 if param_text:
                     param_str = '\n'.join(param_text)
@@ -358,6 +366,73 @@ def generate_hodograph():
                            facecolor="lightblue", alpha=0.8), zorder=12)
             except Exception as e:
                 print(f"Error adding parameters to plot: {e}")
+        
+        # Add comprehensive title to the hodograph
+        title_lines = []
+        if site:
+            title_lines.append(f'{site.id} - {site.name.upper()}')
+        
+        # Get VAD valid time from wind profile data
+        if hasattr(wind_profile, 'times') and len(wind_profile.times) > 0:
+            vad_time = wind_profile.times[0]  # Use first timestamp
+            if isinstance(vad_time, datetime):
+                utc_str = vad_time.strftime('%Y-%m-%d %H:%M')
+                # Convert to CST (UTC-6)
+                import pytz
+                try:
+                    utc_tz = pytz.UTC
+                    cst_tz = pytz.timezone('US/Central')
+                    utc_time = utc_tz.localize(vad_time) if vad_time.tzinfo is None else vad_time
+                    cst_time = utc_time.astimezone(cst_tz)
+                    cst_str = cst_time.strftime('%H%M')
+                    title_lines.append(f'Valid: {utc_str}UTC  ({cst_str}CST)')
+                except:
+                    title_lines.append(f'Valid: {utc_str}UTC')
+        else:
+            # Use current time as fallback
+            current_time = datetime.now()
+            title_lines.append(f'Valid: {current_time.strftime("%Y-%m-%d %H:%M")}UTC')
+        
+        # Add empty line
+        title_lines.append('')
+        
+        # Add surface wind information
+        if metar_data:
+            # Get the closest METAR station ID from the request
+            metar_station_id = request.args.get('metar_station', 'METAR')
+            if metar_station_id:
+                # Get METAR observation time
+                try:
+                    import requests
+                    metar_url = f"https://aviationweather.gov/api/data/metar?ids={metar_station_id}&format=json"
+                    response = requests.get(metar_url, timeout=5)
+                    if response.status_code == 200:
+                        metar_json = response.json()
+                        if metar_json and len(metar_json) > 0:
+                            obs_time = metar_json[0].get('reportTime', '')
+                            if obs_time:
+                                # Parse observation time
+                                from datetime import datetime
+                                try:
+                                    obs_dt = datetime.fromisoformat(obs_time.replace('Z', '+00:00'))
+                                    obs_str = obs_dt.strftime('%H%M')
+                                    title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id} {obs_str}UTC)')
+                                except:
+                                    title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
+                            else:
+                                title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
+                        else:
+                            title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
+                    else:
+                        title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
+                except:
+                    title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f} ({metar_station_id})')
+            else:
+                title_lines.append(f'Surface Wind {metar_data["direction"]:.0f}/{metar_data["speed"]:.0f}')
+        
+        # Set the comprehensive title
+        title_text = '\n'.join(title_lines)
+        ax.set_title(title_text, fontsize=12, fontweight='bold', pad=20, loc='center')
         
         ax.legend(loc='upper right', fontsize=9)
         
