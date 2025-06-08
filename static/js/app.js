@@ -8,12 +8,15 @@ let stormMotion = null;
 let radarMarkers = [];
 let metarMarkers = [];
 let warningLayers = [];
+let vadDataLoaded = false;
+let currentTab = 'map';
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     initializeMap();
     loadRadarSites();
     setupEventListeners();
+    setupTabNavigation();
     loadWarnings();
 });
 
@@ -71,6 +74,7 @@ function addRadarSitesToMap() {
 // Select a radar site
 function selectRadarSite(site) {
     selectedSite = site;
+    vadDataLoaded = false;
     
     // Update UI
     document.getElementById('siteInfo').innerHTML = `
@@ -80,13 +84,16 @@ function selectRadarSite(site) {
         <p><strong>Elevation:</strong> ${site.elevation.toFixed(0)} ft</p>
     `;
     
-    document.getElementById('loadVadBtn').disabled = false;
+    document.getElementById('plotHodographBtn').disabled = true;
     
     // Center map on selected site
     map.setView([site.lat, site.lon], 8);
     
     // Load nearby METAR sites
     loadNearbyMetarSites(site);
+    
+    // Automatically load VAD data
+    loadVadDataAutomatically(site);
     
     showMessage(`Selected radar site: ${site.id}`, 'success');
 }
@@ -203,9 +210,6 @@ function setupEventListeners() {
     // Reset button
     document.getElementById('resetBtn').addEventListener('click', resetApplication);
     
-    // Load VAD data button
-    document.getElementById('loadVadBtn').addEventListener('click', loadVadData);
-    
     // Plot hodograph button (now handles everything)
     document.getElementById('plotHodographBtn').addEventListener('click', generateCompleteAnalysis);
     
@@ -218,6 +222,71 @@ function setupEventListeners() {
             warningLayers = [];
         }
     });
+}
+
+// Setup tab navigation
+function setupTabNavigation() {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            if (this.disabled) return;
+            
+            const targetTab = this.getAttribute('data-tab');
+            switchTab(targetTab);
+        });
+    });
+}
+
+// Switch between tabs
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    
+    // Update tab content
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.remove('active');
+    });
+    
+    if (tabName === 'map') {
+        document.getElementById('mapTab').classList.add('active');
+        // Refresh map size when switching back to map tab
+        setTimeout(() => {
+            if (map) map.invalidateSize();
+        }, 300);
+    } else if (tabName === 'hodograph') {
+        document.getElementById('hodographPane').classList.add('active');
+    }
+    
+    currentTab = tabName;
+}
+
+// Automatically load VAD data when site is selected
+async function loadVadDataAutomatically(site) {
+    try {
+        document.getElementById('vadStatus').innerHTML = '<p style="color: #3498db;">Loading VAD data...</p>';
+        
+        const response = await fetch(`/api/vad-data/${site.id}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            document.getElementById('vadStatus').innerHTML = `<p style="color: #e74c3c;">VAD Error: ${data.error}</p>`;
+            vadDataLoaded = false;
+        } else {
+            document.getElementById('vadStatus').innerHTML = `<p style="color: #27ae60;">VAD data loaded: ${data.data_points} points</p>`;
+            vadDataLoaded = true;
+            document.getElementById('plotHodographBtn').disabled = false;
+            showMessage(`VAD data loaded for ${site.id}: ${data.data_points} points`, 'success');
+        }
+        
+    } catch (error) {
+        document.getElementById('vadStatus').innerHTML = `<p style="color: #e74c3c;">Error loading VAD data</p>`;
+        vadDataLoaded = false;
+        showMessage('Error loading VAD data: ' + error.message, 'error');
+    }
 }
 
 // Load VAD data for selected site
@@ -324,8 +393,8 @@ async function generateCompleteAnalysis() {
         if (hodographData.error) {
             showMessage('Hodograph Error: ' + hodographData.error, 'error');
         } else {
-            // Display hodograph image
-            document.getElementById('hodographContainer').innerHTML = `
+            // Display hodograph image in the new tab
+            document.getElementById('hodographDisplay').innerHTML = `
                 <img src="data:image/png;base64,${hodographData.image}" alt="Hodograph" />
             `;
             
@@ -333,22 +402,26 @@ async function generateCompleteAnalysis() {
             if (hodographData.parameters && Object.keys(hodographData.parameters).length > 0) {
                 let parametersHtml = '<h4>Storm Parameters</h4>';
                 if (hodographData.parameters.srh_0_5 !== undefined) {
-                    parametersHtml += `<p><strong>SRH 0-0.5km:</strong> ${hodographData.parameters.srh_0_5} m²/s²</p>`;
+                    parametersHtml += `<p><span>SRH 0-0.5km:</span><span>${hodographData.parameters.srh_0_5} m²/s²</span></p>`;
                 }
                 if (hodographData.parameters.srh_0_1 !== undefined) {
-                    parametersHtml += `<p><strong>SRH 0-1km:</strong> ${hodographData.parameters.srh_0_1} m²/s²</p>`;
+                    parametersHtml += `<p><span>SRH 0-1km:</span><span>${hodographData.parameters.srh_0_1} m²/s²</span></p>`;
                 }
                 if (hodographData.parameters.srh_0_3 !== undefined) {
-                    parametersHtml += `<p><strong>SRH 0-3km:</strong> ${hodographData.parameters.srh_0_3} m²/s²</p>`;
+                    parametersHtml += `<p><span>SRH 0-3km:</span><span>${hodographData.parameters.srh_0_3} m²/s²</span></p>`;
                 }
-                document.getElementById('parametersContainer').innerHTML = parametersHtml;
+                document.getElementById('parametersDisplay').innerHTML = parametersHtml;
             }
             
-            // Update analysis info
-            let analysisInfoHtml = `<p><strong>Site:</strong> ${selectedSite.id}</p>`;
-            if (metarInfo) analysisInfoHtml += `<p>${metarInfo}</p>`;
-            if (stormInfo) analysisInfoHtml += `<p>${stormInfo}</p>`;
-            document.getElementById('analysisInfo').innerHTML = analysisInfoHtml;
+            // Update analysis details in header
+            let analysisDetailsHtml = `<strong>Site:</strong> ${selectedSite.id} - ${selectedSite.name}`;
+            if (metarInfo) analysisDetailsHtml += ` | ${metarInfo}`;
+            if (stormInfo) analysisDetailsHtml += ` | ${stormInfo}`;
+            document.getElementById('analysisDetails').innerHTML = analysisDetailsHtml;
+            
+            // Enable and switch to hodograph tab
+            document.getElementById('hodographTab').disabled = false;
+            switchTab('hodograph');
             
             showMessage('Complete hodograph analysis generated successfully', 'success');
         }

@@ -71,52 +71,147 @@ header h1 {
     font-weight: 600;
 }
 
-/* Map container */
-.map-container {
+/* Main view with tabs */
+.main-view {
     flex: 1;
-    position: relative;
+    display: flex;
+    flex-direction: column;
     min-width: 0;
 }
 
+/* Tab navigation */
+.tab-nav {
+    background: #f8f9fa;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    padding: 0;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 1rem 2rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #666;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover:not(:disabled) {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.tab-btn.active {
+    color: #2c3e50;
+    border-bottom-color: #3498db;
+    background: white;
+}
+
+.tab-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Tab content */
+.tab-content {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+.tab-pane {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease;
+}
+
+.tab-pane.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Map styles */
 #map {
     width: 100%;
     height: 100%;
 }
 
-/* Results panel */
-.results-panel {
-    width: 400px;
+/* Hodograph view */
+.hodograph-view {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
     background: white;
-    border-left: 1px solid #ddd;
-    padding: 1rem;
-    overflow-y: auto;
-    box-shadow: -2px 0 4px rgba(0,0,0,0.05);
 }
 
-.results-panel h3 {
+.hodograph-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #eee;
+    background: #f8f9fa;
+}
+
+.hodograph-header h3 {
     color: #2c3e50;
     margin-bottom: 1rem;
-    font-size: 1.1rem;
+    font-size: 1.3rem;
     font-weight: 600;
 }
 
-.hodograph-container {
-    margin-bottom: 2rem;
-    text-align: center;
+.analysis-details {
+    color: #666;
+    font-size: 0.9rem;
 }
 
-.hodograph-container img {
+.hodograph-display {
+    flex: 1;
+    padding: 2rem;
+    text-align: center;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.hodograph-display img {
     max-width: 100%;
+    max-height: 80vh;
     height: auto;
     border: 1px solid #ddd;
-    border-radius: 4px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-.parameters-container {
+.parameters-display {
     background: #f8f9fa;
-    padding: 1rem;
-    border-radius: 4px;
-    border: 1px solid #e9ecef;
+    padding: 1.5rem;
+    border-top: 1px solid #eee;
+    font-size: 0.9rem;
+}
+
+.parameters-display h4 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.parameters-display p {
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+}
+
+.parameters-display p:last-child {
+    margin-bottom: 0;
 }
 
 /* Form elements */
