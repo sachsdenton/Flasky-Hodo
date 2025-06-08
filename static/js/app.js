@@ -377,15 +377,57 @@ async function generateCompleteAnalysis() {
             // Display parameters if available
             if (hodographData.parameters && Object.keys(hodographData.parameters).length > 0) {
                 let parametersHtml = '<h4>Storm Parameters</h4>';
-                if (hodographData.parameters.srh_0_5 !== undefined) {
+                
+                // Storm Relative Helicity
+                if (hodographData.parameters.srh_0_5 !== null && hodographData.parameters.srh_0_5 !== undefined) {
                     parametersHtml += `<p><span>SRH 0-0.5km:</span><span>${hodographData.parameters.srh_0_5} m²/s²</span></p>`;
                 }
-                if (hodographData.parameters.srh_0_1 !== undefined) {
+                if (hodographData.parameters.srh_0_1 !== null && hodographData.parameters.srh_0_1 !== undefined) {
                     parametersHtml += `<p><span>SRH 0-1km:</span><span>${hodographData.parameters.srh_0_1} m²/s²</span></p>`;
                 }
-                if (hodographData.parameters.srh_0_3 !== undefined) {
+                if (hodographData.parameters.srh_0_3 !== null && hodographData.parameters.srh_0_3 !== undefined) {
                     parametersHtml += `<p><span>SRH 0-3km:</span><span>${hodographData.parameters.srh_0_3} m²/s²</span></p>`;
                 }
+                
+                // Wind Shear Magnitude
+                parametersHtml += '<h4>Wind Shear</h4>';
+                if (hodographData.parameters.shear_1km !== null && hodographData.parameters.shear_1km !== undefined) {
+                    parametersHtml += `<p><span>0-1km Shear:</span><span>${hodographData.parameters.shear_1km} kt</span></p>`;
+                }
+                if (hodographData.parameters.shear_3km !== null && hodographData.parameters.shear_3km !== undefined) {
+                    parametersHtml += `<p><span>0-3km Shear:</span><span>${hodographData.parameters.shear_3km} kt</span></p>`;
+                }
+                if (hodographData.parameters.shear_6km !== null && hodographData.parameters.shear_6km !== undefined) {
+                    parametersHtml += `<p><span>0-6km Shear:</span><span>${hodographData.parameters.shear_6km} kt</span></p>`;
+                }
+                
+                // Shear Depth and Magnitude (effective bulk shear)
+                if (hodographData.parameters.shear_depth !== null && hodographData.parameters.shear_depth !== undefined) {
+                    parametersHtml += `<p><span>Shear Depth:</span><span>${hodographData.parameters.shear_depth} m</span></p>`;
+                }
+                if (hodographData.parameters.shear_magnitude !== null && hodographData.parameters.shear_magnitude !== undefined) {
+                    parametersHtml += `<p><span>Effective Shear:</span><span>${hodographData.parameters.shear_magnitude} kt</span></p>`;
+                }
+                
+                // Critical Angle
+                if (hodographData.parameters.critical_angle !== null && hodographData.parameters.critical_angle !== undefined) {
+                    parametersHtml += '<h4>Critical Angle</h4>';
+                    parametersHtml += `<p><span>Surface-Storm-Radar:</span><span>${hodographData.parameters.critical_angle}°</span></p>`;
+                }
+                
+                // Bunkers Storm Motion
+                if (hodographData.parameters.bunkers) {
+                    parametersHtml += '<h4>Bunkers Storm Motion</h4>';
+                    if (hodographData.parameters.bunkers.right_mover) {
+                        const rm = hodographData.parameters.bunkers.right_mover;
+                        parametersHtml += `<p><span>Right Mover:</span><span>${Math.round(rm.direction)}° at ${Math.round(rm.speed)} kt</span></p>`;
+                    }
+                    if (hodographData.parameters.bunkers.left_mover) {
+                        const lm = hodographData.parameters.bunkers.left_mover;
+                        parametersHtml += `<p><span>Left Mover:</span><span>${Math.round(lm.direction)}° at ${Math.round(lm.speed)} kt</span></p>`;
+                    }
+                }
+                
                 document.getElementById('parametersDisplay').innerHTML = parametersHtml;
             }
             

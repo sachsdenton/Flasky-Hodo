@@ -169,8 +169,10 @@ def generate_hodograph():
         
         # Add storm motion if provided
         storm_motion_data = None
+        storm_motion_tuple = None
         if storm_direction is not None and storm_speed is not None:
             storm_motion_data = {'direction': storm_direction, 'speed': storm_speed}
+            storm_motion_tuple = (storm_direction, storm_speed)
             storm_u, storm_v = calculate_wind_components(storm_speed, storm_direction)
             fig, ax = plotter.get_plot()
             ax.plot(storm_u, storm_v, 'rs', markersize=10, label=f'Storm Motion')
@@ -184,29 +186,133 @@ def generate_hodograph():
         img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
         plt.close()
         
-        # Calculate parameters if we have storm motion
+        # Calculate advanced meteorological parameters
         parameters = {}
         if storm_motion_data:
             try:
-                # Prepare data for parameter calculations
+                # Prepare data for parameter calculations (correct format for params.py functions)
                 data = {
-                    'u': np.array([calculate_wind_components(s, d)[0] for s, d in zip(wind_profile.speeds, wind_profile.directions)]),
-                    'v': np.array([calculate_wind_components(s, d)[1] for s, d in zip(wind_profile.speeds, wind_profile.directions)]),
-                    'height': wind_profile.heights
+                    'wind_dir': np.array(wind_profile.directions),
+                    'wind_spd': np.array(wind_profile.speeds),
+                    'altitude': np.array(wind_profile.heights)
                 }
                 
-                # Calculate SRH
-                srh_0_5 = compute_srh(data, storm_motion_data, 500)
-                srh_0_1 = compute_srh(data, storm_motion_data, 1000)
-                srh_0_3 = compute_srh(data, storm_motion_data, 3000)
+                # Add surface wind if available
+                metar_data = None
+                if metar_direction is not None and metar_speed is not None:
+                    metar_data = {'direction': metar_direction, 'speed': metar_speed}
+                    surface_direction = metar_direction
+                    surface_speed = metar_speed
+                    
+                    # Prepend surface wind to data arrays
+                    data['wind_dir'] = np.insert(data['wind_dir'], 0, surface_direction)
+                    data['wind_spd'] = np.insert(data['wind_spd'], 0, surface_speed)
+                    data['altitude'] = np.insert(data['altitude'], 0, 0.0)
+                
+                # Calculate SRH values
+                srh_0_5 = compute_srh(data, storm_motion_tuple, 500)
+                srh_0_1 = compute_srh(data, storm_motion_tuple, 1000)
+                srh_0_3 = compute_srh(data, storm_motion_tuple, 3000)
+                
+                # Calculate shear magnitude
+                from params import compute_shear_mag
+                shear_1km = compute_shear_mag(data, 1000)
+                shear_3km = compute_shear_mag(data, 3000)
+                shear_6km = compute_shear_mag(data, 6000)
+                
+                # Calculate Bunkers storm motion for comparison
+                from params import compute_bunkers
+                try:
+                    bunkers_result = compute_bunkers(data)
+                    if bunkers_result and len(bunkers_result) >= 2:
+                        bunkers_rm = bunkers_result[0]
+                        bunkers_lm = bunkers_result[1]
+                        bunkers_info = {
+                            'right_mover': {'direction': float(bunkers_rm[0]), 'speed': float(bunkers_rm[1])},
+                            'left_mover': {'direction': float(bunkers_lm[0]), 'speed': float(bunkers_lm[1])}
+                        }
+                    else:
+                        bunkers_info = None
+                except:
+                    bunkers_info = None
+                
+                # Calculate critical angle if we have surface wind
+                critical_angle = None
+                if metar_data and len(data['wind_spd']) > 1:
+                    try:
+                        surface_u, surface_v = calculate_wind_components(float(data['wind_spd'][0]), float(data['wind_dir'][0]))
+                        storm_u, storm_v = calculate_wind_components(storm_motion_data['speed'], storm_motion_data['direction'])
+                        radar_u, radar_v = calculate_wind_components(float(data['wind_spd'][1]), float(data['wind_dir'][1]))
+                        
+                        # Calculate angle between surface-to-storm and surface-to-radar vectors
+                        v1_u, v1_v = storm_u - surface_u, storm_v - surface_v
+                        v2_u, v2_v = radar_u - surface_u, radar_v - surface_v
+                        
+                        dot_product = v1_u * v2_u + v1_v * v2_v
+                        mag1 = np.sqrt(v1_u**2 + v1_v**2)
+                        mag2 = np.sqrt(v2_u**2 + v2_v**2)
+                        
+                        if mag1 > 0 and mag2 > 0:
+                            cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
+                            critical_angle = np.rad2deg(np.arccos(cos_angle))
+                    except:
+                        pass
+                
+                # Calculate shear depth
+                shear_depth = None
+                shear_magnitude = None
+                if metar_data and len(data['wind_spd']) > 1:
+                    try:
+                        surface_u, surface_v = calculate_wind_components(data['wind_spd'][0], data['wind_dir'][0])
+                        
+                        # Get the lowest radar point for reference vector
+                        radar_u, radar_v = calculate_wind_components(data['wind_spd'][1], data['wind_dir'][1])
+                        ref_u, ref_v = radar_u - surface_u, radar_v - surface_v
+                        
+                        # Find points within 5 degrees of reference vector
+                        aligned_heights = []
+                        for i in range(1, len(data['wind_spd'])):
+                            point_u, point_v = calculate_wind_components(data['wind_spd'][i], data['wind_dir'][i])
+                            vector_u, vector_v = point_u - surface_u, point_v - surface_v
+                            
+                            # Calculate angle between vectors
+                            dot_product = ref_u * vector_u + ref_v * vector_v
+                            mag_ref = np.sqrt(ref_u**2 + ref_v**2)
+                            mag_vec = np.sqrt(vector_u**2 + vector_v**2)
+                            
+                            if mag_ref > 0 and mag_vec > 0:
+                                cos_angle = np.clip(dot_product / (mag_ref * mag_vec), -1.0, 1.0)
+                                angle = np.rad2deg(np.arccos(cos_angle))
+                                
+                                if angle <= 5.0:
+                                    aligned_heights.append(data['altitude'][i])
+                                else:
+                                    break
+                        
+                        if aligned_heights:
+                            shear_depth = max(aligned_heights)
+                            # Calculate shear magnitude to this depth
+                            final_u, final_v = calculate_wind_components(data['wind_spd'][len(aligned_heights)], data['wind_dir'][len(aligned_heights)])
+                            shear_magnitude = np.sqrt((final_u - surface_u)**2 + (final_v - surface_v)**2)
+                    except:
+                        pass
                 
                 parameters = {
-                    'srh_0_5': round(srh_0_5, 1),
-                    'srh_0_1': round(srh_0_1, 1),
-                    'srh_0_3': round(srh_0_3, 1)
+                    'srh_0_5': round(srh_0_5, 1) if not np.isnan(srh_0_5) else None,
+                    'srh_0_1': round(srh_0_1, 1) if not np.isnan(srh_0_1) else None,
+                    'srh_0_3': round(srh_0_3, 1) if not np.isnan(srh_0_3) else None,
+                    'shear_1km': round(shear_1km, 1) if not np.isnan(shear_1km) else None,
+                    'shear_3km': round(shear_3km, 1) if not np.isnan(shear_3km) else None,
+                    'shear_6km': round(shear_6km, 1) if not np.isnan(shear_6km) else None,
+                    'bunkers': bunkers_info,
+                    'critical_angle': round(critical_angle, 1) if critical_angle is not None else None,
+                    'shear_depth': round(shear_depth, 0) if shear_depth is not None else None,
+                    'shear_magnitude': round(shear_magnitude, 1) if shear_magnitude is not None else None
                 }
             except Exception as e:
                 print(f"Error calculating parameters: {e}")
+                import traceback
+                traceback.print_exc()
         
         return jsonify({
             'image': img_base64,
