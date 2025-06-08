@@ -45,19 +45,12 @@ header h1 {
     overflow: hidden;
 }
 
-/* Mobile tab navigation - hidden on desktop */
+/* Mobile tab navigation - visible by default for testing */
 .mobile-tab-nav {
-    display: none;
+    display: flex;
     background: white;
     border-bottom: 1px solid #ddd;
     padding: 0;
-}
-
-/* Show mobile tabs on smaller screens */
-@media (max-width: 1024px) {
-    .mobile-tab-nav {
-        display: flex;
-    }
 }
 
 .mobile-tab-btn {
