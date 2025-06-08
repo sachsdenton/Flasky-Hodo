@@ -31,17 +31,14 @@ class WindProfile:
             # Clear existing data
             self.clear_data()
 
-            # Extract data from VAD file
-            heights = self.vad_file['altitude']
-            speeds = self.vad_file['wind_spd']
-            directions = self.vad_file['wind_dir']
+            # Extract data from VAD file (already numpy arrays)
+            self.heights = self.vad_file['altitude'].astype(float)
+            self.speeds = self.vad_file['wind_spd'].astype(float)
+            self.directions = self.vad_file['wind_dir'].astype(float)
+            
+            # Get time from VAD file (single datetime object)
             time = self.vad_file['time']
-
-            # Store data as numpy arrays directly
-            self.heights = np.array([float(h) for h in heights], dtype=float)
-            self.speeds = np.array([float(s) for s in speeds], dtype=float)
-            self.directions = np.array([float(d) for d in directions], dtype=float)
-            self.times = [time] * len(heights)
+            self.times = [time] * len(self.heights)
 
             return True
 
