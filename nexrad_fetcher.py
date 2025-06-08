@@ -47,22 +47,40 @@ class NEXRADFetcher:
             vad = download_vad(site_id, cache_path=self.temp_dir)
             
             if vad:
-                # The download_vad function already saves the file with the proper name
-                # We need to find the actual file that was created
-                for filename in os.listdir(self.temp_dir):
-                    if filename.startswith(site_id.upper()) and filename.endswith('.vad'):
-                        file_path = os.path.join(self.temp_dir, filename)
-                        _fetch_cache[cache_key] = file_path
-                        _fetch_cache_ttl[cache_key] = current_time
-                        return file_path
+                # The download_vad function saves files with the naming convention:
+                # WFO_SDUS3X_NVWXXX_YYYYMMDDHHMM
+                # We need to find the most recent file that contains this site_id
                 
-                # If no file found with expected pattern, look for any .vad file
+                # First, try to find files that match the site pattern
+                matching_files = []
                 for filename in os.listdir(self.temp_dir):
-                    if filename.endswith('.vad'):
-                        file_path = os.path.join(self.temp_dir, filename)
-                        _fetch_cache[cache_key] = file_path
-                        _fetch_cache_ttl[cache_key] = current_time
-                        return file_path
+                    # Look for files that contain NVW + site_id (without K prefix)
+                    site_pattern = f"NVW{site_id[1:].upper()}"
+                    if site_pattern in filename and not filename.endswith('.vad'):
+                        matching_files.append((filename, os.path.getmtime(os.path.join(self.temp_dir, filename))))
+                
+                # Sort by modification time (most recent first)
+                if matching_files:
+                    matching_files.sort(key=lambda x: x[1], reverse=True)
+                    newest_file = matching_files[0][0]
+                    file_path = os.path.join(self.temp_dir, newest_file)
+                    _fetch_cache[cache_key] = file_path
+                    _fetch_cache_ttl[cache_key] = current_time
+                    return file_path
+                
+                # Fallback: look for any recent file in temp_data
+                all_files = []
+                for filename in os.listdir(self.temp_dir):
+                    if not filename.startswith('.'):
+                        all_files.append((filename, os.path.getmtime(os.path.join(self.temp_dir, filename))))
+                
+                if all_files:
+                    all_files.sort(key=lambda x: x[1], reverse=True)
+                    newest_file = all_files[0][0]
+                    file_path = os.path.join(self.temp_dir, newest_file)
+                    _fetch_cache[cache_key] = file_path
+                    _fetch_cache_ttl[cache_key] = current_time
+                    return file_path
             
             _fetch_cache[cache_key] = None
             _fetch_cache_ttl[cache_key] = current_time
