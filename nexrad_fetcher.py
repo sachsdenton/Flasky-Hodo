@@ -3,10 +3,14 @@ Handles fetching VAD data from NEXRAD sites.
 """
 import os
 import shutil
-import streamlit as st
+import time
 from datetime import datetime
 from typing import Optional
 from vad_reader import download_vad
+
+# Simple caching for Flask
+_fetch_cache = {}
+_fetch_cache_ttl = {}
 
 class NEXRADFetcher:
     def __init__(self):
@@ -17,7 +21,6 @@ class NEXRADFetcher:
         if not os.path.exists(self.temp_dir):
             os.makedirs(self.temp_dir)
 
-    @st.cache_data(ttl=300)  # Cache for 5 minutes
     def fetch_latest(self, site_id: str) -> Optional[str]:
         """
         Fetch the latest VAD file for a given radar site.

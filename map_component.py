@@ -1,8 +1,5 @@
-import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 import folium
-from streamlit_folium import folium_static
 from math import radians, sin, cos, sqrt, atan2
 from radar_sites import get_sorted_sites
 from mrms_handler import MRMSHandler
@@ -23,14 +20,12 @@ def load_metar_sites():
         df = df.dropna(axis=1, how='all')
         required_columns = ['ID', 'Name', 'Latitude', 'Longitude']
         if not all(col in df.columns for col in required_columns):
-            st.error("METAR CSV file is missing required columns")
+            print("METAR CSV file is missing required columns")
             return pd.DataFrame()
         return df
     except Exception as e:
-        st.error(f"Error loading METAR sites: {str(e)}")
+        print(f"Error loading METAR sites: {str(e)}")
         return pd.DataFrame()
-
-@st.cache_data(ttl=60)  # Cache map creation for 1 minute
 def create_map(center_lat=39.8283, center_lon=-98.5795, zoom_start=4, show_mrms=False, show_warnings=False):
     """Create a folium map with radar sites. Uses clustering for better performance."""
     m = folium.Map(
@@ -151,4 +146,4 @@ def add_warnings_to_map(m, show_warnings=True):
 def handle_site_selection():
     """Handle the site selection from the map"""
     m = create_map()
-    folium_static(m)
+    return m
