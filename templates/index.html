@@ -15,76 +15,74 @@
         </header>
 
         <div class="main-content">
-            <!-- Left Sidebar -->
-            <div class="sidebar">
-                <div class="control-section">
-                    <h3>Radar Site Selection</h3>
-                    <div class="site-info" id="siteInfo">
-                        <p>Click on a radar site on the map to select it</p>
-                    </div>
-                    <div class="vad-status" id="vadStatus"></div>
-                </div>
-
-                <div class="control-section">
-                    <h3>Analysis Options</h3>
-                    <div class="input-group">
-                        <label for="metarStation">METAR Station (optional):</label>
-                        <input type="text" id="metarStation" placeholder="e.g., KOKC" maxlength="4">
-                    </div>
-                    <div class="input-group">
-                        <label for="stormDirection">Storm Direction (°, optional):</label>
-                        <input type="number" id="stormDirection" min="0" max="360" placeholder="0-360">
-                    </div>
-                    <div class="input-group">
-                        <label for="stormSpeed">Storm Speed (knots, optional):</label>
-                        <input type="number" id="stormSpeed" min="0" max="100" placeholder="0-100">
-                    </div>
-                    <div class="checkbox-group">
-                        <label>
-                            <input type="checkbox" id="showHalfKm" checked> Show Half-km Markers
-                        </label>
-                    </div>
-                    <button id="plotHodographBtn" class="btn btn-success" disabled>Generate Hodograph Analysis</button>
-                    <div class="analysis-info" id="analysisInfo"></div>
-                </div>
-
-                <div class="control-section">
-                    <h3>Map Options</h3>
-                    <div class="checkbox-group">
-                        <label>
-                            <input type="checkbox" id="showWarnings" checked> Show Warnings
-                        </label>
-                    </div>
-                </div>
+            <!-- Mobile Tab Navigation -->
+            <div class="mobile-tab-nav">
+                <button class="mobile-tab-btn active" data-tab="controls">Controls</button>
+                <button class="mobile-tab-btn" data-tab="map">Map</button>
+                <button class="mobile-tab-btn" data-tab="hodograph" id="mobileHodographTab" disabled>Analysis</button>
             </div>
 
-            <!-- Main View Container with Tabs -->
-            <div class="main-view">
-                <!-- Tab Navigation -->
-                <div class="tab-nav">
-                    <button class="tab-btn active" data-tab="map">Map View</button>
-                    <button class="tab-btn" data-tab="hodograph" id="hodographTab" disabled>Hodograph Analysis</button>
-                </div>
-
-                <!-- Tab Content -->
-                <div class="tab-content">
-                    <!-- Map Tab -->
-                    <div class="tab-pane active" id="mapTab">
-                        <div id="map"></div>
+            <!-- Desktop Layout / Mobile Tab Content -->
+            <div class="content-wrapper">
+                <!-- Controls Panel (Desktop Sidebar / Mobile First Tab) -->
+                <div class="controls-panel active" id="controlsPanel">
+                    <div class="control-section">
+                        <h3>Radar Site Selection</h3>
+                        <div class="site-info" id="siteInfo">
+                            <p>Click on a radar site on the map to select it</p>
+                        </div>
+                        <div class="vad-status" id="vadStatus"></div>
                     </div>
 
-                    <!-- Hodograph Tab -->
-                    <div class="tab-pane" id="hodographPane">
-                        <div class="hodograph-view">
-                            <div class="hodograph-header">
-                                <h3>Hodograph Analysis</h3>
-                                <div class="analysis-details" id="analysisDetails"></div>
-                            </div>
-                            <div class="hodograph-display" id="hodographDisplay">
-                                <p>Generate hodograph analysis to view results</p>
-                            </div>
-                            <div class="parameters-display" id="parametersDisplay"></div>
+                    <div class="control-section">
+                        <h3>Analysis Options</h3>
+                        <div class="input-group">
+                            <label for="metarStation">METAR Station (optional):</label>
+                            <input type="text" id="metarStation" placeholder="e.g., KOKC" maxlength="4">
                         </div>
+                        <div class="input-group">
+                            <label for="stormDirection">Storm Direction (°, optional):</label>
+                            <input type="number" id="stormDirection" min="0" max="360" placeholder="0-360">
+                        </div>
+                        <div class="input-group">
+                            <label for="stormSpeed">Storm Speed (knots, optional):</label>
+                            <input type="number" id="stormSpeed" min="0" max="100" placeholder="0-100">
+                        </div>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="showHalfKm" checked> Show Half-km Markers
+                            </label>
+                        </div>
+                        <button id="plotHodographBtn" class="btn btn-success" disabled>Generate Hodograph Analysis</button>
+                        <div class="analysis-info" id="analysisInfo"></div>
+                    </div>
+
+                    <div class="control-section">
+                        <h3>Map Options</h3>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="showWarnings" checked> Show Warnings
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Map Panel -->
+                <div class="map-panel" id="mapPanel">
+                    <div id="map"></div>
+                </div>
+
+                <!-- Hodograph Panel -->
+                <div class="hodograph-panel" id="hodographPanel">
+                    <div class="hodograph-view">
+                        <div class="hodograph-header">
+                            <h3>Hodograph Analysis</h3>
+                            <div class="analysis-details" id="analysisDetails"></div>
+                        </div>
+                        <div class="hodograph-display" id="hodographDisplay">
+                            <p>Generate hodograph analysis to view results</p>
+                        </div>
+                        <div class="parameters-display" id="parametersDisplay"></div>
                     </div>
                 </div>
             </div>

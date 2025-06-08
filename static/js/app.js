@@ -226,6 +226,7 @@ function setupEventListeners() {
 
 // Setup tab navigation
 function setupTabNavigation() {
+    // Desktop tab navigation
     const tabButtons = document.querySelectorAll('.tab-btn');
     
     tabButtons.forEach(button => {
@@ -234,6 +235,18 @@ function setupTabNavigation() {
             
             const targetTab = this.getAttribute('data-tab');
             switchTab(targetTab);
+        });
+    });
+    
+    // Mobile tab navigation
+    const mobileTabButtons = document.querySelectorAll('.mobile-tab-btn');
+    
+    mobileTabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            if (this.disabled) return;
+            
+            const targetTab = this.getAttribute('data-tab');
+            switchMobileTab(targetTab);
         });
     });
 }
@@ -259,6 +272,34 @@ function switchTab(tabName) {
         }, 300);
     } else if (tabName === 'hodograph') {
         document.getElementById('hodographPane').classList.add('active');
+    }
+    
+    currentTab = tabName;
+}
+
+// Switch between mobile tabs
+function switchMobileTab(tabName) {
+    // Update mobile tab buttons
+    document.querySelectorAll('.mobile-tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`.mobile-tab-btn[data-tab="${tabName}"]`).classList.add('active');
+    
+    // Update panel visibility
+    document.querySelectorAll('.controls-panel, .map-panel, .hodograph-panel').forEach(panel => {
+        panel.classList.remove('active');
+    });
+    
+    if (tabName === 'controls') {
+        document.getElementById('controlsPanel').classList.add('active');
+    } else if (tabName === 'map') {
+        document.getElementById('mapPanel').classList.add('active');
+        // Refresh map size when switching to map tab
+        setTimeout(() => {
+            if (map) map.invalidateSize();
+        }, 300);
+    } else if (tabName === 'hodograph') {
+        document.getElementById('hodographPanel').classList.add('active');
     }
     
     currentTab = tabName;
