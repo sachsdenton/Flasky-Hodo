@@ -144,6 +144,15 @@ def generate_hodograph():
         metar_speed = request.args.get('metar_speed', type=float)
         site_id = request.args.get('site_id', '')
         
+        # Debug: Print all received parameters
+        print(f"Debug: Hodograph parameters received:")
+        print(f"  site_id: {site_id}")
+        print(f"  storm_direction: {storm_direction}")
+        print(f"  storm_speed: {storm_speed}")
+        print(f"  metar_direction: {metar_direction}")
+        print(f"  metar_speed: {metar_speed}")
+        print(f"  show_half_km: {show_half_km}")
+        
         if len(wind_profile.heights) == 0:
             return jsonify({'error': 'No wind profile data loaded'}), 400
         
@@ -302,6 +311,8 @@ def generate_hodograph():
                         mag2 = np.sqrt(v2_u**2 + v2_v**2)
                         cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
                         critical_angle_value = np.rad2deg(np.arccos(cos_angle))
+                    
+                    # SRH values are displayed only in the upper left parameter box
         
         # Add meteorological parameters text directly on the plot
         if storm_motion_data:
@@ -321,23 +332,44 @@ def generate_hodograph():
             try:
                 # Calculate key parameters
                 from params import compute_srh, compute_shear_mag
-                srh_0_1 = compute_srh(param_data, storm_motion_tuple, 1000)
-                srh_0_3 = compute_srh(param_data, storm_motion_tuple, 3000)
+                
+                # Debug the data structure before SRH calculation
+                print(f"Debug: param_data structure:")
+                print(f"  wind_dir length: {len(param_data['wind_dir'])}")
+                print(f"  wind_spd length: {len(param_data['wind_spd'])}")
+                print(f"  altitude length: {len(param_data['altitude'])}")
+                print(f"  first few wind_dir: {param_data['wind_dir'][:3] if len(param_data['wind_dir']) > 0 else 'empty'}")
+                print(f"  first few wind_spd: {param_data['wind_spd'][:3] if len(param_data['wind_spd']) > 0 else 'empty'}")
+                print(f"  first few altitude: {param_data['altitude'][:3] if len(param_data['altitude']) > 0 else 'empty'}")
+                print(f"  max altitude: {np.max(param_data['altitude']) if len(param_data['altitude']) > 0 else 'empty'}")
+                print(f"  altitudes up to 1000m: {np.sum(param_data['altitude'] <= 1000)}")
+                print(f"  altitudes up to 3000m: {np.sum(param_data['altitude'] <= 3000)}")
+                print(f"  storm_motion_tuple: {storm_motion_tuple}")
+                
+                # Only calculate SRH if we have storm motion
+                if storm_motion_tuple:
+                    srh_0_1 = compute_srh(param_data, storm_motion_tuple, 1000)
+                    srh_0_3 = compute_srh(param_data, storm_motion_tuple, 3000)
+                else:
+                    srh_0_1 = np.nan
+                    srh_0_3 = np.nan
                 shear_1km = compute_shear_mag(param_data, 1000)
                 shear_3km = compute_shear_mag(param_data, 3000)
+                
+                print(f"Debug: Calculated SRH values - srh_0_1: {srh_0_1}, srh_0_3: {srh_0_3}")
                 
                 # Create parameter text with requested order
                 param_text = []
                 
                 # Wind shear values first
                 if not np.isnan(shear_1km):
-                    param_text.append(f'0-1km Shear: {shear_1km:.0f} kt')
+                    param_text.append(f'0-1km Shear: {shear_1km:.0f} kts')
                 if not np.isnan(shear_3km):
-                    param_text.append(f'0-3km Shear: {shear_3km:.0f} kt')
+                    param_text.append(f'0-3km Shear: {shear_3km:.0f} kts')
                 
                 # Storm motion (input storm motion)
                 if storm_motion_data:
-                    param_text.append(f'Storm Motion: {storm_motion_data["direction"]:.0f}°/{storm_motion_data["speed"]:.0f}kt')
+                    param_text.append(f'Storm Motion: {storm_motion_data["direction"]:.0f}°/{storm_motion_data["speed"]:.0f}kts')
                 
                 # Add Bunkers storm motion
                 try:
@@ -345,7 +377,7 @@ def generate_hodograph():
                     bunkers_result = compute_bunkers(param_data)
                     if bunkers_result and len(bunkers_result) >= 2:
                         bunkers_rm = bunkers_result[0]
-                        param_text.append(f'Bunkers RM: {bunkers_rm[0]:.0f}°/{bunkers_rm[1]:.0f}kt')
+                        param_text.append(f'Bunkers RM: {bunkers_rm[0]:.0f}°/{bunkers_rm[1]:.0f}kts')
                 except:
                     pass
                 
@@ -420,15 +452,18 @@ def generate_hodograph():
                 
                 # Add shear magnitude and depth under critical angle
                 if shear_magnitude_display is not None:
-                    param_text.append(f'Shear Magnitude: {shear_magnitude_display:.1f} kt')
+                    param_text.append(f'Shear Magnitude: {shear_magnitude_display:.0f} kts')
                 if shear_depth_display is not None:
                     param_text.append(f'Shear Depth: {shear_depth_display:.0f} m')
                 
-                # Add both SRH values below shear parameters
+                # Always add SRH values after shear parameters (regardless of shear depth availability)
+                print(f"Debug: SRH values - srh_0_1: {srh_0_1}, srh_0_3: {srh_0_3}")
                 if not np.isnan(srh_0_1):
                     param_text.append(f'SRH 0-1km: {srh_0_1:.0f} m²/s²')
+                    print(f"Debug: Added SRH 0-1km to param_text")
                 if not np.isnan(srh_0_3):
                     param_text.append(f'SRH 0-3km: {srh_0_3:.0f} m²/s²')
+                    print(f"Debug: Added SRH 0-3km to param_text")
                 
                 # Display parameters text box in upper left corner
                 if param_text:
@@ -436,8 +471,12 @@ def generate_hodograph():
                     ax.text(0.02, 0.98, param_str, transform=ax.transAxes, fontsize=10,
                            verticalalignment='top', bbox=dict(boxstyle="round,pad=0.5", 
                            facecolor="lightblue", alpha=0.8), zorder=12)
+                
+                # SRH values are now only displayed in the upper left parameter box
             except Exception as e:
                 print(f"Error adding parameters to plot: {e}")
+                import traceback
+                traceback.print_exc()
         
         # Add comprehensive title to the hodograph
         title_lines = []
@@ -547,10 +586,16 @@ def generate_hodograph():
                     if bunkers_result and len(bunkers_result) >= 2:
                         bunkers_rm = bunkers_result[0]
                         bunkers_lm = bunkers_result[1]
-                        bunkers_info = {
-                            'right_mover': {'direction': float(bunkers_rm[0]), 'speed': float(bunkers_rm[1])},
-                            'left_mover': {'direction': float(bunkers_lm[0]), 'speed': float(bunkers_lm[1])}
-                        }
+                        
+                        # Validate values are not NaN
+                        if (not np.isnan(bunkers_rm[0]) and not np.isnan(bunkers_rm[1]) and 
+                            not np.isnan(bunkers_lm[0]) and not np.isnan(bunkers_lm[1])):
+                            bunkers_info = {
+                                'right': {'direction': round(float(bunkers_rm[0]), 1), 'speed': round(float(bunkers_rm[1]), 1)},
+                                'left': {'direction': round(float(bunkers_lm[0]), 1), 'speed': round(float(bunkers_lm[1]), 1)}
+                            }
+                        else:
+                            bunkers_info = None
                     else:
                         bunkers_info = None
                 except:
@@ -617,17 +662,23 @@ def generate_hodograph():
                     except:
                         pass
                 
+                # Helper function to safely round numeric values
+                def safe_round(value, decimals=1):
+                    if value is None or np.isnan(value) or np.isinf(value):
+                        return None
+                    return round(float(value), decimals)
+                
                 parameters = {
-                    'srh_0_5': round(srh_0_5, 1) if not np.isnan(srh_0_5) else None,
-                    'srh_0_1': round(srh_0_1, 1) if not np.isnan(srh_0_1) else None,
-                    'srh_0_3': round(srh_0_3, 1) if not np.isnan(srh_0_3) else None,
-                    'shear_1km': round(shear_1km, 1) if not np.isnan(shear_1km) else None,
-                    'shear_3km': round(shear_3km, 1) if not np.isnan(shear_3km) else None,
-                    'shear_6km': round(shear_6km, 1) if not np.isnan(shear_6km) else None,
+                    'srh_0_5': safe_round(srh_0_5, 1),
+                    'srh_0_1': safe_round(srh_0_1, 1),
+                    'srh_0_3': safe_round(srh_0_3, 1),
+                    'shear_1km': safe_round(shear_1km, 1),
+                    'shear_3km': safe_round(shear_3km, 1),
+                    'shear_6km': safe_round(shear_6km, 1),
                     'bunkers': bunkers_info,
-                    'critical_angle': round(critical_angle, 1) if critical_angle is not None else None,
-                    'shear_depth': round(shear_depth, 0) if shear_depth is not None else None,
-                    'shear_magnitude': round(shear_magnitude, 1) if shear_magnitude is not None else None
+                    'critical_angle': safe_round(critical_angle, 1),
+                    'shear_depth': safe_round(shear_depth, 0),
+                    'shear_magnitude': safe_round(shear_magnitude, 1)
                 }
             except Exception as e:
                 print(f"Error calculating parameters: {e}")

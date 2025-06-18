@@ -317,8 +317,9 @@ async function loadWarnings() {
         warningLayers = [];
         
         warnings.forEach(warning => {
-            if (warning.geometry && warning.geometry.coordinates) {
-                const color = getWarningColor(warning.properties.event);
+            if (warning.geometry && warning.geometry.coordinates && warning.properties) {
+                const eventType = warning.properties.event || 'Weather Warning';
+                const color = getWarningColor(eventType);
                 
                 const layer = L.geoJSON(warning.geometry, {
                     style: {
@@ -329,10 +330,13 @@ async function loadWarnings() {
                     }
                 });
                 
+                const areaDesc = warning.properties.areaDesc || 'Unknown Area';
+                const headline = warning.properties.headline || 'Warning Information Unavailable';
+                
                 layer.bindPopup(`
-                    <b>${warning.properties.event}</b><br>
-                    <strong>Area:</strong> ${warning.properties.areaDesc}<br>
-                    <strong>Headline:</strong> ${warning.properties.headline}
+                    <b>${eventType}</b><br>
+                    <strong>Area:</strong> ${areaDesc}<br>
+                    <strong>Headline:</strong> ${headline}
                 `);
                 
                 layer.addTo(map);
@@ -490,6 +494,8 @@ async function loadVadDataAutomatically(site) {
 
 
 
+
+
 // Generate complete analysis (VAD + METAR + Storm Motion + Hodograph)
 async function generateCompleteAnalysis() {
     if (!selectedSite) {
@@ -573,8 +579,9 @@ async function generateCompleteAnalysis() {
                 <img src="data:image/png;base64,${hodographData.image}" alt="Hodograph" />
             `;
             
-            // Clear parameters display since data is now shown on the plot
+            // Clear parameters display - parameters are shown on the plot
             document.getElementById('parametersDisplay').innerHTML = '<p><em>Meteorological parameters are displayed directly on the hodograph plot above.</em></p>';
+            document.getElementById('mobileParametersDisplay').innerHTML = '<p><em>Meteorological parameters are displayed directly on the hodograph plot above.</em></p>';
             
             // Update analysis details in header
             let analysisDetailsHtml = `<strong>Site:</strong> ${selectedSite.id} - ${selectedSite.name}`;

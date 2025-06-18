@@ -483,6 +483,8 @@ input[type="number"]:focus {
     }
 }
 
+
+
 /* Leaflet map customizations */
 .leaflet-popup-content-wrapper {
     border-radius: 4px;
