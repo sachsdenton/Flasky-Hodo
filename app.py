@@ -331,9 +331,9 @@ def generate_hodograph():
                 
                 # Wind shear values first
                 if not np.isnan(shear_1km):
-                    param_text.append(f'0-1km Shear: {shear_1km:.0f} kt')
+                    param_text.append(f'0-1km Shear: {shear_1km:.0f} kts')
                 if not np.isnan(shear_3km):
-                    param_text.append(f'0-3km Shear: {shear_3km:.0f} kt')
+                    param_text.append(f'0-3km Shear: {shear_3km:.0f} kts')
                 
                 # Storm motion (input storm motion)
                 if storm_motion_data:
@@ -420,15 +420,21 @@ def generate_hodograph():
                 
                 # Add shear magnitude and depth under critical angle
                 if shear_magnitude_display is not None:
-                    param_text.append(f'Shear Magnitude: {shear_magnitude_display:.1f} kt')
+                    param_text.append(f'Shear Magnitude: {shear_magnitude_display:.0f} kts')
                 if shear_depth_display is not None:
                     param_text.append(f'Shear Depth: {shear_depth_display:.0f} m')
-                
-                # Add both SRH values below shear parameters
-                if not np.isnan(srh_0_1):
-                    param_text.append(f'SRH 0-1km: {srh_0_1:.0f} m²/s²')
-                if not np.isnan(srh_0_3):
-                    param_text.append(f'SRH 0-3km: {srh_0_3:.0f} m²/s²')
+                    
+                    # Add SRH values immediately after shear depth
+                    if not np.isnan(srh_0_1):
+                        param_text.append(f'SRH 0-1km: {srh_0_1:.0f} m²/s²')
+                    if not np.isnan(srh_0_3):
+                        param_text.append(f'SRH 0-3km: {srh_0_3:.0f} m²/s²')
+                else:
+                    # If no shear depth, still add SRH values
+                    if not np.isnan(srh_0_1):
+                        param_text.append(f'SRH 0-1km: {srh_0_1:.0f} m²/s²')
+                    if not np.isnan(srh_0_3):
+                        param_text.append(f'SRH 0-3km: {srh_0_3:.0f} m²/s²')
                 
                 # Display parameters text box in upper left corner
                 if param_text:
