@@ -302,6 +302,56 @@ def generate_hodograph():
                         mag2 = np.sqrt(v2_u**2 + v2_v**2)
                         cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
                         critical_angle_value = np.rad2deg(np.arccos(cos_angle))
+                    
+                    # Add SRH values as text annotation below the shear depth endpoint
+                    try:
+                        # Calculate SRH values for display near shear vector
+                        param_data_temp = {
+                            'wind_dir': np.array(wind_profile.directions),
+                            'wind_spd': np.array(wind_profile.speeds),
+                            'altitude': np.array(wind_profile.heights)
+                        }
+                        
+                        # Add surface wind if available
+                        if metar_data:
+                            param_data_temp['wind_dir'] = np.insert(param_data_temp['wind_dir'], 0, metar_data['direction'])
+                            param_data_temp['wind_spd'] = np.insert(param_data_temp['wind_spd'], 0, metar_data['speed'])
+                            param_data_temp['altitude'] = np.insert(param_data_temp['altitude'], 0, 0.0)
+                        
+                        from params import compute_srh
+                        srh_0_1_display = compute_srh(param_data_temp, storm_motion_tuple, 1000)
+                        srh_0_3_display = compute_srh(param_data_temp, storm_motion_tuple, 3000)
+                        
+                        # Create SRH text for display
+                        srh_text_lines = []
+                        if not np.isnan(srh_0_1_display):
+                            srh_text_lines.append(f'SRH 0-1km: {srh_0_1_display:.0f} m²/s²')
+                        if not np.isnan(srh_0_3_display):
+                            srh_text_lines.append(f'SRH 0-3km: {srh_0_3_display:.0f} m²/s²')
+                        
+                        if srh_text_lines:
+                            srh_display_text = '\n'.join(srh_text_lines)
+                            
+                            # Position the text below the end of the shear vector
+                            # Offset downward from the endpoint
+                            text_offset_v = -5  # Offset in wind speed units (knots)
+                            text_u = end_u
+                            text_v = end_v + text_offset_v
+                            
+                            # Add text annotation with background box
+                            ax.text(text_u, text_v, srh_display_text, 
+                                   fontsize=9, fontweight='bold',
+                                   horizontalalignment='center', verticalalignment='top',
+                                   bbox=dict(boxstyle="round,pad=0.3", 
+                                           facecolor="yellow", alpha=0.8, edgecolor='black'),
+                                   zorder=15)
+                            
+                            print(f"Debug: Added SRH text below shear depth at ({text_u:.1f}, {text_v:.1f})")
+                        
+                    except Exception as e:
+                        print(f"Debug: Error adding SRH text below shear depth: {e}")
+                        import traceback
+                        traceback.print_exc()
         
         # Add meteorological parameters text directly on the plot
         if storm_motion_data:
