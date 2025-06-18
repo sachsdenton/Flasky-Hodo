@@ -144,6 +144,15 @@ def generate_hodograph():
         metar_speed = request.args.get('metar_speed', type=float)
         site_id = request.args.get('site_id', '')
         
+        # Debug: Print all received parameters
+        print(f"Debug: Hodograph parameters received:")
+        print(f"  site_id: {site_id}")
+        print(f"  storm_direction: {storm_direction}")
+        print(f"  storm_speed: {storm_speed}")
+        print(f"  metar_direction: {metar_direction}")
+        print(f"  metar_speed: {metar_speed}")
+        print(f"  show_half_km: {show_half_km}")
+        
         if len(wind_profile.heights) == 0:
             return jsonify({'error': 'No wind profile data loaded'}), 400
         
