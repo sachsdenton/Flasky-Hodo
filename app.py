@@ -341,6 +341,9 @@ def generate_hodograph():
                 print(f"  first few wind_dir: {param_data['wind_dir'][:3] if len(param_data['wind_dir']) > 0 else 'empty'}")
                 print(f"  first few wind_spd: {param_data['wind_spd'][:3] if len(param_data['wind_spd']) > 0 else 'empty'}")
                 print(f"  first few altitude: {param_data['altitude'][:3] if len(param_data['altitude']) > 0 else 'empty'}")
+                print(f"  max altitude: {np.max(param_data['altitude']) if len(param_data['altitude']) > 0 else 'empty'}")
+                print(f"  altitudes up to 1000m: {np.sum(param_data['altitude'] <= 1000)}")
+                print(f"  altitudes up to 3000m: {np.sum(param_data['altitude'] <= 3000)}")
                 print(f"  storm_motion_tuple: {storm_motion_tuple}")
                 
                 srh_0_1 = compute_srh(param_data, storm_motion_tuple, 1000)
