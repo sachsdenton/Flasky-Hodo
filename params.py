@@ -89,6 +89,11 @@ def compute_srh(data, storm_motion, hght):
         # Calculate SRH using discrete layer approach - Steps 3-8
         srh_total = 0.0
         
+        # Add debug information
+        print(f"Debug SRH: Processing {len(z)} altitude levels")
+        print(f"Debug SRH: Height range: {z[0]:.0f}m to {z[-1]:.0f}m")
+        print(f"Debug SRH: Storm motion: u={us:.2f}, v={vs:.2f} m/s")
+        
         for i in range(len(z) - 1):
             # Step 4: Calculate layer shear vector
             delta_u = u_layer[i+1] - u_layer[i]
@@ -104,6 +109,14 @@ def compute_srh(data, storm_motion, hght):
             
             # Step 7: Compute SRH contribution from layer (vector cross product)
             srh_layer = ur * delta_v - vr * delta_u
+            
+            # Debug first few layers
+            if i < 3:
+                print(f"Layer {i}: z={z[i]:.0f}-{z[i+1]:.0f}m, "
+                      f"wind=({u_mean:.2f},{v_mean:.2f}), "
+                      f"storm_rel=({ur:.2f},{vr:.2f}), "
+                      f"shear=({delta_u:.3f},{delta_v:.3f}), "
+                      f"srh_layer={srh_layer:.2f}")
             
             # Step 8: Add to cumulative total
             srh_total += srh_layer
