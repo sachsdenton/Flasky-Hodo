@@ -34,36 +34,77 @@ def _clip_profile(prof, alt, clip_alt, intrp_prof):
 
 def compute_shear_mag(data, hght):
     u, v = vec2comp(data['wind_dir'], data['wind_spd'])
+    u = np.array(u)
+    v = np.array(v)
     u_hght, v_hght = interp(u, v, data['altitude'], hght)
     return np.hypot(u_hght - u[0], v_hght - v[0])
 
 
 def compute_srh(data, storm_motion, hght):
-    u, v = vec2comp(data['wind_dir'], data['wind_spd'])
-    if len(u) < 2 or len(v) < 2:
+    """
+    Calculate Storm Relative Helicity (SRH) for a given layer depth.
+    Using the standard meteorological definition.
+    """
+    try:
+        # Extract wind data
+        wind_dir = np.array(data['wind_dir'])
+        wind_spd = np.array(data['wind_spd'])
+        altitudes = np.array(data['altitude']) 
+        
+        # Check minimum data requirements
+        if len(wind_dir) < 2 or len(wind_spd) < 2:
+            return np.nan
+            
+        # Convert wind to u,v components (meteorological convention)
+        u = -wind_spd * np.sin(np.radians(wind_dir))  # u component (east-west)
+        v = -wind_spd * np.cos(np.radians(wind_dir))  # v component (north-south)
+        
+        # Get storm motion u,v components
+        storm_dir, storm_spd = storm_motion
+        storm_u = -storm_spd * np.sin(np.radians(storm_dir))
+        storm_v = -storm_spd * np.cos(np.radians(storm_dir))
+        
+        # Calculate storm-relative wind components
+        rel_u = u - storm_u
+        rel_v = v - storm_v
+        
+        # Find data within the specified height layer
+        valid_mask = (altitudes >= 0) & (altitudes <= hght)
+        if np.sum(valid_mask) < 2:
+            return np.nan
+            
+        # Extract layer data
+        layer_u = rel_u[valid_mask]
+        layer_v = rel_v[valid_mask]
+        layer_z = altitudes[valid_mask]
+        
+        # Calculate SRH using finite difference approximation
+        srh_total = 0.0
+        
+        for i in range(len(layer_z) - 1):
+            # Height difference
+            dz = layer_z[i+1] - layer_z[i]
+            if dz <= 0:
+                continue
+                
+            # Wind differences
+            du = layer_u[i+1] - layer_u[i]
+            dv = layer_v[i+1] - layer_v[i]
+            
+            # Average storm-relative wind in layer
+            avg_u = (layer_u[i] + layer_u[i+1]) / 2.0
+            avg_v = (layer_v[i] + layer_v[i+1]) / 2.0
+            
+            # SRH increment: (V-C) × (dV/dz) * dz
+            # Cross product in 2D: u*dv - v*du
+            srh_increment = avg_u * dv - avg_v * du
+            srh_total += srh_increment
+            
+        return srh_total
+        
+    except Exception as e:
+        print(f"Error in SRH calculation: {e}")
         return np.nan
-
-    # Convert height from meters to kilometers
-    hght_km = hght / 1000.0
-
-    storm_u, storm_v = vec2comp(*storm_motion)
-
-    sru = (u - storm_u) / 1.94
-    srv = (v - storm_v) / 1.94
-
-    # Convert altitude from meters to kilometers for interpolation
-    altitude_km = data['altitude'] / 1000.0
-
-    sru_hght, srv_hght = interp(sru, srv, altitude_km, hght_km)
-    sru_clip = _clip_profile(sru, altitude_km, hght_km, sru_hght)
-    srv_clip = _clip_profile(srv, altitude_km, hght_km, srv_hght)
-
-    # Handle edge case where clipped profiles are too short
-    if len(sru_clip) < 2 or len(srv_clip) < 2:
-        return np.nan
-
-    layers = (sru_clip[1:] * srv_clip[:-1]) - (sru_clip[:-1] * srv_clip[1:])
-    return layers.sum()
 
 
 def compute_bunkers(data):
