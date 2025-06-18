@@ -490,6 +490,136 @@ async function loadVadDataAutomatically(site) {
 
 
 
+// Display parameters in a structured table
+function displayParametersTable(parameters) {
+    const parametersDisplay = document.getElementById('parametersDisplay');
+    const mobileParametersDisplay = document.getElementById('mobileParametersDisplay');
+    
+    if (!parameters) {
+        parametersDisplay.innerHTML = '<p>No parameters available</p>';
+        mobileParametersDisplay.innerHTML = '<p>No parameters available</p>';
+        return;
+    }
+    
+    let tableHtml = `
+        <div class="parameters-table">
+            <h4>Meteorological Parameters</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Value</th>
+                        <th>Units</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    // Add SRH values (these are the key parameters the user requested)
+    if (parameters.srh_0_1 !== null && parameters.srh_0_1 !== undefined) {
+        tableHtml += `
+            <tr>
+                <td>SRH 0-1km</td>
+                <td>${parameters.srh_0_1}</td>
+                <td>m²/s²</td>
+            </tr>
+        `;
+    }
+    
+    if (parameters.srh_0_3 !== null && parameters.srh_0_3 !== undefined) {
+        tableHtml += `
+            <tr>
+                <td>SRH 0-3km</td>
+                <td>${parameters.srh_0_3}</td>
+                <td>m²/s²</td>
+            </tr>
+        `;
+    }
+    
+    if (parameters.srh_0_5 !== null && parameters.srh_0_5 !== undefined) {
+        tableHtml += `
+            <tr>
+                <td>SRH 0-0.5km</td>
+                <td>${parameters.srh_0_5}</td>
+                <td>m²/s²</td>
+            </tr>
+        `;
+    }
+    
+    // Add shear magnitudes
+    if (parameters.shear_1km !== null && parameters.shear_1km !== undefined) {
+        tableHtml += `
+            <tr>
+                <td>Shear 0-1km</td>
+                <td>${parameters.shear_1km}</td>
+                <td>kt</td>
+            </tr>
+        `;
+    }
+    
+    if (parameters.shear_3km !== null && parameters.shear_3km !== undefined) {
+        tableHtml += `
+            <tr>
+                <td>Shear 0-3km</td>
+                <td>${parameters.shear_3km}</td>
+                <td>kt</td>
+            </tr>
+        `;
+    }
+    
+    if (parameters.shear_6km !== null && parameters.shear_6km !== undefined) {
+        tableHtml += `
+            <tr>
+                <td>Shear 0-6km</td>
+                <td>${parameters.shear_6km}</td>
+                <td>kt</td>
+            </tr>
+        `;
+    }
+    
+    // Add critical angle
+    if (parameters.critical_angle !== null && parameters.critical_angle !== undefined) {
+        tableHtml += `
+            <tr>
+                <td>Critical Angle</td>
+                <td>${parameters.critical_angle}</td>
+                <td>degrees</td>
+            </tr>
+        `;
+    }
+    
+    // Add Bunkers storm motion if available
+    if (parameters.bunkers && parameters.bunkers.right) {
+        tableHtml += `
+            <tr>
+                <td>Bunkers Right</td>
+                <td>${parameters.bunkers.right.direction}° / ${parameters.bunkers.right.speed} kt</td>
+                <td>direction/speed</td>
+            </tr>
+        `;
+    }
+    
+    if (parameters.bunkers && parameters.bunkers.left) {
+        tableHtml += `
+            <tr>
+                <td>Bunkers Left</td>
+                <td>${parameters.bunkers.left.direction}° / ${parameters.bunkers.left.speed} kt</td>
+                <td>direction/speed</td>
+            </tr>
+        `;
+    }
+    
+    tableHtml += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    // Update both desktop and mobile displays
+    parametersDisplay.innerHTML = tableHtml;
+    mobileParametersDisplay.innerHTML = tableHtml;
+}
+
 // Generate complete analysis (VAD + METAR + Storm Motion + Hodograph)
 async function generateCompleteAnalysis() {
     if (!selectedSite) {
@@ -573,8 +703,8 @@ async function generateCompleteAnalysis() {
                 <img src="data:image/png;base64,${hodographData.image}" alt="Hodograph" />
             `;
             
-            // Clear parameters display since data is now shown on the plot
-            document.getElementById('parametersDisplay').innerHTML = '<p><em>Meteorological parameters are displayed directly on the hodograph plot above.</em></p>';
+            // Display parameters in a data table
+            displayParametersTable(hodographData.parameters);
             
             // Update analysis details in header
             let analysisDetailsHtml = `<strong>Site:</strong> ${selectedSite.id} - ${selectedSite.name}`;
