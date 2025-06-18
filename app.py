@@ -337,7 +337,7 @@ def generate_hodograph():
                 
                 # Storm motion (input storm motion)
                 if storm_motion_data:
-                    param_text.append(f'Storm Motion: {storm_motion_data["direction"]:.0f}°/{storm_motion_data["speed"]:.0f}kt')
+                    param_text.append(f'Storm Motion: {storm_motion_data["direction"]:.0f}°/{storm_motion_data["speed"]:.0f}kts')
                 
                 # Add Bunkers storm motion
                 try:
@@ -345,7 +345,7 @@ def generate_hodograph():
                     bunkers_result = compute_bunkers(param_data)
                     if bunkers_result and len(bunkers_result) >= 2:
                         bunkers_rm = bunkers_result[0]
-                        param_text.append(f'Bunkers RM: {bunkers_rm[0]:.0f}°/{bunkers_rm[1]:.0f}kt')
+                        param_text.append(f'Bunkers RM: {bunkers_rm[0]:.0f}°/{bunkers_rm[1]:.0f}kts')
                 except:
                     pass
                 
@@ -444,6 +444,8 @@ def generate_hodograph():
                            facecolor="lightblue", alpha=0.8), zorder=12)
             except Exception as e:
                 print(f"Error adding parameters to plot: {e}")
+                import traceback
+                traceback.print_exc()
         
         # Add comprehensive title to the hodograph
         title_lines = []
