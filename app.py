@@ -547,10 +547,16 @@ def generate_hodograph():
                     if bunkers_result and len(bunkers_result) >= 2:
                         bunkers_rm = bunkers_result[0]
                         bunkers_lm = bunkers_result[1]
-                        bunkers_info = {
-                            'right_mover': {'direction': float(bunkers_rm[0]), 'speed': float(bunkers_rm[1])},
-                            'left_mover': {'direction': float(bunkers_lm[0]), 'speed': float(bunkers_lm[1])}
-                        }
+                        
+                        # Validate values are not NaN
+                        if (not np.isnan(bunkers_rm[0]) and not np.isnan(bunkers_rm[1]) and 
+                            not np.isnan(bunkers_lm[0]) and not np.isnan(bunkers_lm[1])):
+                            bunkers_info = {
+                                'right': {'direction': round(float(bunkers_rm[0]), 1), 'speed': round(float(bunkers_rm[1]), 1)},
+                                'left': {'direction': round(float(bunkers_lm[0]), 1), 'speed': round(float(bunkers_lm[1]), 1)}
+                            }
+                        else:
+                            bunkers_info = None
                     else:
                         bunkers_info = None
                 except:
@@ -617,17 +623,23 @@ def generate_hodograph():
                     except:
                         pass
                 
+                # Helper function to safely round numeric values
+                def safe_round(value, decimals=1):
+                    if value is None or np.isnan(value) or np.isinf(value):
+                        return None
+                    return round(float(value), decimals)
+                
                 parameters = {
-                    'srh_0_5': round(srh_0_5, 1) if not np.isnan(srh_0_5) else None,
-                    'srh_0_1': round(srh_0_1, 1) if not np.isnan(srh_0_1) else None,
-                    'srh_0_3': round(srh_0_3, 1) if not np.isnan(srh_0_3) else None,
-                    'shear_1km': round(shear_1km, 1) if not np.isnan(shear_1km) else None,
-                    'shear_3km': round(shear_3km, 1) if not np.isnan(shear_3km) else None,
-                    'shear_6km': round(shear_6km, 1) if not np.isnan(shear_6km) else None,
+                    'srh_0_5': safe_round(srh_0_5, 1),
+                    'srh_0_1': safe_round(srh_0_1, 1),
+                    'srh_0_3': safe_round(srh_0_3, 1),
+                    'shear_1km': safe_round(shear_1km, 1),
+                    'shear_3km': safe_round(shear_3km, 1),
+                    'shear_6km': safe_round(shear_6km, 1),
                     'bunkers': bunkers_info,
-                    'critical_angle': round(critical_angle, 1) if critical_angle is not None else None,
-                    'shear_depth': round(shear_depth, 0) if shear_depth is not None else None,
-                    'shear_magnitude': round(shear_magnitude, 1) if shear_magnitude is not None else None
+                    'critical_angle': safe_round(critical_angle, 1),
+                    'shear_depth': safe_round(shear_depth, 0),
+                    'shear_magnitude': safe_round(shear_magnitude, 1)
                 }
             except Exception as e:
                 print(f"Error calculating parameters: {e}")
