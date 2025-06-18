@@ -92,6 +92,10 @@ def compute_srh(data, storm_motion, hght):
             # Skip this layer if it is not fully within the layer of interest
             if z1 < z_min or z2 > z_max:
                 continue
+            
+            # Also skip if layer extends beyond bounds
+            if z1 >= z_max:
+                break
                 
             # Get wind vectors at each level
             u1 = u[i]

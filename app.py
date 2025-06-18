@@ -346,8 +346,13 @@ def generate_hodograph():
                 print(f"  altitudes up to 3000m: {np.sum(param_data['altitude'] <= 3000)}")
                 print(f"  storm_motion_tuple: {storm_motion_tuple}")
                 
-                srh_0_1 = compute_srh(param_data, storm_motion_tuple, 1000)
-                srh_0_3 = compute_srh(param_data, storm_motion_tuple, 3000)
+                # Only calculate SRH if we have storm motion
+                if storm_motion_tuple:
+                    srh_0_1 = compute_srh(param_data, storm_motion_tuple, 1000)
+                    srh_0_3 = compute_srh(param_data, storm_motion_tuple, 3000)
+                else:
+                    srh_0_1 = np.nan
+                    srh_0_3 = np.nan
                 shear_1km = compute_shear_mag(param_data, 1000)
                 shear_3km = compute_shear_mag(param_data, 3000)
                 
