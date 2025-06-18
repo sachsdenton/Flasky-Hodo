@@ -423,18 +423,15 @@ def generate_hodograph():
                     param_text.append(f'Shear Magnitude: {shear_magnitude_display:.0f} kts')
                 if shear_depth_display is not None:
                     param_text.append(f'Shear Depth: {shear_depth_display:.0f} m')
-                    
-                    # Add SRH values immediately after shear depth
-                    if not np.isnan(srh_0_1):
-                        param_text.append(f'SRH 0-1km: {srh_0_1:.0f} m²/s²')
-                    if not np.isnan(srh_0_3):
-                        param_text.append(f'SRH 0-3km: {srh_0_3:.0f} m²/s²')
-                else:
-                    # If no shear depth, still add SRH values
-                    if not np.isnan(srh_0_1):
-                        param_text.append(f'SRH 0-1km: {srh_0_1:.0f} m²/s²')
-                    if not np.isnan(srh_0_3):
-                        param_text.append(f'SRH 0-3km: {srh_0_3:.0f} m²/s²')
+                
+                # Always add SRH values after shear parameters (regardless of shear depth availability)
+                print(f"Debug: SRH values - srh_0_1: {srh_0_1}, srh_0_3: {srh_0_3}")
+                if not np.isnan(srh_0_1):
+                    param_text.append(f'SRH 0-1km: {srh_0_1:.0f} m²/s²')
+                    print(f"Debug: Added SRH 0-1km to param_text")
+                if not np.isnan(srh_0_3):
+                    param_text.append(f'SRH 0-3km: {srh_0_3:.0f} m²/s²')
+                    print(f"Debug: Added SRH 0-3km to param_text")
                 
                 # Display parameters text box in upper left corner
                 if param_text:
