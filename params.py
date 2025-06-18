@@ -42,86 +42,85 @@ def compute_shear_mag(data, hght):
 
 def compute_srh(data, storm_motion, hght):
     """
-    Calculate Storm Relative Helicity (SRH) using the discrete layer approach.
-    Following the exact meteorological algorithm provided.
+    Calculate Storm Relative Helicity (SRH) using exact algorithm provided.
     """
     try:
-        # Extract wind data
+        # Extract and process wind data
         wind_dir = np.array(data['wind_dir'])
         wind_spd = np.array(data['wind_spd'])  # in knots
-        altitudes = np.array(data['altitude'])  # Check if in km or m
+        z = np.array(data['altitude'])  # altitudes
         
         # Check minimum data requirements
         if len(wind_dir) < 2 or len(wind_spd) < 2:
             return np.nan
         
         # Convert altitudes to meters if they appear to be in kilometers
-        # Based on debug output showing max altitude of 7.36, this is likely in km
-        if np.max(altitudes) < 50:  # If max altitude is less than 50, assume it's in km
-            altitudes = altitudes * 1000  # Convert km to meters
+        if np.max(z) < 50:  # If max altitude is less than 50, assume it's in km
+            z = z * 1000  # Convert km to meters
             
         # Convert wind to u,v components (meteorological convention)
         # Convert from knots to m/s: 1 knot = 0.514444 m/s
         u = -wind_spd * 0.514444 * np.sin(np.radians(wind_dir))  # u component (east-west) in m/s
         v = -wind_spd * 0.514444 * np.cos(np.radians(wind_dir))  # v component (north-south) in m/s
         
-        # Get storm motion u,v components (convert from knots to m/s)
+        # Storm motion components (convert from knots to m/s)
         storm_dir, storm_spd = storm_motion
-        us = -storm_spd * 0.514444 * np.sin(np.radians(storm_dir))  # Storm u component
-        vs = -storm_spd * 0.514444 * np.cos(np.radians(storm_dir))  # Storm v component
+        storm_motion_ms = [
+            -storm_spd * 0.514444 * np.sin(np.radians(storm_dir)),  # us
+            -storm_spd * 0.514444 * np.cos(np.radians(storm_dir))   # vs
+        ]
         
-        # Sort data by altitude (ascending) - Step 1
-        sort_indices = np.argsort(altitudes)
-        altitudes_sorted = altitudes[sort_indices]
-        u_sorted = u[sort_indices]
-        v_sorted = v[sort_indices]
+        # Sort data by altitude (ascending)
+        sort_indices = np.argsort(z)
+        z = z[sort_indices]
+        u = u[sort_indices]
+        v = v[sort_indices]
         
-        # Select height range of interest - Step 2
-        valid_mask = (altitudes_sorted >= 0) & (altitudes_sorted <= hght)
-        if np.sum(valid_mask) < 2:
-            return np.nan
-            
-        # Extract layer data
-        z = altitudes_sorted[valid_mask]
-        u_layer = u_sorted[valid_mask]
-        v_layer = v_sorted[valid_mask]
+        # Set layer bounds
+        z_min = 0
+        z_max = hght
         
-        # Calculate SRH using discrete layer approach - Steps 3-8
-        srh_total = 0.0
+        # Initialize total SRH
+        total_srh = 0.0
         
-        # Add debug information
-        print(f"Debug SRH: Processing {len(z)} altitude levels")
-        print(f"Debug SRH: Height range: {z[0]:.0f}m to {z[-1]:.0f}m")
-        print(f"Debug SRH: Storm motion: u={us:.2f}, v={vs:.2f} m/s")
-        
+        # Loop through all adjacent height layers
         for i in range(len(z) - 1):
-            # Step 4: Calculate layer shear vector
-            delta_u = u_layer[i+1] - u_layer[i]
-            delta_v = v_layer[i+1] - v_layer[i]
+            # Set layer heights
+            z1 = z[i]
+            z2 = z[i + 1]
             
-            # Step 5: Compute mean wind vector in layer
-            u_mean = (u_layer[i] + u_layer[i+1]) / 2.0
-            v_mean = (v_layer[i] + v_layer[i+1]) / 2.0
+            # Skip this layer if it is not fully within the layer of interest
+            if z1 < z_min or z2 > z_max:
+                continue
+                
+            # Get wind vectors at each level
+            u1 = u[i]
+            v1 = v[i]
+            u2 = u[i + 1]
+            v2 = v[i + 1]
             
-            # Step 6: Compute storm-relative wind vector
-            ur = u_mean - us
-            vr = v_mean - vs
+            # Compute mean wind in the layer
+            um = (u1 + u2) / 2
+            vm = (v1 + v2) / 2
             
-            # Step 7: Compute SRH contribution from layer (vector cross product)
-            srh_layer = ur * delta_v - vr * delta_u
+            # Compute storm-relative wind
+            ur = um - storm_motion_ms[0]
+            vr = vm - storm_motion_ms[1]
             
-            # Debug first few layers
-            if i < 3:
-                print(f"Layer {i}: z={z[i]:.0f}-{z[i+1]:.0f}m, "
-                      f"wind=({u_mean:.2f},{v_mean:.2f}), "
-                      f"storm_rel=({ur:.2f},{vr:.2f}), "
-                      f"shear=({delta_u:.3f},{delta_v:.3f}), "
-                      f"srh_layer={srh_layer:.2f}")
+            # Compute shear vector between the levels
+            du = u2 - u1
+            dv = v2 - v1
             
-            # Step 8: Add to cumulative total
-            srh_total += srh_layer
+            # Compute height difference
+            dz = z2 - z1
             
-        return srh_total
+            # Compute layer SRH using the 2D cross product
+            srh_layer = (ur * dv - vr * du)
+            
+            # Add layer SRH contribution to total
+            total_srh += srh_layer
+            
+        return total_srh
         
     except Exception as e:
         print(f"Error in SRH calculation: {e}")
