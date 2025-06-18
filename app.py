@@ -312,55 +312,7 @@ def generate_hodograph():
                         cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
                         critical_angle_value = np.rad2deg(np.arccos(cos_angle))
                     
-                    # Add SRH values as text annotation below the shear depth endpoint
-                    try:
-                        # Calculate SRH values for display near shear vector
-                        param_data_temp = {
-                            'wind_dir': np.array(wind_profile.directions),
-                            'wind_spd': np.array(wind_profile.speeds),
-                            'altitude': np.array(wind_profile.heights)
-                        }
-                        
-                        # Add surface wind if available
-                        if metar_data:
-                            param_data_temp['wind_dir'] = np.insert(param_data_temp['wind_dir'], 0, metar_data['direction'])
-                            param_data_temp['wind_spd'] = np.insert(param_data_temp['wind_spd'], 0, metar_data['speed'])
-                            param_data_temp['altitude'] = np.insert(param_data_temp['altitude'], 0, 0.0)
-                        
-                        from params import compute_srh
-                        srh_0_1_display = compute_srh(param_data_temp, storm_motion_tuple, 1000)
-                        srh_0_3_display = compute_srh(param_data_temp, storm_motion_tuple, 3000)
-                        
-                        # Create SRH text for display
-                        srh_text_lines = []
-                        if not np.isnan(srh_0_1_display):
-                            srh_text_lines.append(f'SRH 0-1km: {srh_0_1_display:.0f} m²/s²')
-                        if not np.isnan(srh_0_3_display):
-                            srh_text_lines.append(f'SRH 0-3km: {srh_0_3_display:.0f} m²/s²')
-                        
-                        if srh_text_lines:
-                            srh_display_text = '\n'.join(srh_text_lines)
-                            
-                            # Position the text below the end of the shear vector
-                            # Offset downward from the endpoint
-                            text_offset_v = -5  # Offset in wind speed units (knots)
-                            text_u = end_u
-                            text_v = end_v + text_offset_v
-                            
-                            # Add text annotation with background box
-                            ax.text(text_u, text_v, srh_display_text, 
-                                   fontsize=9, fontweight='bold',
-                                   horizontalalignment='center', verticalalignment='top',
-                                   bbox=dict(boxstyle="round,pad=0.3", 
-                                           facecolor="yellow", alpha=0.8, edgecolor='black'),
-                                   zorder=15)
-                            
-                            print(f"Debug: Added SRH text below shear depth at ({text_u:.1f}, {text_v:.1f})")
-                        
-                    except Exception as e:
-                        print(f"Debug: Error adding SRH text below shear depth: {e}")
-                        import traceback
-                        traceback.print_exc()
+                    # SRH values are displayed only in the upper left parameter box
         
         # Add meteorological parameters text directly on the plot
         if storm_motion_data:
@@ -512,26 +464,7 @@ def generate_hodograph():
                            verticalalignment='top', bbox=dict(boxstyle="round,pad=0.5", 
                            facecolor="lightblue", alpha=0.8), zorder=12)
                 
-                # Add separate SRH display box in lower left corner
-                srh_display_text = []
-                print(f"Debug: Checking SRH values for display - srh_0_1: {srh_0_1}, srh_0_3: {srh_0_3}")
-                if not np.isnan(srh_0_1):
-                    srh_display_text.append(f'SRH 0-1km: {srh_0_1:.0f} m²/s²')
-                else:
-                    srh_display_text.append('SRH 0-1km: N/A')
-                    
-                if not np.isnan(srh_0_3):
-                    srh_display_text.append(f'SRH 0-3km: {srh_0_3:.0f} m²/s²')
-                else:
-                    srh_display_text.append('SRH 0-3km: N/A')
-                
-                if srh_display_text:
-                    srh_str = '\n'.join(srh_display_text)
-                    ax.text(0.02, 0.02, srh_str, transform=ax.transAxes, fontsize=11,
-                           verticalalignment='bottom', fontweight='bold',
-                           bbox=dict(boxstyle="round,pad=0.4", 
-                           facecolor="lightyellow", alpha=0.9, edgecolor='orange'), zorder=13)
-                    print(f"Debug: Added SRH display box with: {srh_str}")
+                # SRH values are now only displayed in the upper left parameter box
             except Exception as e:
                 print(f"Error adding parameters to plot: {e}")
                 import traceback
