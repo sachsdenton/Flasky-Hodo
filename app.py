@@ -353,7 +353,52 @@ def generate_hodograph():
                 if critical_angle_value is not None:
                     param_text.append(f'Critical Angle: {critical_angle_value:.1f}°')
                 
-                # Add both SRH values below critical angle
+                # Calculate and add shear magnitude and depth for display
+                shear_magnitude_display = None
+                shear_depth_display = None
+                if metar_data and len(param_data['wind_spd']) > 1:
+                    try:
+                        surface_u, surface_v = calculate_wind_components(param_data['wind_spd'][0], param_data['wind_dir'][0])
+                        
+                        # Get the lowest radar point for reference vector
+                        radar_u, radar_v = calculate_wind_components(param_data['wind_spd'][1], param_data['wind_dir'][1])
+                        ref_u, ref_v = radar_u - surface_u, radar_v - surface_v
+                        
+                        # Find points within 5 degrees of reference vector
+                        aligned_heights = []
+                        for i in range(1, len(param_data['wind_spd'])):
+                            point_u, point_v = calculate_wind_components(param_data['wind_spd'][i], param_data['wind_dir'][i])
+                            vector_u, vector_v = point_u - surface_u, point_v - surface_v
+                            
+                            # Calculate angle between vectors
+                            dot_product = ref_u * vector_u + ref_v * vector_v
+                            mag_ref = np.sqrt(ref_u**2 + ref_v**2)
+                            mag_vec = np.sqrt(vector_u**2 + vector_v**2)
+                            
+                            if mag_ref > 0 and mag_vec > 0:
+                                cos_angle = np.clip(dot_product / (mag_ref * mag_vec), -1.0, 1.0)
+                                angle = np.rad2deg(np.arccos(cos_angle))
+                                
+                                if angle <= 5.0:
+                                    aligned_heights.append(param_data['altitude'][i])
+                                else:
+                                    break
+                        
+                        if aligned_heights:
+                            shear_depth_display = max(aligned_heights)
+                            # Calculate shear magnitude to this depth
+                            final_u, final_v = calculate_wind_components(param_data['wind_spd'][len(aligned_heights)], param_data['wind_dir'][len(aligned_heights)])
+                            shear_magnitude_display = np.sqrt((final_u - surface_u)**2 + (final_v - surface_v)**2)
+                    except:
+                        pass
+                
+                # Add shear magnitude and depth under critical angle
+                if shear_magnitude_display is not None:
+                    param_text.append(f'Shear Magnitude: {shear_magnitude_display:.1f} kt')
+                if shear_depth_display is not None:
+                    param_text.append(f'Shear Depth: {shear_depth_display:.0f} m')
+                
+                # Add both SRH values below shear parameters
                 if not np.isnan(srh_0_1):
                     param_text.append(f'SRH 0-1km: {srh_0_1:.0f} m²/s²')
                 if not np.isnan(srh_0_3):
