@@ -40,17 +40,27 @@ def compute_shear_mag(data, hght):
 
 def compute_srh(data, storm_motion, hght):
     u, v = vec2comp(data['wind_dir'], data['wind_spd'])
-    if len(u) < 2 and len(v) < 2:
+    if len(u) < 2 or len(v) < 2:
         return np.nan
+
+    # Convert height from meters to kilometers
+    hght_km = hght / 1000.0
 
     storm_u, storm_v = vec2comp(*storm_motion)
 
     sru = (u - storm_u) / 1.94
     srv = (v - storm_v) / 1.94
 
-    sru_hght, srv_hght = interp(sru, srv, data['altitude'], hght)
-    sru_clip = _clip_profile(sru, data['altitude'], hght, sru_hght)
-    srv_clip = _clip_profile(srv, data['altitude'], hght, srv_hght)
+    # Convert altitude from meters to kilometers for interpolation
+    altitude_km = data['altitude'] / 1000.0
+
+    sru_hght, srv_hght = interp(sru, srv, altitude_km, hght_km)
+    sru_clip = _clip_profile(sru, altitude_km, hght_km, sru_hght)
+    srv_clip = _clip_profile(srv, altitude_km, hght_km, srv_hght)
+
+    # Handle edge case where clipped profiles are too short
+    if len(sru_clip) < 2 or len(srv_clip) < 2:
+        return np.nan
 
     layers = (sru_clip[1:] * srv_clip[:-1]) - (sru_clip[:-1] * srv_clip[1:])
     return layers.sum()

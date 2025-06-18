@@ -380,10 +380,23 @@ def generate_hodograph():
             try:
                 # Calculate key parameters
                 from params import compute_srh, compute_shear_mag
+                
+                # Debug the data structure before SRH calculation
+                print(f"Debug: param_data structure:")
+                print(f"  wind_dir length: {len(param_data['wind_dir'])}")
+                print(f"  wind_spd length: {len(param_data['wind_spd'])}")
+                print(f"  altitude length: {len(param_data['altitude'])}")
+                print(f"  first few wind_dir: {param_data['wind_dir'][:3] if len(param_data['wind_dir']) > 0 else 'empty'}")
+                print(f"  first few wind_spd: {param_data['wind_spd'][:3] if len(param_data['wind_spd']) > 0 else 'empty'}")
+                print(f"  first few altitude: {param_data['altitude'][:3] if len(param_data['altitude']) > 0 else 'empty'}")
+                print(f"  storm_motion_tuple: {storm_motion_tuple}")
+                
                 srh_0_1 = compute_srh(param_data, storm_motion_tuple, 1000)
                 srh_0_3 = compute_srh(param_data, storm_motion_tuple, 3000)
                 shear_1km = compute_shear_mag(param_data, 1000)
                 shear_3km = compute_shear_mag(param_data, 3000)
+                
+                print(f"Debug: Calculated SRH values - srh_0_1: {srh_0_1}, srh_0_3: {srh_0_3}")
                 
                 # Create parameter text with requested order
                 param_text = []
@@ -498,6 +511,27 @@ def generate_hodograph():
                     ax.text(0.02, 0.98, param_str, transform=ax.transAxes, fontsize=10,
                            verticalalignment='top', bbox=dict(boxstyle="round,pad=0.5", 
                            facecolor="lightblue", alpha=0.8), zorder=12)
+                
+                # Add separate SRH display box in lower left corner
+                srh_display_text = []
+                print(f"Debug: Checking SRH values for display - srh_0_1: {srh_0_1}, srh_0_3: {srh_0_3}")
+                if not np.isnan(srh_0_1):
+                    srh_display_text.append(f'SRH 0-1km: {srh_0_1:.0f} m²/s²')
+                else:
+                    srh_display_text.append('SRH 0-1km: N/A')
+                    
+                if not np.isnan(srh_0_3):
+                    srh_display_text.append(f'SRH 0-3km: {srh_0_3:.0f} m²/s²')
+                else:
+                    srh_display_text.append('SRH 0-3km: N/A')
+                
+                if srh_display_text:
+                    srh_str = '\n'.join(srh_display_text)
+                    ax.text(0.02, 0.02, srh_str, transform=ax.transAxes, fontsize=11,
+                           verticalalignment='bottom', fontweight='bold',
+                           bbox=dict(boxstyle="round,pad=0.4", 
+                           facecolor="lightyellow", alpha=0.9, edgecolor='orange'), zorder=13)
+                    print(f"Debug: Added SRH display box with: {srh_str}")
             except Exception as e:
                 print(f"Error adding parameters to plot: {e}")
                 import traceback
