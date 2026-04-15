@@ -58,6 +58,48 @@
                     </div>
 
                     <div class="control-section">
+                        <h3>Analyst Mode</h3>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="analystMode"> Enable Analyst Mode
+                            </label>
+                        </div>
+                        <div class="analyst-controls" id="analystControls" style="display:none;">
+                            <p class="analyst-label">Toggle Hodograph Features:</p>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" id="showSpeedRings" checked> Speed Rings</label>
+                            </div>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" id="showHeightMarkers" checked> Height Markers</label>
+                            </div>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" id="showSRH" checked> SRH Shading</label>
+                            </div>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" id="showShearVector" checked> Shear Vector</label>
+                            </div>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" id="showCriticalAngle" checked> Critical Angle Lines</label>
+                            </div>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" id="showStormMotionMarker" checked> Storm Motion Marker</label>
+                            </div>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" id="showSurfaceWindMarker" checked> Surface Wind Marker</label>
+                            </div>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" id="showParamText" checked> Parameter Text</label>
+                            </div>
+                            <div class="input-group">
+                                <label for="zoomLevel">Zoom Level:</label>
+                                <input type="range" id="zoomLevel" min="0.25" max="2" step="0.25" value="1">
+                                <span id="zoomLabel">1x</span>
+                            </div>
+                            <button id="refreshHodographBtn" class="btn btn-primary" disabled>Refresh Hodograph</button>
+                        </div>
+                    </div>
+
+                    <div class="control-section">
                         <h3>Map Options</h3>
                         <div class="checkbox-group">
                             <label>

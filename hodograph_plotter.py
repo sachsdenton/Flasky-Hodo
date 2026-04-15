@@ -19,7 +19,7 @@ class HodographPlotter:
         return int(np.ceil(max_speed / 10.0)) * 10
 
     # Remove caching from class methods that need to access self
-    def setup_plot(self, site_id: Optional[str] = None, site_name: Optional[str] = None, valid_time: Optional[datetime] = None) -> None:
+    def setup_plot(self, site_id: Optional[str] = None, site_name: Optional[str] = None, valid_time: Optional[datetime] = None, show_speed_rings: bool = True, zoom_level: float = 1.0) -> None:
         """
         Initialize the hodograph plot with dynamic maximum range.
 
@@ -55,25 +55,26 @@ class HodographPlotter:
 
         # Draw speed rings (will be set when plotting data)
         if self.max_speed:
-            speed_rings = list(range(10, self.max_speed + 1, 10))
-            for speed in speed_rings:
-                circle = plt.Circle((0, 0), speed, fill=False, color='gray', linestyle='--', alpha=0.5)
-                self.ax.add_artist(circle)
+            display_max = int(self.max_speed / zoom_level) if zoom_level > 0 else self.max_speed
 
-            # Set limits and labels
-            self.ax.set_xlim(-self.max_speed, self.max_speed)
-            self.ax.set_ylim(-self.max_speed, self.max_speed)
+            if show_speed_rings:
+                speed_rings = list(range(10, self.max_speed + 1, 10))
+                for speed in speed_rings:
+                    circle = plt.Circle((0, 0), speed, fill=False, color='gray', linestyle='--', alpha=0.5)
+                    self.ax.add_artist(circle)
+
+            self.ax.set_xlim(-display_max, display_max)
+            self.ax.set_ylim(-display_max, display_max)
             self.ax.set_xlabel('U-component (knots)')
             self.ax.set_ylabel('V-component (knots)')
 
-            # Add cardinal directions in meteorological convention
-            self.ax.text(0, -self.max_speed - 2, 'N', ha='center')
-            self.ax.text(-self.max_speed - 2, 0, 'E', va='center')
-            self.ax.text(0, self.max_speed + 2, 'S', ha='center')
-            self.ax.text(self.max_speed + 2, 0, 'W', va='center')
+            self.ax.text(0, -display_max - 2, 'N', ha='center')
+            self.ax.text(-display_max - 2, 0, 'E', va='center')
+            self.ax.text(0, display_max + 2, 'S', ha='center')
+            self.ax.text(display_max + 2, 0, 'W', va='center')
 
     # Remove caching from this method too
-    def plot_profile(self, profile, height_colors: bool = True, show_half_km: bool = True) -> None:
+    def plot_profile(self, profile, height_colors: bool = True, show_half_km: bool = True, show_height_markers: bool = True, show_speed_rings: bool = True, zoom_level: float = 1.0) -> None:
         """
         Plot wind profile on the hodograph.
 
@@ -92,7 +93,9 @@ class HodographPlotter:
         self.setup_plot(
             site_id=getattr(profile, 'site_id', None),
             site_name=getattr(profile, 'site_name', None),
-            valid_time=profile.times[0] if profile.times else None
+            valid_time=profile.times[0] if profile.times else None,
+            show_speed_rings=show_speed_rings,
+            zoom_level=zoom_level
         )
 
         # Calculate u and v components
@@ -121,6 +124,9 @@ class HodographPlotter:
         # First, scatter all points with smaller markers for reference
         self.ax.scatter(u_comp, v_comp, c='red', s=20, zorder=5, alpha=0.5)
         
+        if not show_height_markers:
+            return
+
         # Find all target heights we want to label (0.5, 1, 1.5, 2, 2.5, etc.)
         # Start at 0.5km and go up to the maximum height rounded up to next 0.5km
         max_height_m = np.max(heights) * 1000 if len(heights) > 0 else 0

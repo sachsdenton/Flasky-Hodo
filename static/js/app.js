@@ -364,6 +364,21 @@ function getWarningColor(eventType) {
 function setupEventListeners() {
     // Reset button
     document.getElementById('resetBtn').addEventListener('click', resetApplication);
+
+    // Analyst mode toggle
+    document.getElementById('analystMode').addEventListener('change', function() {
+        document.getElementById('analystControls').style.display = this.checked ? 'block' : 'none';
+    });
+
+    // Zoom slider label update
+    document.getElementById('zoomLevel').addEventListener('input', function() {
+        document.getElementById('zoomLabel').textContent = this.value + 'x';
+    });
+
+    // Refresh hodograph button (re-generate with current analyst settings)
+    document.getElementById('refreshHodographBtn').addEventListener('click', function() {
+        generateCompleteAnalysis();
+    });
     
     // Plot hodograph button (now handles everything)
     document.getElementById('plotHodographBtn').addEventListener('click', generateCompleteAnalysis);
@@ -564,6 +579,20 @@ async function generateCompleteAnalysis() {
             params.append('metar_speed', metarData.speed);
             params.append('metar_station', metarData.station_id);
         }
+
+        // Analyst mode parameters
+        if (document.getElementById('analystMode').checked) {
+            params.append('type', 'Analyst');
+            params.append('show_speed_rings', document.getElementById('showSpeedRings').checked);
+            params.append('show_height_markers', document.getElementById('showHeightMarkers').checked);
+            params.append('show_srh', document.getElementById('showSRH').checked);
+            params.append('show_shear_vector', document.getElementById('showShearVector').checked);
+            params.append('show_critical_angle', document.getElementById('showCriticalAngle').checked);
+            params.append('show_storm_motion_marker', document.getElementById('showStormMotionMarker').checked);
+            params.append('show_surface_wind_marker', document.getElementById('showSurfaceWindMarker').checked);
+            params.append('show_param_text', document.getElementById('showParamText').checked);
+            params.append('zoom', document.getElementById('zoomLevel').value);
+        }
         
         const hodographResponse = await fetch(`/api/hodograph?${params}`);
         const hodographData = await hodographResponse.json();
@@ -588,6 +617,7 @@ async function generateCompleteAnalysis() {
             // Enable and switch to hodograph tab
             document.getElementById('hodographTab').disabled = false;
             document.getElementById('mobileHodographTab').disabled = false;
+            document.getElementById('refreshHodographBtn').disabled = false;
             
             // Switch to hodograph tab based on screen size
             if (window.innerWidth <= 1024) {

@@ -143,6 +143,18 @@ def generate_hodograph():
         metar_direction = request.args.get('metar_direction', type=float)
         metar_speed = request.args.get('metar_speed', type=float)
         site_id = request.args.get('site_id', '')
+
+        # Analyst mode feature toggles (all default to True for Standard mode)
+        is_analyst = plot_type == 'Analyst'
+        show_speed_rings = request.args.get('show_speed_rings', 'true').lower() == 'true'
+        show_height_markers = request.args.get('show_height_markers', 'true').lower() == 'true'
+        show_srh = request.args.get('show_srh', 'true').lower() == 'true'
+        show_shear_vector = request.args.get('show_shear_vector', 'true').lower() == 'true'
+        show_critical_angle = request.args.get('show_critical_angle', 'true').lower() == 'true'
+        show_storm_motion_marker = request.args.get('show_storm_motion_marker', 'true').lower() == 'true'
+        show_surface_wind_marker = request.args.get('show_surface_wind_marker', 'true').lower() == 'true'
+        show_param_text = request.args.get('show_param_text', 'true').lower() == 'true'
+        zoom_level = request.args.get('zoom', 1.0, type=float)
         
         if len(wind_profile.heights) == 0:
             return jsonify({'error': 'No wind profile data loaded'}), 400
@@ -159,7 +171,9 @@ def generate_hodograph():
         plotter.setup_plot(site_id=site_id, site_name=site_name, valid_time=dt_class.now())
         
         # Plot the wind profile
-        plotter.plot_profile(wind_profile, height_colors=True, show_half_km=show_half_km)
+        plotter.plot_profile(wind_profile, height_colors=True, show_half_km=show_half_km,
+                           show_height_markers=show_height_markers, show_speed_rings=show_speed_rings,
+                           zoom_level=zoom_level)
         
         # Remove duplicate METAR plotting - will be handled in main plotting section
         
@@ -179,11 +193,11 @@ def generate_hodograph():
         fig, ax = plotter.get_plot()
         
         # Add storm motion and surface wind markers
-        if storm_motion_data:
+        if storm_motion_data and show_storm_motion_marker:
             storm_u, storm_v = calculate_wind_components(storm_motion_data['speed'], storm_motion_data['direction'])
             ax.plot(storm_u, storm_v, 'rs', markersize=12, label='Storm Motion', zorder=10)
             
-        if metar_data:
+        if metar_data and show_surface_wind_marker:
             metar_u, metar_v = calculate_wind_components(metar_data['speed'], metar_data['direction'])
             ax.plot(metar_u, metar_v, 'ko', markersize=10, label='Surface Wind', zorder=10)
             
@@ -212,52 +226,45 @@ def generate_hodograph():
                 v_comp = np.array(v_comp)
                 heights = np.array(heights)
                 
-                # Create SRH polygon for 0-1km (light green)
-                srh_1km_u = []
-                srh_1km_v = []
-                for i, height in enumerate(heights):
-                    if height <= 1000:  # 1km = 1000m
-                        srh_1km_u.append(u_comp[i])
-                        srh_1km_v.append(v_comp[i])
-                
-                if len(srh_1km_u) > 2:
-                    # Close the polygon by connecting back to storm motion
-                    srh_1km_u.append(storm_u)
-                    srh_1km_v.append(storm_v)
-                    srh_1km_u.append(srh_1km_u[0])  # Close to start
-                    srh_1km_v.append(srh_1km_v[0])
+                if show_srh:
+                    # Create SRH polygon for 0-1km (light green)
+                    srh_1km_u = []
+                    srh_1km_v = []
+                    for i, height in enumerate(heights):
+                        if height <= 1000:
+                            srh_1km_u.append(u_comp[i])
+                            srh_1km_v.append(v_comp[i])
                     
-                    ax.fill(srh_1km_u, srh_1km_v, color='lightgreen', alpha=0.3, label='SRH 0-1km', zorder=1)
-                
-                # Create SRH polygon for 0-3km (light blue)
-                srh_3km_u = []
-                srh_3km_v = []
-                for i, height in enumerate(heights):
-                    if height <= 3000:  # 3km = 3000m
-                        srh_3km_u.append(u_comp[i])
-                        srh_3km_v.append(v_comp[i])
-                
-                if len(srh_3km_u) > 2:
-                    # Close the polygon by connecting back to storm motion
-                    srh_3km_u.append(storm_u)
-                    srh_3km_v.append(storm_v)
-                    srh_3km_u.append(srh_3km_u[0])  # Close to start
-                    srh_3km_v.append(srh_3km_v[0])
+                    if len(srh_1km_u) > 2:
+                        srh_1km_u.append(storm_u)
+                        srh_1km_v.append(storm_v)
+                        srh_1km_u.append(srh_1km_u[0])
+                        srh_1km_v.append(srh_1km_v[0])
+                        ax.fill(srh_1km_u, srh_1km_v, color='lightgreen', alpha=0.3, label='SRH 0-1km', zorder=1)
                     
-                    ax.fill(srh_3km_u, srh_3km_v, color='lightblue', alpha=0.2, label='SRH 0-3km', zorder=0)
+                    # Create SRH polygon for 0-3km (light blue)
+                    srh_3km_u = []
+                    srh_3km_v = []
+                    for i, height in enumerate(heights):
+                        if height <= 3000:
+                            srh_3km_u.append(u_comp[i])
+                            srh_3km_v.append(v_comp[i])
+                    
+                    if len(srh_3km_u) > 2:
+                        srh_3km_u.append(storm_u)
+                        srh_3km_v.append(storm_v)
+                        srh_3km_u.append(srh_3km_u[0])
+                        srh_3km_v.append(srh_3km_v[0])
+                        ax.fill(srh_3km_u, srh_3km_v, color='lightblue', alpha=0.2, label='SRH 0-3km', zorder=0)
                     
             except Exception as e:
                 print(f"Error adding SRH shading: {e}")
             
             # Find points within shear vector (±10 degree window from surface-to-lowest radar point)
             if len(wind_profile.speeds) > 0:
-                # Get lowest radar point
                 radar_u, radar_v = calculate_wind_components(wind_profile.speeds[0], wind_profile.directions[0])
-                
-                # Calculate reference vector (surface to lowest radar point)
                 ref_u, ref_v = radar_u - surface_u, radar_v - surface_v
                 
-                # Find all points within ±10 degrees of reference vector
                 shear_points_u = [surface_u]
                 shear_points_v = [surface_v]
                 
@@ -265,7 +272,6 @@ def generate_hodograph():
                     point_u, point_v = calculate_wind_components(speed, direction)
                     vector_u, vector_v = point_u - surface_u, point_v - surface_v
                     
-                    # Calculate angle between reference vector and current vector
                     if np.sqrt(ref_u**2 + ref_v**2) > 0 and np.sqrt(vector_u**2 + vector_v**2) > 0:
                         dot_product = ref_u * vector_u + ref_v * vector_v
                         mag_ref = np.sqrt(ref_u**2 + ref_v**2)
@@ -273,22 +279,20 @@ def generate_hodograph():
                         cos_angle = np.clip(dot_product / (mag_ref * mag_vec), -1.0, 1.0)
                         angle = np.rad2deg(np.arccos(cos_angle))
                         
-                        if angle <= 10.0:  # Within ±10 degrees
+                        if angle <= 10.0:
                             shear_points_u.append(point_u)
                             shear_points_v.append(point_v)
                         else:
-                            break  # Stop at first point outside the window
+                            break
                 
-                # Draw shear vector line (thick line through aligned points)
-                if len(shear_points_u) > 1:
-                    ax.plot(shear_points_u, shear_points_v, 'g-', linewidth=4, alpha=0.7, label='Shear Vector', zorder=8)
+                if show_shear_vector:
+                    if len(shear_points_u) > 1:
+                        ax.plot(shear_points_u, shear_points_v, 'g-', linewidth=4, alpha=0.7, label='Shear Vector', zorder=8)
                 
-                # Draw critical angle lines
-                # Line from surface to storm motion
-                ax.plot([surface_u, storm_u], [surface_v, storm_v], 'r--', linewidth=2, alpha=0.8, label='Surface-Storm', zorder=9)
+                if show_critical_angle:
+                    ax.plot([surface_u, storm_u], [surface_v, storm_v], 'r--', linewidth=2, alpha=0.8, label='Surface-Storm', zorder=9)
                 
-                # Line from surface to end of shear vector
-                if len(shear_points_u) > 1:
+                if show_critical_angle and len(shear_points_u) > 1:
                     end_u, end_v = shear_points_u[-1], shear_points_v[-1]
                     ax.plot([surface_u, end_u], [surface_v, end_v], 'b--', linewidth=2, alpha=0.8, label='Surface-Shear', zorder=9)
                     
@@ -430,8 +434,7 @@ def generate_hodograph():
                 if not np.isnan(srh_0_3):
                     param_text.append(f'SRH 0-3km: {srh_0_3:.0f} m²/s²')
                 
-                # Display parameters text box in upper left corner
-                if param_text:
+                if show_param_text and param_text:
                     param_str = '\n'.join(param_text)
                     ax.text(0.02, 0.98, param_str, transform=ax.transAxes, fontsize=10,
                            verticalalignment='top', bbox=dict(boxstyle="round,pad=0.5", 
