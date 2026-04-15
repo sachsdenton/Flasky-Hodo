@@ -612,7 +612,7 @@ async function generateCompleteAnalysis() {
                 showMessage('Data Error: ' + profileData.error, 'error');
             } else {
                 const display = document.getElementById('hodographDisplay');
-                display.innerHTML = '<div id="interactiveHodographContainer" style="width:100%;height:100%;min-height:500px;display:flex;align-items:center;justify-content:center;"></div>';
+                display.innerHTML = '<div id="interactiveHodographContainer"></div>';
                 
                 const container = document.getElementById('interactiveHodographContainer');
                 interactiveHodograph = new InteractiveHodograph(container);

@@ -41,7 +41,9 @@ class InteractiveHodograph {
 
     _setupCanvas() {
         const rect = this.container.getBoundingClientRect();
-        const size = Math.min(rect.width, rect.height, 700);
+        const w = rect.width || this.container.clientWidth || 500;
+        const h = rect.height || this.container.clientHeight || 500;
+        const size = Math.max(Math.min(w, h), 300);
         this.width = size;
         this.height = size;
         this.canvas.width = size * this.dpr;
@@ -105,6 +107,14 @@ class InteractiveHodograph {
             this._setupCanvas();
             if (this.data) this.render();
         });
+
+        if (typeof ResizeObserver !== 'undefined') {
+            this._resizeObserver = new ResizeObserver(() => {
+                this._setupCanvas();
+                if (this.data) this.render();
+            });
+            this._resizeObserver.observe(this.container);
+        }
     }
 
     _toScreen(u, v) {
