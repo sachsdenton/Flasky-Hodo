@@ -15,7 +15,7 @@ from typing import Optional, Dict, Any
 from hodograph_plotter import HodographPlotter
 from data_processor import WindProfile
 from radar_sites import get_sorted_sites, get_site_by_id
-from utils import calculate_wind_components
+from utils import calculate_wind_components, calculate_esterheld_angle, calculate_skoff_angle, find_kink_point, interpolate_wind_at_height
 from metar_utils import get_metar
 from params import compute_bunkers, compute_srh
 from map_component import load_metar_sites, calculate_distance
@@ -301,15 +301,13 @@ def generate_hodograph():
             ax.plot(metar_u, metar_v, 'ko', markersize=10, label='Surface Wind', zorder=10)
             
         # Add SRH shading and critical angle analysis
-        critical_angle_value = None
+        esterheld_angle_value = None
+        skoff_angle_value = None
         if storm_motion_data and metar_data and len(wind_profile.speeds) > 0:
-            # Get surface and storm motion components
             surface_u, surface_v = calculate_wind_components(metar_data['speed'], metar_data['direction'])
             storm_u, storm_v = calculate_wind_components(storm_motion_data['speed'], storm_motion_data['direction'])
             
-            # Add SRH shading for 0-1km and 0-3km
             try:
-                # Prepare wind profile data with surface wind
                 u_comp = [surface_u]
                 v_comp = [surface_v]
                 heights = [0.0]
@@ -320,13 +318,11 @@ def generate_hodograph():
                     v_comp.append(v)
                     heights.append(wind_profile.heights[i])
                 
-                # Convert to numpy arrays
                 u_comp = np.array(u_comp)
                 v_comp = np.array(v_comp)
                 heights = np.array(heights)
                 
                 if show_srh:
-                    # Create SRH polygon for 0-1km (light green)
                     srh_1km_u = []
                     srh_1km_v = []
                     for i, height in enumerate(heights):
@@ -341,7 +337,6 @@ def generate_hodograph():
                         srh_1km_v.append(srh_1km_v[0])
                         ax.fill(srh_1km_u, srh_1km_v, color='lightgreen', alpha=0.3, label='SRH 0-1km', zorder=1)
                     
-                    # Create SRH polygon for 0-3km (light blue)
                     srh_3km_u = []
                     srh_3km_v = []
                     for i, height in enumerate(heights):
@@ -359,7 +354,6 @@ def generate_hodograph():
             except Exception as e:
                 print(f"Error adding SRH shading: {e}")
             
-            # Find points within shear vector (±10 degree window from surface-to-lowest radar point)
             if len(wind_profile.speeds) > 0:
                 radar_u, radar_v = calculate_wind_components(wind_profile.speeds[0], wind_profile.directions[0])
                 ref_u, ref_v = radar_u - surface_u, radar_v - surface_v
@@ -388,23 +382,28 @@ def generate_hodograph():
                     if len(shear_points_u) > 1:
                         ax.plot(shear_points_u, shear_points_v, 'g-', linewidth=4, alpha=0.7, label='Shear Vector', zorder=8)
                 
+                vad_u = np.array([calculate_wind_components(s, d)[0] for s, d in zip(wind_profile.speeds, wind_profile.directions)])
+                vad_v = np.array([calculate_wind_components(s, d)[1] for s, d in zip(wind_profile.speeds, wind_profile.directions)])
+                vad_heights_m = np.array(wind_profile.heights)
+
+                vad_1km = interpolate_wind_at_height(vad_heights_m, vad_u, vad_v, 1000.0)
+                if vad_1km:
+                    esterheld_angle_value = calculate_esterheld_angle(
+                        surface_u, surface_v, storm_u, storm_v, vad_1km[0], vad_1km[1])
+
+                kink = find_kink_point(surface_u, surface_v, vad_u, vad_v, threshold_deg=5.0)
+                if kink:
+                    skoff_angle_value = calculate_skoff_angle(
+                        surface_u, surface_v, storm_u, storm_v, kink[0], kink[1])
+
                 if show_critical_angle:
                     ax.plot([surface_u, storm_u], [surface_v, storm_v], 'r--', linewidth=2, alpha=0.8, label='Surface-Storm', zorder=9)
-                
-                if show_critical_angle and len(shear_points_u) > 1:
-                    end_u, end_v = shear_points_u[-1], shear_points_v[-1]
-                    ax.plot([surface_u, end_u], [surface_v, end_v], 'b--', linewidth=2, alpha=0.8, label='Surface-Shear', zorder=9)
-                    
-                    # Calculate critical angle for parameter display
-                    v1_u, v1_v = storm_u - surface_u, storm_v - surface_v
-                    v2_u, v2_v = end_u - surface_u, end_v - surface_v
-                    
-                    if np.sqrt(v1_u**2 + v1_v**2) > 0 and np.sqrt(v2_u**2 + v2_v**2) > 0:
-                        dot_product = v1_u * v2_u + v1_v * v2_v
-                        mag1 = np.sqrt(v1_u**2 + v1_v**2)
-                        mag2 = np.sqrt(v2_u**2 + v2_v**2)
-                        cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
-                        critical_angle_value = np.rad2deg(np.arccos(cos_angle))
+
+                    if vad_1km and esterheld_angle_value is not None:
+                        ax.plot([surface_u, vad_1km[0]], [surface_v, vad_1km[1]], 'b--', linewidth=2, alpha=0.8, label='Esterheld (1km)', zorder=9)
+
+                    if kink and skoff_angle_value is not None:
+                        ax.plot([surface_u, kink[0]], [surface_v, kink[1]], 'm--', linewidth=2, alpha=0.8, label='Skoff (kink)', zorder=9)
         
         # Add meteorological parameters text directly on the plot
         if storm_motion_data:
@@ -452,9 +451,10 @@ def generate_hodograph():
                 except:
                     pass
                 
-                # Add critical angle below Bunkers data
-                if critical_angle_value is not None:
-                    param_text.append(f'Critical Angle: {critical_angle_value:.1f}°')
+                if esterheld_angle_value is not None:
+                    param_text.append(f'Esterheld Angle: {esterheld_angle_value:.1f}°')
+                if skoff_angle_value is not None:
+                    param_text.append(f'Skoff Angle: {skoff_angle_value:.1f}°')
                 
                 # Calculate and add shear magnitude and depth for display
                 shear_magnitude_display = None
@@ -658,25 +658,30 @@ def generate_hodograph():
                 except:
                     bunkers_info = None
                 
-                # Calculate critical angle if we have surface wind
-                critical_angle = None
+                esterheld_angle = None
+                skoff_angle = None
+                kink_u_val, kink_v_val = None, None
+                vad_1km_u_val, vad_1km_v_val = None, None
                 if metar_data and len(data['wind_spd']) > 1:
                     try:
                         surface_u, surface_v = calculate_wind_components(float(data['wind_spd'][0]), float(data['wind_dir'][0]))
                         storm_u, storm_v = calculate_wind_components(storm_motion_data['speed'], storm_motion_data['direction'])
-                        radar_u, radar_v = calculate_wind_components(float(data['wind_spd'][1]), float(data['wind_dir'][1]))
-                        
-                        # Calculate angle between surface-to-storm and surface-to-radar vectors
-                        v1_u, v1_v = storm_u - surface_u, storm_v - surface_v
-                        v2_u, v2_v = radar_u - surface_u, radar_v - surface_v
-                        
-                        dot_product = v1_u * v2_u + v1_v * v2_v
-                        mag1 = np.sqrt(v1_u**2 + v1_v**2)
-                        mag2 = np.sqrt(v2_u**2 + v2_v**2)
-                        
-                        if mag1 > 0 and mag2 > 0:
-                            cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
-                            critical_angle = np.rad2deg(np.arccos(cos_angle))
+
+                        vad_u = np.array([calculate_wind_components(float(s), float(d))[0] for s, d in zip(data['wind_spd'][1:], data['wind_dir'][1:])])
+                        vad_v = np.array([calculate_wind_components(float(s), float(d))[1] for s, d in zip(data['wind_spd'][1:], data['wind_dir'][1:])])
+                        vad_heights = np.array([float(h) for h in data['altitude'][1:]])
+
+                        vad_1km = interpolate_wind_at_height(vad_heights, vad_u, vad_v, 1000.0)
+                        if vad_1km:
+                            vad_1km_u_val, vad_1km_v_val = vad_1km
+                            esterheld_angle = calculate_esterheld_angle(
+                                surface_u, surface_v, storm_u, storm_v, vad_1km[0], vad_1km[1])
+
+                        kink = find_kink_point(surface_u, surface_v, vad_u, vad_v, threshold_deg=5.0)
+                        if kink:
+                            kink_u_val, kink_v_val = kink
+                            skoff_angle = calculate_skoff_angle(
+                                surface_u, surface_v, storm_u, storm_v, kink[0], kink[1])
                     except:
                         pass
                 
@@ -727,7 +732,10 @@ def generate_hodograph():
                     'shear_3km': round(shear_3km, 1) if not np.isnan(shear_3km) else None,
                     'shear_6km': round(shear_6km, 1) if not np.isnan(shear_6km) else None,
                     'bunkers': bunkers_info,
-                    'critical_angle': round(critical_angle, 1) if critical_angle is not None else None,
+                    'esterheld_angle': round(esterheld_angle, 1) if esterheld_angle is not None else None,
+                    'skoff_angle': round(skoff_angle, 1) if skoff_angle is not None else None,
+                    'kink_point': {'u': kink_u_val, 'v': kink_v_val} if kink_u_val is not None else None,
+                    'vad_1km_point': {'u': vad_1km_u_val, 'v': vad_1km_v_val} if vad_1km_u_val is not None else None,
                     'shear_depth': round(shear_depth, 0) if shear_depth is not None else None,
                     'shear_magnitude': round(shear_magnitude, 1) if shear_magnitude is not None else None
                 }

@@ -479,6 +479,7 @@ class InteractiveHodograph {
     _drawCriticalAngle() {
         const ctx = this.ctx;
         if (!this.metarData || !this.stormMotion) return;
+        const params = this.data ? this.data.parameters : null;
         const surfU = this.metarData.u, surfV = this.metarData.v;
         const [sx1, sy1] = this._toScreen(surfU, surfV);
         const [sx2, sy2] = this._toScreen(this.stormMotion.u, this.stormMotion.v);
@@ -489,14 +490,34 @@ class InteractiveHodograph {
         ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2); ctx.stroke();
         ctx.setLineDash([]);
 
-        if (this._shearPoints && this._shearPoints.length > 1) {
-            const end = this._shearPoints[this._shearPoints.length - 1];
-            const [ex, ey] = this._toScreen(end[0], end[1]);
+        if (params && params.vad_1km_point) {
+            const [ex, ey] = this._toScreen(params.vad_1km_point.u, params.vad_1km_point.v);
             ctx.strokeStyle = 'rgba(0, 0, 200, 0.7)';
             ctx.lineWidth = 2;
             ctx.setLineDash([6, 4]);
             ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(ex, ey); ctx.stroke();
             ctx.setLineDash([]);
+
+            ctx.fillStyle = 'rgba(0, 0, 200, 0.9)';
+            ctx.font = 'bold 9px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('1km', ex + 6, ey - 2);
+        }
+
+        if (params && params.kink_point) {
+            const [kx, ky] = this._toScreen(params.kink_point.u, params.kink_point.v);
+            ctx.strokeStyle = 'rgba(180, 0, 180, 0.7)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 3]);
+            ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(kx, ky); ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = 'rgba(180, 0, 180, 0.9)';
+            ctx.font = 'bold 9px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('kink', kx + 6, ky - 2);
         }
     }
 
@@ -510,7 +531,8 @@ class InteractiveHodograph {
         if (params.shear_3km != null) lines.push(`0-3km Shear: ${params.shear_3km} kt`);
         if (this.stormMotion) lines.push(`Storm Motion: ${this.stormMotion.direction.toFixed(0)}°/${this.stormMotion.speed.toFixed(0)}kt`);
         if (params.bunkers_rm) lines.push(`Bunkers RM: ${params.bunkers_rm.direction.toFixed(0)}°/${params.bunkers_rm.speed.toFixed(0)}kt`);
-        if (params.critical_angle != null) lines.push(`Critical Angle: ${params.critical_angle}°`);
+        if (params.esterheld_angle != null) lines.push(`Esterheld Angle: ${params.esterheld_angle}°`);
+        if (params.skoff_angle != null) lines.push(`Skoff Angle: ${params.skoff_angle}°`);
         if (params.srh_0_1 != null) lines.push(`SRH 0-1km: ${params.srh_0_1} m²/s²`);
         if (params.srh_0_3 != null) lines.push(`SRH 0-3km: ${params.srh_0_3} m²/s²`);
 
