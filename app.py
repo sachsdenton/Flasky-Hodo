@@ -199,15 +199,24 @@ def get_wind_profile_data():
                 if metar_direction is not None and metar_speed is not None and len(param_data['wind_spd']) > 1:
                     try:
                         surface_u, surface_v = calculate_wind_components(float(param_data['wind_spd'][0]), float(param_data['wind_dir'][0]))
-                        radar_u, radar_v = calculate_wind_components(float(param_data['wind_spd'][1]), float(param_data['wind_dir'][1]))
-                        v1_u, v1_v = storm_u - surface_u, storm_v - surface_v
-                        v2_u, v2_v = radar_u - surface_u, radar_v - surface_v
-                        dot_product = v1_u * v2_u + v1_v * v2_v
-                        mag1 = np.sqrt(v1_u**2 + v1_v**2)
-                        mag2 = np.sqrt(v2_u**2 + v2_v**2)
-                        if mag1 > 0 and mag2 > 0:
-                            cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
-                            parameters['critical_angle'] = round(float(np.rad2deg(np.arccos(cos_angle))), 1)
+
+                        vad_u_arr = np.array([calculate_wind_components(float(s), float(d))[0] for s, d in zip(param_data['wind_spd'][1:], param_data['wind_dir'][1:])])
+                        vad_v_arr = np.array([calculate_wind_components(float(s), float(d))[1] for s, d in zip(param_data['wind_spd'][1:], param_data['wind_dir'][1:])])
+                        vad_h_arr = np.array([float(h) for h in param_data['altitude'][1:]])
+
+                        vad_1km = interpolate_wind_at_height(vad_h_arr, vad_u_arr, vad_v_arr, 1000.0)
+                        if vad_1km:
+                            ea = calculate_esterheld_angle(surface_u, surface_v, storm_u, storm_v, vad_1km[0], vad_1km[1])
+                            if ea is not None:
+                                parameters['esterheld_angle'] = round(ea, 1)
+                            parameters['vad_1km_point'] = {'u': vad_1km[0], 'v': vad_1km[1]}
+
+                        kink = find_kink_point(surface_u, surface_v, vad_u_arr, vad_v_arr, threshold_deg=5.0)
+                        if kink:
+                            sa = calculate_skoff_angle(surface_u, surface_v, storm_u, storm_v, kink[0], kink[1])
+                            if sa is not None:
+                                parameters['skoff_angle'] = round(sa, 1)
+                            parameters['kink_point'] = {'u': kink[0], 'v': kink[1]}
                     except:
                         pass
             except Exception as e:
