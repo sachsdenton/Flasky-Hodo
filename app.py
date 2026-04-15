@@ -204,7 +204,7 @@ def get_wind_profile_data():
                         vad_v_arr = np.array([calculate_wind_components(float(s), float(d))[1] for s, d in zip(param_data['wind_spd'][1:], param_data['wind_dir'][1:])])
                         vad_h_arr = np.array([float(h) for h in param_data['altitude'][1:]])
 
-                        vad_1km = interpolate_wind_at_height(vad_h_arr, vad_u_arr, vad_v_arr, 1000.0)
+                        vad_1km = interpolate_wind_at_height(vad_h_arr, vad_u_arr, vad_v_arr, 1.0)
                         if vad_1km:
                             ea = calculate_esterheld_angle(surface_u, surface_v, storm_u, storm_v, vad_1km[0], vad_1km[1])
                             if ea is not None:
@@ -393,9 +393,9 @@ def generate_hodograph():
                 
                 vad_u = np.array([calculate_wind_components(s, d)[0] for s, d in zip(wind_profile.speeds, wind_profile.directions)])
                 vad_v = np.array([calculate_wind_components(s, d)[1] for s, d in zip(wind_profile.speeds, wind_profile.directions)])
-                vad_heights_m = np.array(wind_profile.heights)
+                vad_heights_km = np.array(wind_profile.heights)
 
-                vad_1km = interpolate_wind_at_height(vad_heights_m, vad_u, vad_v, 1000.0)
+                vad_1km = interpolate_wind_at_height(vad_heights_km, vad_u, vad_v, 1.0)
                 if vad_1km:
                     esterheld_angle_value = calculate_esterheld_angle(
                         surface_u, surface_v, storm_u, storm_v, vad_1km[0], vad_1km[1])
@@ -680,7 +680,7 @@ def generate_hodograph():
                         vad_v = np.array([calculate_wind_components(float(s), float(d))[1] for s, d in zip(data['wind_spd'][1:], data['wind_dir'][1:])])
                         vad_heights = np.array([float(h) for h in data['altitude'][1:]])
 
-                        vad_1km = interpolate_wind_at_height(vad_heights, vad_u, vad_v, 1000.0)
+                        vad_1km = interpolate_wind_at_height(vad_heights, vad_u, vad_v, 1.0)
                         if vad_1km:
                             vad_1km_u_val, vad_1km_v_val = vad_1km
                             esterheld_angle = calculate_esterheld_angle(

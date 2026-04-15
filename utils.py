@@ -80,15 +80,16 @@ def calculate_skoff_angle(surface_u, surface_v, storm_u, storm_v, kink_u, kink_v
     return _angle_at_vertex(surface_u, surface_v, storm_u, storm_v, kink_u, kink_v)
 
 
-def interpolate_wind_at_height(heights_m, u_components, v_components, target_m):
+def interpolate_wind_at_height(heights, u_components, v_components, target_height):
     """
-    Interpolate U/V wind components at a specific height (meters).
+    Interpolate U/V wind components at a specific height.
+    Heights and target must use the same unit (e.g. both km or both m).
     Returns (u, v) or None if target is outside the data range.
     """
-    if len(heights_m) == 0 or target_m < min(heights_m) or target_m > max(heights_m):
+    if len(heights) == 0 or target_height < min(heights) or target_height > max(heights):
         return None
-    u_interp = float(np.interp(target_m, heights_m, u_components))
-    v_interp = float(np.interp(target_m, heights_m, v_components))
+    u_interp = float(np.interp(target_height, heights, u_components))
+    v_interp = float(np.interp(target_height, heights, v_components))
     return (u_interp, v_interp)
 
 def validate_wind_data(speeds: List[float], directions: List[float], heights: List[float]) -> bool:
