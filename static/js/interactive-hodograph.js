@@ -519,10 +519,10 @@ class InteractiveHodograph {
         const x = 12, y = 60;
         const lineH = 16;
         const padding = 8;
-        const maxW = Math.max(...lines.map(l => ctx.measureText(l).width));
 
         ctx.font = '11px monospace';
-        const boxW = maxW + padding * 2 + 10;
+        const maxW = Math.max(...lines.map(l => ctx.measureText(l).width));
+        const boxW = maxW + padding * 2;
         const boxH = lines.length * lineH + padding * 2;
 
         ctx.fillStyle = 'rgba(200, 225, 255, 0.85)';
