@@ -129,6 +129,105 @@ def get_metar_data(station_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/wind-profile-data')
+def get_wind_profile_data():
+    """Return raw wind profile data for interactive client-side rendering"""
+    global wind_profile
+    
+    try:
+        if len(wind_profile.heights) == 0:
+            return jsonify({'error': 'No wind profile data loaded'}), 400
+        
+        site_id = request.args.get('site_id', '')
+        site = get_site_by_id(site_id) if site_id else None
+        
+        u_components = []
+        v_components = []
+        for speed, direction in zip(wind_profile.speeds, wind_profile.directions):
+            u, v = calculate_wind_components(speed, direction)
+            u_components.append(float(u))
+            v_components.append(float(v))
+        
+        valid_time = None
+        if hasattr(wind_profile, 'times') and len(wind_profile.times) > 0:
+            vt = wind_profile.times[0]
+            if hasattr(vt, 'strftime'):
+                valid_time = vt.strftime('%Y-%m-%d %H:%M UTC')
+        
+        storm_direction = request.args.get('storm_direction', type=float)
+        storm_speed = request.args.get('storm_speed', type=float)
+        metar_direction = request.args.get('metar_direction', type=float)
+        metar_speed = request.args.get('metar_speed', type=float)
+        metar_station = request.args.get('metar_station', '')
+        
+        parameters = {}
+        storm_motion_tuple = None
+        if storm_direction is not None and storm_speed is not None:
+            storm_motion_tuple = (storm_direction, storm_speed)
+            storm_u, storm_v = calculate_wind_components(storm_speed, storm_direction)
+            
+            param_data = {
+                'wind_dir': np.array(wind_profile.directions),
+                'wind_spd': np.array(wind_profile.speeds),
+                'altitude': np.array(wind_profile.heights)
+            }
+            
+            if metar_direction is not None and metar_speed is not None:
+                param_data['wind_dir'] = np.insert(param_data['wind_dir'], 0, metar_direction)
+                param_data['wind_spd'] = np.insert(param_data['wind_spd'], 0, metar_speed)
+                param_data['altitude'] = np.insert(param_data['altitude'], 0, 0.0)
+            
+            try:
+                from params import compute_srh, compute_shear_mag
+                srh_0_1 = compute_srh(param_data, storm_motion_tuple, 1000)
+                srh_0_3 = compute_srh(param_data, storm_motion_tuple, 3000)
+                shear_1km = compute_shear_mag(param_data, 1000)
+                shear_3km = compute_shear_mag(param_data, 3000)
+                
+                parameters['srh_0_1'] = round(float(srh_0_1), 1) if not np.isnan(srh_0_1) else None
+                parameters['srh_0_3'] = round(float(srh_0_3), 1) if not np.isnan(srh_0_3) else None
+                parameters['shear_1km'] = round(float(shear_1km), 1) if not np.isnan(shear_1km) else None
+                parameters['shear_3km'] = round(float(shear_3km), 1) if not np.isnan(shear_3km) else None
+                
+                try:
+                    bunkers_result = compute_bunkers(param_data)
+                    if bunkers_result and len(bunkers_result) >= 2:
+                        parameters['bunkers_rm'] = {'direction': float(bunkers_result[0][0]), 'speed': float(bunkers_result[0][1])}
+                except:
+                    pass
+                    
+                if metar_direction is not None and metar_speed is not None and len(param_data['wind_spd']) > 1:
+                    try:
+                        surface_u, surface_v = calculate_wind_components(float(param_data['wind_spd'][0]), float(param_data['wind_dir'][0]))
+                        radar_u, radar_v = calculate_wind_components(float(param_data['wind_spd'][1]), float(param_data['wind_dir'][1]))
+                        v1_u, v1_v = storm_u - surface_u, storm_v - surface_v
+                        v2_u, v2_v = radar_u - surface_u, radar_v - surface_v
+                        dot_product = v1_u * v2_u + v1_v * v2_v
+                        mag1 = np.sqrt(v1_u**2 + v1_v**2)
+                        mag2 = np.sqrt(v2_u**2 + v2_v**2)
+                        if mag1 > 0 and mag2 > 0:
+                            cos_angle = np.clip(dot_product / (mag1 * mag2), -1.0, 1.0)
+                            parameters['critical_angle'] = round(float(np.rad2deg(np.arccos(cos_angle))), 1)
+                    except:
+                        pass
+            except Exception as e:
+                print(f"Error computing parameters: {e}")
+        
+        return jsonify({
+            'u_components': u_components,
+            'v_components': v_components,
+            'heights': [float(h) for h in wind_profile.heights],
+            'speeds': [float(s) for s in wind_profile.speeds],
+            'directions': [float(d) for d in wind_profile.directions],
+            'max_speed': float(np.max(wind_profile.speeds)) if len(wind_profile.speeds) > 0 else 50,
+            'site_id': site_id,
+            'site_name': site.name if site else '',
+            'valid_time': valid_time,
+            'parameters': parameters
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/hodograph')
 def generate_hodograph():
     """Generate hodograph plot"""

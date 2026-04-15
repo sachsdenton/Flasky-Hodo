@@ -10,6 +10,7 @@ let metarMarkers = [];
 let warningLayers = [];
 let vadDataLoaded = false;
 let currentTab = 'map';
+let interactiveHodograph = null;
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
@@ -368,16 +369,42 @@ function setupEventListeners() {
     // Analyst mode toggle
     document.getElementById('analystMode').addEventListener('change', function() {
         document.getElementById('analystControls').style.display = this.checked ? 'block' : 'none';
+        if (interactiveHodograph && !this.checked) {
+            interactiveHodograph = null;
+        }
     });
 
-    // Zoom slider label update
-    document.getElementById('zoomLevel').addEventListener('input', function() {
-        document.getElementById('zoomLabel').textContent = this.value + 'x';
+    // Analyst feature toggles
+    const featureMap = {
+        'showSpeedRings': 'speedRings',
+        'showHeightMarkers': 'heightMarkers',
+        'showSRH': 'srhShading',
+        'showShearVector': 'shearVector',
+        'showCriticalAngle': 'criticalAngle',
+        'showStormMotionMarker': 'stormMotionMarker',
+        'showSurfaceWindMarker': 'surfaceWindMarker',
+        'showParamText': 'paramText'
+    };
+    Object.entries(featureMap).forEach(([elemId, featureName]) => {
+        document.getElementById(elemId).addEventListener('change', function() {
+            if (interactiveHodograph) {
+                interactiveHodograph.toggleFeature(featureName, this.checked);
+            }
+        });
+    });
+    document.getElementById('showHalfKm').addEventListener('change', function() {
+        if (interactiveHodograph) {
+            interactiveHodograph.toggleFeature('halfKmMarkers', this.checked);
+        }
     });
 
-    // Refresh hodograph button (re-generate with current analyst settings)
     document.getElementById('refreshHodographBtn').addEventListener('click', function() {
-        generateCompleteAnalysis();
+        if (interactiveHodograph) {
+            interactiveHodograph.resetView();
+            showMessage('View reset to default', 'info');
+        } else {
+            generateCompleteAnalysis();
+        }
     });
     
     // Plot hodograph button (now handles everything)
@@ -563,70 +590,115 @@ async function generateCompleteAnalysis() {
         
         showLoading('Generating hodograph...');
         
-        // Step 4: Generate hodograph
-        const params = new URLSearchParams({
-            site_id: selectedSite.id,
-            show_half_km: document.getElementById('showHalfKm').checked
-        });
-        
-        if (stormMotion) {
-            params.append('storm_direction', stormMotion.direction);
-            params.append('storm_speed', stormMotion.speed);
-        }
-        
-        if (metarData) {
-            params.append('metar_direction', metarData.direction);
-            params.append('metar_speed', metarData.speed);
-            params.append('metar_station', metarData.station_id);
-        }
+        const isAnalystMode = document.getElementById('analystMode').checked;
 
-        // Analyst mode parameters
-        if (document.getElementById('analystMode').checked) {
-            params.append('type', 'Analyst');
-            params.append('show_speed_rings', document.getElementById('showSpeedRings').checked);
-            params.append('show_height_markers', document.getElementById('showHeightMarkers').checked);
-            params.append('show_srh', document.getElementById('showSRH').checked);
-            params.append('show_shear_vector', document.getElementById('showShearVector').checked);
-            params.append('show_critical_angle', document.getElementById('showCriticalAngle').checked);
-            params.append('show_storm_motion_marker', document.getElementById('showStormMotionMarker').checked);
-            params.append('show_surface_wind_marker', document.getElementById('showSurfaceWindMarker').checked);
-            params.append('show_param_text', document.getElementById('showParamText').checked);
-            params.append('zoom', document.getElementById('zoomLevel').value);
-        }
-        
-        const hodographResponse = await fetch(`/api/hodograph?${params}`);
-        const hodographData = await hodographResponse.json();
-        
-        if (hodographData.error) {
-            showMessage('Hodograph Error: ' + hodographData.error, 'error');
-        } else {
-            // Display hodograph image in the new tab
-            document.getElementById('hodographDisplay').innerHTML = `
-                <img src="data:image/png;base64,${hodographData.image}" alt="Hodograph" />
-            `;
-            
-            // Clear parameters display since data is now shown on the plot
-            document.getElementById('parametersDisplay').innerHTML = '<p><em>Meteorological parameters are displayed directly on the hodograph plot above.</em></p>';
-            
-            // Update analysis details in header
-            let analysisDetailsHtml = `<strong>Site:</strong> ${selectedSite.id} - ${selectedSite.name}`;
-            if (metarInfo) analysisDetailsHtml += ` | ${metarInfo}`;
-            if (stormInfo) analysisDetailsHtml += ` | ${stormInfo}`;
-            document.getElementById('analysisDetails').innerHTML = analysisDetailsHtml;
-            
-            // Enable and switch to hodograph tab
-            document.getElementById('hodographTab').disabled = false;
-            document.getElementById('mobileHodographTab').disabled = false;
-            document.getElementById('refreshHodographBtn').disabled = false;
-            
-            // Switch to hodograph tab based on screen size
-            if (window.innerWidth <= 1024) {
-                switchMobileTab('hodograph');
-            } else {
-                switchTab('hodograph');
+        if (isAnalystMode) {
+            // Fetch raw data and render interactively on canvas
+            const dataParams = new URLSearchParams({ site_id: selectedSite.id });
+            if (stormMotion) {
+                dataParams.append('storm_direction', stormMotion.direction);
+                dataParams.append('storm_speed', stormMotion.speed);
+            }
+            if (metarData) {
+                dataParams.append('metar_direction', metarData.direction);
+                dataParams.append('metar_speed', metarData.speed);
+                dataParams.append('metar_station', metarData.station_id);
             }
             
-            showMessage('Complete hodograph analysis generated successfully', 'success');
+            const dataResponse = await fetch(`/api/wind-profile-data?${dataParams}`);
+            const profileData = await dataResponse.json();
+            
+            if (profileData.error) {
+                showMessage('Data Error: ' + profileData.error, 'error');
+            } else {
+                const display = document.getElementById('hodographDisplay');
+                display.innerHTML = '<div id="interactiveHodographContainer" style="width:100%;height:100%;min-height:500px;display:flex;align-items:center;justify-content:center;"></div>';
+                
+                const container = document.getElementById('interactiveHodographContainer');
+                interactiveHodograph = new InteractiveHodograph(container);
+                
+                interactiveHodograph.features.halfKmMarkers = document.getElementById('showHalfKm').checked;
+                interactiveHodograph.features.speedRings = document.getElementById('showSpeedRings').checked;
+                interactiveHodograph.features.heightMarkers = document.getElementById('showHeightMarkers').checked;
+                interactiveHodograph.features.srhShading = document.getElementById('showSRH').checked;
+                interactiveHodograph.features.shearVector = document.getElementById('showShearVector').checked;
+                interactiveHodograph.features.criticalAngle = document.getElementById('showCriticalAngle').checked;
+                interactiveHodograph.features.stormMotionMarker = document.getElementById('showStormMotionMarker').checked;
+                interactiveHodograph.features.surfaceWindMarker = document.getElementById('showSurfaceWindMarker').checked;
+                interactiveHodograph.features.paramText = document.getElementById('showParamText').checked;
+
+                if (stormMotion) interactiveHodograph.setStormMotion(stormMotion.direction, stormMotion.speed);
+                if (metarData) interactiveHodograph.setMetar(metarData.direction, metarData.speed, metarData.station_id);
+                
+                interactiveHodograph.setData(profileData);
+                
+                document.getElementById('parametersDisplay').innerHTML = '<p><em>Scroll to zoom, drag to pan, hover points for details. Use the toggles to show/hide features.</em></p>';
+                
+                let analysisDetailsHtml = `<strong>Site:</strong> ${selectedSite.id} - ${selectedSite.name} <span style="color:#3498db;font-weight:bold;">[Interactive Mode]</span>`;
+                if (metarInfo) analysisDetailsHtml += ` | ${metarInfo}`;
+                if (stormInfo) analysisDetailsHtml += ` | ${stormInfo}`;
+                document.getElementById('analysisDetails').innerHTML = analysisDetailsHtml;
+                
+                document.getElementById('hodographTab').disabled = false;
+                document.getElementById('mobileHodographTab').disabled = false;
+                document.getElementById('refreshHodographBtn').disabled = false;
+                
+                if (window.innerWidth <= 1024) {
+                    switchMobileTab('hodograph');
+                } else {
+                    switchTab('hodograph');
+                }
+                
+                showMessage('Interactive hodograph generated — scroll to zoom, drag to pan', 'success');
+            }
+        } else {
+            // Standard mode: server-rendered static image
+            const params = new URLSearchParams({
+                site_id: selectedSite.id,
+                show_half_km: document.getElementById('showHalfKm').checked
+            });
+            
+            if (stormMotion) {
+                params.append('storm_direction', stormMotion.direction);
+                params.append('storm_speed', stormMotion.speed);
+            }
+            
+            if (metarData) {
+                params.append('metar_direction', metarData.direction);
+                params.append('metar_speed', metarData.speed);
+                params.append('metar_station', metarData.station_id);
+            }
+            
+            const hodographResponse = await fetch(`/api/hodograph?${params}`);
+            const hodographData = await hodographResponse.json();
+            
+            if (hodographData.error) {
+                showMessage('Hodograph Error: ' + hodographData.error, 'error');
+            } else {
+                interactiveHodograph = null;
+                document.getElementById('hodographDisplay').innerHTML = `
+                    <img src="data:image/png;base64,${hodographData.image}" alt="Hodograph" />
+                `;
+                
+                document.getElementById('parametersDisplay').innerHTML = '<p><em>Meteorological parameters are displayed directly on the hodograph plot above.</em></p>';
+                
+                let analysisDetailsHtml = `<strong>Site:</strong> ${selectedSite.id} - ${selectedSite.name}`;
+                if (metarInfo) analysisDetailsHtml += ` | ${metarInfo}`;
+                if (stormInfo) analysisDetailsHtml += ` | ${stormInfo}`;
+                document.getElementById('analysisDetails').innerHTML = analysisDetailsHtml;
+                
+                document.getElementById('hodographTab').disabled = false;
+                document.getElementById('mobileHodographTab').disabled = false;
+                document.getElementById('refreshHodographBtn').disabled = false;
+                
+                if (window.innerWidth <= 1024) {
+                    switchMobileTab('hodograph');
+                } else {
+                    switchTab('hodograph');
+                }
+                
+                showMessage('Complete hodograph analysis generated successfully', 'success');
+            }
         }
         
         hideLoading();

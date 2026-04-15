@@ -514,17 +514,10 @@ input[type="number"]:focus {
     font-size: 0.85rem;
 }
 
-#zoomLevel {
-    width: 100%;
-    cursor: pointer;
-}
-
-#zoomLabel {
-    display: inline-block;
-    font-weight: 600;
-    color: #3498db;
-    font-size: 0.9rem;
-    margin-left: 0.25rem;
+#interactiveHodographContainer canvas {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 /* Leaflet map customizations */

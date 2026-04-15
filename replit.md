@@ -29,9 +29,13 @@ A Flask-based meteorological hodograph analysis tool that displays NEXRAD radar 
 - METAR station auto-discovery within 100nm of selected radar
 - Storm motion input with Bunkers calculation
 - Hodograph generation with SRH shading, critical angle, shear vector
-- **Analyst Mode**: Toggle individual hodograph features on/off and zoom in/out
-  - Toggleable: speed rings, height markers, SRH shading, shear vector, critical angle lines, storm/surface markers, parameter text
-  - Zoom slider (0.25x to 2x)
+- **Analyst Mode**: Fully interactive HTML5 Canvas-based hodograph
+  - Scroll-to-zoom with smooth scaling, drag-to-pan navigation
+  - Hover over data points for detailed tooltips (height, wind speed/direction, U/V)
+  - Real-time feature toggling: speed rings, height markers, SRH shading, shear vector, critical angle lines, storm/surface markers, parameter text
+  - Reset View button to return to default zoom/pan
+  - `static/js/interactive-hodograph.js` - Canvas renderer class
+  - `/api/wind-profile-data` - JSON endpoint for raw profile data (used by interactive mode)
 - Active NWS tornado/severe thunderstorm warning overlay
 
 ## Running
