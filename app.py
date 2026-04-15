@@ -179,11 +179,13 @@ def get_wind_profile_data():
             
             try:
                 from params import compute_srh, compute_shear_mag
-                srh_0_1 = compute_srh(param_data, storm_motion_tuple, 1000)
-                srh_0_3 = compute_srh(param_data, storm_motion_tuple, 3000)
-                shear_1km = compute_shear_mag(param_data, 1000)
-                shear_3km = compute_shear_mag(param_data, 3000)
+                srh_0_500 = compute_srh(param_data, storm_motion_tuple, 0.5)
+                srh_0_1 = compute_srh(param_data, storm_motion_tuple, 1)
+                srh_0_3 = compute_srh(param_data, storm_motion_tuple, 3)
+                shear_1km = compute_shear_mag(param_data, 1)
+                shear_3km = compute_shear_mag(param_data, 3)
                 
+                parameters['srh_0_500'] = round(float(srh_0_500), 1) if not np.isnan(srh_0_500) else None
                 parameters['srh_0_1'] = round(float(srh_0_1), 1) if not np.isnan(srh_0_1) else None
                 parameters['srh_0_3'] = round(float(srh_0_3), 1) if not np.isnan(srh_0_3) else None
                 parameters['shear_1km'] = round(float(shear_1km), 1) if not np.isnan(shear_1km) else None
@@ -191,8 +193,27 @@ def get_wind_profile_data():
                 
                 try:
                     bunkers_result = compute_bunkers(param_data)
-                    if bunkers_result and len(bunkers_result) >= 2:
+                    if bunkers_result and len(bunkers_result) >= 3:
                         parameters['bunkers_rm'] = {'direction': float(bunkers_result[0][0]), 'speed': float(bunkers_result[0][1])}
+                        parameters['bunkers_lm'] = {'direction': float(bunkers_result[1][0]), 'speed': float(bunkers_result[1][1])}
+                        parameters['mean_wind'] = {'direction': float(bunkers_result[2][0]), 'speed': float(bunkers_result[2][1])}
+                except:
+                    pass
+                
+                try:
+                    if parameters.get('bunkers_rm') and parameters.get('mean_wind'):
+                        rm_dir = parameters['bunkers_rm']['direction']
+                        rm_spd = parameters['bunkers_rm']['speed']
+                        mw_dir = parameters['mean_wind']['direction']
+                        mw_spd = parameters['mean_wind']['speed']
+                        rm_u, rm_v = calculate_wind_components(rm_spd, rm_dir)
+                        mw_u, mw_v = calculate_wind_components(mw_spd, mw_dir)
+                        dtm_u = 2 * rm_u - mw_u
+                        dtm_v = 2 * rm_v - mw_v
+                        dtm_spd = float(np.sqrt(dtm_u**2 + dtm_v**2))
+                        dtm_dir_rad = np.arctan2(-dtm_u, -dtm_v)
+                        dtm_dir = float(np.degrees(dtm_dir_rad)) % 360
+                        parameters['deviant_tornado'] = {'direction': round(dtm_dir, 0), 'speed': round(dtm_spd, 0)}
                 except:
                     pass
                     
@@ -204,12 +225,12 @@ def get_wind_profile_data():
                         vad_v_arr = np.array([calculate_wind_components(float(s), float(d))[1] for s, d in zip(param_data['wind_spd'][1:], param_data['wind_dir'][1:])])
                         vad_h_arr = np.array([float(h) for h in param_data['altitude'][1:]])
 
-                        vad_1km = interpolate_wind_at_height(vad_h_arr, vad_u_arr, vad_v_arr, 1.0)
-                        if vad_1km:
-                            ea = calculate_esterheld_angle(surface_u, surface_v, storm_u, storm_v, vad_1km[0], vad_1km[1])
+                        vad_half_km = interpolate_wind_at_height(vad_h_arr, vad_u_arr, vad_v_arr, 0.5)
+                        if vad_half_km:
+                            ea = calculate_esterheld_angle(surface_u, surface_v, storm_u, storm_v, vad_half_km[0], vad_half_km[1])
                             if ea is not None:
                                 parameters['esterheld_angle'] = round(ea, 1)
-                            parameters['vad_1km_point'] = {'u': vad_1km[0], 'v': vad_1km[1]}
+                            parameters['vad_half_km_point'] = {'u': vad_half_km[0], 'v': vad_half_km[1]}
 
                         kink = find_kink_point(surface_u, surface_v, vad_u_arr, vad_v_arr, threshold_deg=5.0)
                         if kink:
@@ -332,10 +353,24 @@ def generate_hodograph():
                 heights = np.array(heights)
                 
                 if show_srh:
+                    srh_half_km_u = []
+                    srh_half_km_v = []
+                    for i, height in enumerate(heights):
+                        if height <= 0.5:
+                            srh_half_km_u.append(u_comp[i])
+                            srh_half_km_v.append(v_comp[i])
+                    
+                    if len(srh_half_km_u) > 2:
+                        srh_half_km_u.append(storm_u)
+                        srh_half_km_v.append(storm_v)
+                        srh_half_km_u.append(srh_half_km_u[0])
+                        srh_half_km_v.append(srh_half_km_v[0])
+                        ax.fill(srh_half_km_u, srh_half_km_v, color='orange', alpha=0.25, label='SRH 0-0.5km', zorder=2)
+
                     srh_1km_u = []
                     srh_1km_v = []
                     for i, height in enumerate(heights):
-                        if height <= 1000:
+                        if height <= 1.0:
                             srh_1km_u.append(u_comp[i])
                             srh_1km_v.append(v_comp[i])
                     
@@ -349,7 +384,7 @@ def generate_hodograph():
                     srh_3km_u = []
                     srh_3km_v = []
                     for i, height in enumerate(heights):
-                        if height <= 3000:
+                        if height <= 3.0:
                             srh_3km_u.append(u_comp[i])
                             srh_3km_v.append(v_comp[i])
                     
@@ -395,10 +430,10 @@ def generate_hodograph():
                 vad_v = np.array([calculate_wind_components(s, d)[1] for s, d in zip(wind_profile.speeds, wind_profile.directions)])
                 vad_heights_km = np.array(wind_profile.heights)
 
-                vad_1km = interpolate_wind_at_height(vad_heights_km, vad_u, vad_v, 1.0)
-                if vad_1km:
+                vad_half_km = interpolate_wind_at_height(vad_heights_km, vad_u, vad_v, 0.5)
+                if vad_half_km:
                     esterheld_angle_value = calculate_esterheld_angle(
-                        surface_u, surface_v, storm_u, storm_v, vad_1km[0], vad_1km[1])
+                        surface_u, surface_v, storm_u, storm_v, vad_half_km[0], vad_half_km[1])
 
                 kink = find_kink_point(surface_u, surface_v, vad_u, vad_v, threshold_deg=5.0)
                 if kink:
@@ -408,8 +443,8 @@ def generate_hodograph():
                 if show_critical_angle:
                     ax.plot([surface_u, storm_u], [surface_v, storm_v], 'r--', linewidth=2, alpha=0.8, label='Surface-Storm', zorder=9)
 
-                    if vad_1km and esterheld_angle_value is not None:
-                        ax.plot([surface_u, vad_1km[0]], [surface_v, vad_1km[1]], 'b--', linewidth=2, alpha=0.8, label='Esterheld (1km)', zorder=9)
+                    if vad_half_km and esterheld_angle_value is not None:
+                        ax.plot([surface_u, vad_half_km[0]], [surface_v, vad_half_km[1]], 'b--', linewidth=2, alpha=0.8, label='Esterheld (0.5km)', zorder=9)
 
                     if kink and skoff_angle_value is not None:
                         ax.plot([surface_u, kink[0]], [surface_v, kink[1]], 'm--', linewidth=2, alpha=0.8, label='Skoff (kink)', zorder=9)
@@ -432,10 +467,10 @@ def generate_hodograph():
             try:
                 # Calculate key parameters
                 from params import compute_srh, compute_shear_mag
-                srh_0_1 = compute_srh(param_data, storm_motion_tuple, 1000)
-                srh_0_3 = compute_srh(param_data, storm_motion_tuple, 3000)
-                shear_1km = compute_shear_mag(param_data, 1000)
-                shear_3km = compute_shear_mag(param_data, 3000)
+                srh_0_1 = compute_srh(param_data, storm_motion_tuple, 1)
+                srh_0_3 = compute_srh(param_data, storm_motion_tuple, 3)
+                shear_1km = compute_shear_mag(param_data, 1)
+                shear_3km = compute_shear_mag(param_data, 3)
                 
                 # Create parameter text with requested order
                 param_text = []
@@ -641,15 +676,15 @@ def generate_hodograph():
                 
                 # Calculate SRH values
                 from params import compute_srh
-                srh_0_5 = compute_srh(data, storm_motion_tuple, 500)
-                srh_0_1 = compute_srh(data, storm_motion_tuple, 1000)
-                srh_0_3 = compute_srh(data, storm_motion_tuple, 3000)
+                srh_0_5 = compute_srh(data, storm_motion_tuple, 0.5)
+                srh_0_1 = compute_srh(data, storm_motion_tuple, 1)
+                srh_0_3 = compute_srh(data, storm_motion_tuple, 3)
                 
                 # Calculate shear magnitude
                 from params import compute_shear_mag
-                shear_1km = compute_shear_mag(data, 1000)
-                shear_3km = compute_shear_mag(data, 3000)
-                shear_6km = compute_shear_mag(data, 6000)
+                shear_1km = compute_shear_mag(data, 1)
+                shear_3km = compute_shear_mag(data, 3)
+                shear_6km = compute_shear_mag(data, 6)
                 
                 # Calculate Bunkers storm motion for comparison
                 from params import compute_bunkers
@@ -680,11 +715,11 @@ def generate_hodograph():
                         vad_v = np.array([calculate_wind_components(float(s), float(d))[1] for s, d in zip(data['wind_spd'][1:], data['wind_dir'][1:])])
                         vad_heights = np.array([float(h) for h in data['altitude'][1:]])
 
-                        vad_1km = interpolate_wind_at_height(vad_heights, vad_u, vad_v, 1.0)
-                        if vad_1km:
-                            vad_1km_u_val, vad_1km_v_val = vad_1km
+                        vad_half_km = interpolate_wind_at_height(vad_heights, vad_u, vad_v, 0.5)
+                        if vad_half_km:
+                            vad_1km_u_val, vad_1km_v_val = vad_half_km
                             esterheld_angle = calculate_esterheld_angle(
-                                surface_u, surface_v, storm_u, storm_v, vad_1km[0], vad_1km[1])
+                                surface_u, surface_v, storm_u, storm_v, vad_half_km[0], vad_half_km[1])
 
                         kink = find_kink_point(surface_u, surface_v, vad_u, vad_v, threshold_deg=5.0)
                         if kink:

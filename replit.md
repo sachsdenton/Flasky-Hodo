@@ -27,8 +27,11 @@ A Flask-based meteorological hodograph analysis tool that displays NEXRAD radar 
 ## Features
 - Interactive radar site selection on map
 - METAR station auto-discovery within 100nm of selected radar
-- Storm motion input with Bunkers calculation
-- Hodograph generation with SRH shading, critical angle, shear vector
+- Storm motion input with Bunkers calculation (RM, LM, Mean Wind)
+- Hodograph generation with SRH shading (0.5km, 1km, 3km), critical angle, shear vector
+- Deviant Tornado Motion (DTM) calculation
+- Esterheld critical angle uses 0.5km interpolated wind point
+- Interactive mode shows SRH values, Bunkers LM/RM, Mean Wind, and DTM in a responsive info box below the hodograph
 - **Analyst Mode**: Fully interactive HTML5 Canvas-based hodograph
   - Scroll-to-zoom with smooth scaling, drag-to-pan navigation
   - Hover over data points for detailed tooltips (height, wind speed/direction, U/V)

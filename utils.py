@@ -33,12 +33,12 @@ def _angle_at_vertex(vertex_u, vertex_v, point_a_u, point_a_v, point_b_u, point_
     return float(np.rad2deg(np.arccos(cos_angle)))
 
 
-def calculate_esterheld_angle(surface_u, surface_v, storm_u, storm_v, vad_1km_u, vad_1km_v):
+def calculate_esterheld_angle(surface_u, surface_v, storm_u, storm_v, vad_half_km_u, vad_half_km_v):
     """
     Esterheld Critical Angle: angle at the surface wind vertex between
-    the storm motion point and the interpolated 1 km VAD wind point.
+    the storm motion point and the interpolated 0.5 km VAD wind point.
     """
-    return _angle_at_vertex(surface_u, surface_v, storm_u, storm_v, vad_1km_u, vad_1km_v)
+    return _angle_at_vertex(surface_u, surface_v, storm_u, storm_v, vad_half_km_u, vad_half_km_v)
 
 
 def find_kink_point(surface_u, surface_v, u_components, v_components, threshold_deg=5.0):

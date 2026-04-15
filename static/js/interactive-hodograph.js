@@ -416,6 +416,7 @@ class InteractiveHodograph {
         const allV = [this.metarData.v, ...v];
         const allH = [0, ...heights.map(h => h * 1000)];
 
+        this._fillSRHPoly(ctx, allU, allV, allH, 500, 'rgba(255, 200, 100, 0.3)');
         this._fillSRHPoly(ctx, allU, allV, allH, 1000, 'rgba(144, 238, 144, 0.3)');
         this._fillSRHPoly(ctx, allU, allV, allH, 3000, 'rgba(173, 216, 230, 0.2)');
     }
@@ -490,8 +491,8 @@ class InteractiveHodograph {
         ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2); ctx.stroke();
         ctx.setLineDash([]);
 
-        if (params && params.vad_1km_point) {
-            const [ex, ey] = this._toScreen(params.vad_1km_point.u, params.vad_1km_point.v);
+        if (params && params.vad_half_km_point) {
+            const [ex, ey] = this._toScreen(params.vad_half_km_point.u, params.vad_half_km_point.v);
             ctx.strokeStyle = 'rgba(0, 0, 200, 0.7)';
             ctx.lineWidth = 2;
             ctx.setLineDash([6, 4]);
@@ -502,7 +503,7 @@ class InteractiveHodograph {
             ctx.font = 'bold 9px sans-serif';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'bottom';
-            ctx.fillText('1km', ex + 6, ey - 2);
+            ctx.fillText('.5km', ex + 6, ey - 2);
         }
 
         if (params && params.kink_point) {
@@ -530,11 +531,8 @@ class InteractiveHodograph {
         if (params.shear_1km != null) lines.push(`0-1km Shear: ${params.shear_1km} kt`);
         if (params.shear_3km != null) lines.push(`0-3km Shear: ${params.shear_3km} kt`);
         if (this.stormMotion) lines.push(`Storm Motion: ${this.stormMotion.direction.toFixed(0)}°/${this.stormMotion.speed.toFixed(0)}kt`);
-        if (params.bunkers_rm) lines.push(`Bunkers RM: ${params.bunkers_rm.direction.toFixed(0)}°/${params.bunkers_rm.speed.toFixed(0)}kt`);
         if (params.esterheld_angle != null) lines.push(`Esterheld Angle: ${params.esterheld_angle}°`);
         if (params.skoff_angle != null) lines.push(`Skoff Angle: ${params.skoff_angle}°`);
-        if (params.srh_0_1 != null) lines.push(`SRH 0-1km: ${params.srh_0_1} m²/s²`);
-        if (params.srh_0_3 != null) lines.push(`SRH 0-3km: ${params.srh_0_3} m²/s²`);
 
         if (lines.length === 0) return;
 
@@ -559,6 +557,32 @@ class InteractiveHodograph {
         for (let i = 0; i < lines.length; i++) {
             ctx.fillText(lines[i], x + padding, y + padding + i * lineH);
         }
+
+        this._updateInfoBox();
+    }
+
+    _updateInfoBox() {
+        const params = this.data ? this.data.parameters : null;
+        const infoBox = document.getElementById('hodographInfoBox');
+        if (!infoBox) return;
+
+        let html = '';
+
+        const srhItems = [];
+        if (params && params.srh_0_500 != null) srhItems.push(`<span class="info-item"><strong>SRH 0-.5km:</strong> ${params.srh_0_500} m²/s²</span>`);
+        if (params && params.srh_0_1 != null) srhItems.push(`<span class="info-item"><strong>SRH 0-1km:</strong> ${params.srh_0_1} m²/s²</span>`);
+        if (params && params.srh_0_3 != null) srhItems.push(`<span class="info-item"><strong>SRH to Skoff:</strong> ${params.srh_0_3} m²/s²</span>`);
+        if (srhItems.length > 0) html += `<div class="info-row">${srhItems.join('')}</div>`;
+
+        const motionItems = [];
+        if (params && params.bunkers_rm) motionItems.push(`<span class="info-item"><strong>Bunkers RM:</strong> ${params.bunkers_rm.direction.toFixed(0)}°/${params.bunkers_rm.speed.toFixed(0)}kt</span>`);
+        if (params && params.bunkers_lm) motionItems.push(`<span class="info-item"><strong>Bunkers LM:</strong> ${params.bunkers_lm.direction.toFixed(0)}°/${params.bunkers_lm.speed.toFixed(0)}kt</span>`);
+        if (params && params.mean_wind) motionItems.push(`<span class="info-item"><strong>Mean Wind:</strong> ${params.mean_wind.direction.toFixed(0)}°/${params.mean_wind.speed.toFixed(0)}kt</span>`);
+        if (params && params.deviant_tornado) motionItems.push(`<span class="info-item"><strong>DTM:</strong> ${params.deviant_tornado.direction.toFixed(0)}°/${params.deviant_tornado.speed.toFixed(0)}kt</span>`);
+        if (motionItems.length > 0) html += `<div class="info-row">${motionItems.join('')}</div>`;
+
+        infoBox.innerHTML = html;
+        infoBox.style.display = html ? 'block' : 'none';
     }
 
     _roundRect(ctx, x, y, w, h, r) {
