@@ -6,22 +6,27 @@ import pandas as pd
 import json
 import re
 from datetime import datetime
-import streamlit as st
 from typing import List, Dict, Any, Tuple, Optional
+import time as _time
 
 # NWS API endpoints
 NWS_API_BASE = "https://api.weather.gov"
 NWS_USER_AGENT = "(Hodograph Analysis Tool, contact@example.com)"
 
-# Cache warnings data to avoid frequent API calls
-@st.cache_data(ttl=300)  # Cache for 5 minutes
+_warnings_cache: Dict[str, Any] = {"data": None, "ts": 0}
+
 def fetch_active_warnings() -> List[Dict[str, Any]]:
     """
     Fetch active severe thunderstorm and tornado warnings from NWS API.
+    Results are cached for 5 minutes to reduce API calls.
     
     Returns:
         List of dictionaries containing warning data
     """
+    now = _time.time()
+    if _warnings_cache["data"] is not None and now - _warnings_cache["ts"] < 300:
+        return _warnings_cache["data"]
+
     headers = {
         "User-Agent": NWS_USER_AGENT,
         "Accept": "application/geo+json"
@@ -78,10 +83,12 @@ def fetch_active_warnings() -> List[Dict[str, Any]]:
                     }
                     warnings.append(warning_data)
         
+        _warnings_cache["data"] = warnings
+        _warnings_cache["ts"] = _time.time()
         return warnings
         
     except Exception as e:
-        st.error(f"Error fetching warnings: {str(e)}")
+        print(f"Error fetching warnings: {str(e)}")
         return []
 
 def format_warning_time(time_str: str) -> str:

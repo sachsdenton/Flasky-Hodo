@@ -318,7 +318,10 @@ async function loadWarnings() {
         
         warnings.forEach(warning => {
             if (warning.geometry && warning.geometry.coordinates) {
-                const color = getWarningColor(warning.properties.event);
+                const event = warning.event || (warning.properties && warning.properties.event) || 'Unknown';
+                const headline = warning.headline || (warning.properties && warning.properties.headline) || '';
+                const areaDesc = warning.areaDesc || (warning.properties && warning.properties.areaDesc) || '';
+                const color = getWarningColor(event);
                 
                 const layer = L.geoJSON(warning.geometry, {
                     style: {
@@ -330,9 +333,9 @@ async function loadWarnings() {
                 });
                 
                 layer.bindPopup(`
-                    <b>${warning.properties.event}</b><br>
-                    <strong>Area:</strong> ${warning.properties.areaDesc}<br>
-                    <strong>Headline:</strong> ${warning.properties.headline}
+                    <b>${event}</b><br>
+                    <strong>Area:</strong> ${areaDesc}<br>
+                    <strong>Headline:</strong> ${headline}
                 `);
                 
                 layer.addTo(map);

@@ -45,10 +45,13 @@ def get_metar(station_id: str) -> Tuple[Optional[float], Optional[float], Option
         if not re.match(r'^[A-Z0-9]{4}$', station_id):
             return None, None, None, "Invalid station ID format"
 
-        # Aviation Weather Center API endpoint
-        url = f"https://aviationweather.gov/cgi-bin/data/metar.php?ids={station_id}&format=json&hours=2"
+        # Aviation Weather Center API endpoint (updated to current v2 API)
+        url = f"https://aviationweather.gov/api/data/metar?ids={station_id}&format=json&hours=2"
         response = requests.get(url, timeout=10)
         response.raise_for_status()
+
+        if response.status_code == 204 or not response.text.strip():
+            return None, None, None, f"No METAR data available for {station_id}"
 
         data = response.json()
 
