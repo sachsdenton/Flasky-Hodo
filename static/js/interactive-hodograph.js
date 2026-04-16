@@ -635,7 +635,7 @@ class InteractiveHodograph {
 
         const ctx = this.ctx;
         const lines = [
-            `Height: ${(h * 1000).toFixed(0)}m (${(h * 3.28084).toFixed(0)}ft)`,
+            `Height: ${(h * 1000).toFixed(0)}m (${(h * 3280.84).toFixed(0)}ft)`,
             `Wind: ${dir.toFixed(0)}° @ ${spd.toFixed(0)}kt`,
             `U: ${u.toFixed(1)}  V: ${v.toFixed(1)}`
         ];
