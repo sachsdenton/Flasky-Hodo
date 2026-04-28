@@ -43,11 +43,12 @@ def calculate_esterheld_angle(surface_u, surface_v, storm_u, storm_v, vad_half_k
 
 def find_kink_point(surface_u, surface_v, u_components, v_components, threshold_deg=5.0):
     """
-    Find the first 'kink' in the hodograph — the first VAD point where the
-    vector from the surface deviates more than threshold_deg from the
-    reference line (surface → lowest VAD point).
+    Find the 'kink' point on the hodograph — the highest VAD point that is
+    still within threshold_deg of the reference line (surface → lowest VAD
+    point). Walks up through consecutive in-band points and stops at the last
+    one before the profile leaves the ±threshold band.
 
-    Returns (kink_u, kink_v) or None if no kink found.
+    Returns (kink_u, kink_v) or None if no in-band point is found.
     """
     if len(u_components) < 2:
         return None
@@ -58,7 +59,8 @@ def find_kink_point(surface_u, surface_v, u_components, v_components, threshold_
     if mag_ref == 0:
         return None
 
-    for i in range(1, len(u_components)):
+    last_in_band = None
+    for i in range(0, len(u_components)):
         vec_u = u_components[i] - surface_u
         vec_v = v_components[i] - surface_v
         mag_vec = np.sqrt(vec_u**2 + vec_v**2)
@@ -66,10 +68,12 @@ def find_kink_point(surface_u, surface_v, u_components, v_components, threshold_
             continue
         cos_a = np.clip((ref_u * vec_u + ref_v * vec_v) / (mag_ref * mag_vec), -1.0, 1.0)
         angle = np.rad2deg(np.arccos(cos_a))
-        if angle > threshold_deg:
-            return (float(u_components[i]), float(v_components[i]))
+        if angle <= threshold_deg:
+            last_in_band = (float(u_components[i]), float(v_components[i]))
+        else:
+            break
 
-    return None
+    return last_in_band
 
 
 def calculate_skoff_angle(surface_u, surface_v, storm_u, storm_v, kink_u, kink_v):
