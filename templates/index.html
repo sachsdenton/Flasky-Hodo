@@ -129,6 +129,17 @@
                                 <div class="hodograph-display" id="hodographDisplay">
                                     <p>Generate hodograph analysis to view results</p>
                                 </div>
+                                <div class="hodograph-scrubber" id="hodographScrubber" style="display:none;">
+                                    <div class="scrubber-status" id="scrubberStatus"></div>
+                                    <div class="scrubber-controls">
+                                        <button type="button" class="scrubber-btn" data-scrubber-action="prev" title="Previous frame">⟨</button>
+                                        <button type="button" class="scrubber-btn" data-scrubber-action="play" title="Play / pause">▶</button>
+                                        <button type="button" class="scrubber-btn" data-scrubber-action="next" title="Next frame">⟩</button>
+                                        <input type="range" class="scrubber-slider" min="0" max="0" step="1" value="0" />
+                                        <span class="scrubber-counter">–</span>
+                                    </div>
+                                    <div class="scrubber-timestamp">–</div>
+                                </div>
                                 <div class="hodograph-info-box" id="hodographInfoBox" style="display:none;"></div>
                                 <div class="parameters-display" id="parametersDisplay"></div>
                             </div>
@@ -150,6 +161,17 @@
                         </div>
                         <div class="hodograph-display" id="mobileHodographDisplay">
                             <p>Generate hodograph analysis to view results</p>
+                        </div>
+                        <div class="hodograph-scrubber" id="mobileHodographScrubber" style="display:none;">
+                            <div class="scrubber-status"></div>
+                            <div class="scrubber-controls">
+                                <button type="button" class="scrubber-btn" data-scrubber-action="prev" title="Previous frame">⟨</button>
+                                <button type="button" class="scrubber-btn" data-scrubber-action="play" title="Play / pause">▶</button>
+                                <button type="button" class="scrubber-btn" data-scrubber-action="next" title="Next frame">⟩</button>
+                                <input type="range" class="scrubber-slider" min="0" max="0" step="1" value="0" />
+                                <span class="scrubber-counter">–</span>
+                            </div>
+                            <div class="scrubber-timestamp">–</div>
                         </div>
                         <div class="hodograph-info-box" id="mobileHodographInfoBox" style="display:none;"></div>
                         <div class="parameters-display" id="mobileParametersDisplay"></div>

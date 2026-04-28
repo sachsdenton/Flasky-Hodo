@@ -566,6 +566,102 @@ input[type="number"]:focus {
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
+/* Hodograph loop scrubber */
+.hodograph-scrubber {
+    background: #f8f9fa;
+    border-top: 1px solid #e1e4e8;
+    padding: 0.6rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.scrubber-status {
+    font-size: 0.8rem;
+    color: #666;
+    min-height: 1em;
+}
+
+.scrubber-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.scrubber-btn {
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+    font-size: 0.95rem;
+    line-height: 1;
+    cursor: pointer;
+    color: #2c3e50;
+    transition: background 0.15s, border-color 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.scrubber-btn:hover:not(:disabled) {
+    background: #eef6ff;
+    border-color: #3498db;
+}
+
+.scrubber-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.scrubber-btn.is-playing {
+    background: #3498db;
+    border-color: #2980b9;
+    color: white;
+}
+
+.scrubber-slider {
+    flex: 1;
+    height: 6px;
+    accent-color: #3498db;
+    cursor: pointer;
+    min-width: 80px;
+}
+
+.scrubber-slider:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.scrubber-counter {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #444;
+    min-width: 3.5em;
+    text-align: right;
+}
+
+.scrubber-timestamp {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #2c3e50;
+    text-align: center;
+}
+
+@media (max-width: 600px) {
+    .hodograph-scrubber {
+        padding: 0.5rem 0.6rem;
+    }
+    .scrubber-controls {
+        gap: 0.35rem;
+    }
+    .scrubber-btn {
+        width: 28px;
+        height: 28px;
+    }
+}
+
 /* Leaflet map customizations */
 .leaflet-popup-content-wrapper {
     border-radius: 4px;

@@ -11,6 +11,7 @@ let warningLayers = [];
 let vadDataLoaded = false;
 let currentTab = 'map';
 let interactiveHodograph = null;
+let loopController = null;
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
@@ -228,6 +229,9 @@ function addRadarSitesToMap() {
 function selectRadarSite(site) {
     selectedSite = site;
     vadDataLoaded = false;
+
+    // Selecting a different site invalidates the previous loop frames.
+    teardownLoopController();
     
     // Update UI
     document.getElementById('siteInfo').innerHTML = `
@@ -372,6 +376,8 @@ function setupEventListeners() {
         if (interactiveHodograph && !this.checked) {
             interactiveHodograph = null;
         }
+        // Loop frames are mode-specific (canvas vs image), so tear them down.
+        teardownLoopController();
     });
 
     // Analyst feature toggles
@@ -589,7 +595,10 @@ async function generateCompleteAnalysis() {
         }
         
         showLoading('Generating hodograph...');
-        
+
+        // Stop any in-flight loop from a prior render before starting a new one.
+        teardownLoopController();
+
         const isAnalystMode = document.getElementById('analystMode').checked;
 
         if (isAnalystMode) {
@@ -650,6 +659,14 @@ async function generateCompleteAnalysis() {
                 }
                 
                 showMessage('Interactive hodograph generated — scroll to zoom, drag to pan', 'success');
+
+                startLoopController({
+                    mode: 'analyst',
+                    siteId: selectedSite.id,
+                    stormMotion: stormMotion,
+                    metarData: metarData,
+                    showHalfKm: document.getElementById('showHalfKm').checked
+                });
             }
         } else {
             // Standard mode: server-rendered static image
@@ -698,9 +715,17 @@ async function generateCompleteAnalysis() {
                 }
                 
                 showMessage('Complete hodograph analysis generated successfully', 'success');
+
+                startLoopController({
+                    mode: 'standard',
+                    siteId: selectedSite.id,
+                    stormMotion: stormMotion,
+                    metarData: metarData,
+                    showHalfKm: document.getElementById('showHalfKm').checked
+                });
             }
         }
-        
+
         hideLoading();
     } catch (error) {
         showMessage('Error generating analysis: ' + error.message, 'error');
@@ -708,14 +733,314 @@ async function generateCompleteAnalysis() {
     }
 }
 
+// =====================================================================
+// VAD loop / scrubber controller
+// =====================================================================
+
+const SCRUBBER_IDS = ['hodographScrubber', 'mobileHodographScrubber'];
+
+function teardownLoopController() {
+    if (loopController) {
+        if (loopController.playTimerId) {
+            clearInterval(loopController.playTimerId);
+        }
+        loopController.aborted = true;
+    }
+    loopController = null;
+    SCRUBBER_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+}
+
+async function startLoopController(opts) {
+    // Each invocation gets its own state object so async work from a previous
+    // generation is harmless once a new one starts.
+    const ctl = {
+        mode: opts.mode,
+        siteId: opts.siteId,
+        stormMotion: opts.stormMotion,
+        metarData: opts.metarData,
+        showHalfKm: !!opts.showHalfKm,
+        // All frames from the manifest (oldest first). `payload` is filled
+        // in as prefetches resolve; failed frames keep payload === null.
+        frames: [],
+        currentFileId: null, // the currently displayed frame's file_id
+        playTimerId: null,
+        playing: false,
+        aborted: false,
+        prefetchDone: false
+    };
+    loopController = ctl;
+
+    // Phase 1: only show the loading indicator. Controls stay hidden until
+    // we have at least 2 successfully loaded frames.
+    showLoadingIndicator('Loading recent frames…');
+
+    let manifest;
+    try {
+        const resp = await fetch(`/api/vad-history/${opts.siteId}?count=7`);
+        manifest = await resp.json();
+    } catch (e) {
+        if (ctl.aborted) return;
+        showLoadingIndicator('Recent frames unavailable');
+        return;
+    }
+    if (ctl.aborted || loopController !== ctl) return;
+    if (!manifest || !Array.isArray(manifest.frames) || manifest.frames.length === 0) {
+        showLoadingIndicator('No recent frames available');
+        return;
+    }
+
+    // Convention: oldest at slider=0, newest at slider=N-1.
+    ctl.frames = manifest.frames.slice().reverse().map(f => ({
+        file_id: f.file_id,
+        valid_time: f.valid_time,
+        payload: null
+    }));
+    // The rendered hodograph corresponds to the newest scan in the manifest.
+    ctl.currentFileId = ctl.frames[ctl.frames.length - 1].file_id;
+
+    // Prefetch frame payloads in parallel
+    const frameUrl = (fileId) => buildFramePayloadUrl(ctl, fileId);
+    const tasks = ctl.frames.map(frame => fetch(frameUrl(frame.file_id))
+        .then(r => r.ok ? r.json() : null)
+        .then(payload => {
+            if (ctl.aborted || loopController !== ctl) return;
+            if (payload && !payload.error) {
+                frame.payload = payload;
+                // Re-evaluate visibility: as soon as we cross the 2-loaded
+                // threshold, the scrubber pops in.
+                renderScrubber();
+            }
+        })
+        .catch(() => {})
+    );
+
+    Promise.allSettled(tasks).then(() => {
+        if (ctl.aborted || loopController !== ctl) return;
+        ctl.prefetchDone = true;
+        const loaded = getLoadedFrames(ctl);
+        if (loaded.length < 2) {
+            showLoadingIndicator(loaded.length === 0
+                ? 'No additional frames available'
+                : 'Only one frame available');
+        } else {
+            renderScrubber();
+        }
+    });
+}
+
+function getLoadedFrames(ctl) {
+    if (!ctl) return [];
+    return ctl.frames.filter(f => f.payload);
+}
+
+function buildFramePayloadUrl(ctl, fileId) {
+    const params = new URLSearchParams();
+    if (ctl.stormMotion) {
+        params.append('storm_direction', ctl.stormMotion.direction);
+        params.append('storm_speed', ctl.stormMotion.speed);
+    }
+    if (ctl.metarData) {
+        params.append('metar_direction', ctl.metarData.direction);
+        params.append('metar_speed', ctl.metarData.speed);
+        if (ctl.metarData.station_id) {
+            params.append('metar_station', ctl.metarData.station_id);
+        }
+    }
+    if (ctl.mode === 'standard') {
+        params.append('show_half_km', ctl.showHalfKm);
+        return `/api/hodograph-frame/${ctl.siteId}/${fileId}?${params.toString()}`;
+    }
+    return `/api/wind-profile-frame/${ctl.siteId}/${fileId}?${params.toString()}`;
+}
+
+function showLoadingIndicator(text) {
+    // Phase-1 visibility: only the status row is shown; controls and
+    // timestamp stay hidden until ≥2 frames are loaded.
+    SCRUBBER_IDS.forEach(id => {
+        const root = document.getElementById(id);
+        if (!root) return;
+        root.style.display = 'flex';
+        const status = root.querySelector('.scrubber-status');
+        if (status) {
+            status.textContent = text;
+            status.style.display = '';
+        }
+        const controls = root.querySelector('.scrubber-controls');
+        if (controls) controls.style.display = 'none';
+        const ts = root.querySelector('.scrubber-timestamp');
+        if (ts) ts.style.display = 'none';
+    });
+}
+
+function renderScrubber() {
+    const ctl = loopController;
+    if (!ctl) return;
+    const loaded = getLoadedFrames(ctl);
+    const total = loaded.length;
+
+    if (total < 2) {
+        // Not enough loaded frames yet — keep showing the loading row.
+        if (ctl.prefetchDone && total === 0) {
+            showLoadingIndicator('No additional frames available');
+        } else if (ctl.prefetchDone && total === 1) {
+            showLoadingIndicator('Only one frame available');
+        } else {
+            showLoadingIndicator('Loading recent frames…');
+        }
+        return;
+    }
+
+    // Resolve the slider index from the currently displayed file_id; fall
+    // back to the newest loaded frame if the current frame failed to load.
+    let idx = loaded.findIndex(f => f.file_id === ctl.currentFileId);
+    if (idx === -1) {
+        idx = loaded.length - 1;
+        ctl.currentFileId = loaded[idx].file_id;
+    }
+    const current = loaded[idx];
+
+    SCRUBBER_IDS.forEach(id => {
+        const root = document.getElementById(id);
+        if (!root) return;
+        root.style.display = 'flex';
+
+        const status = root.querySelector('.scrubber-status');
+        if (status) {
+            status.textContent = `${total} frames loaded`;
+            status.style.display = '';
+        }
+        const controls = root.querySelector('.scrubber-controls');
+        if (controls) controls.style.display = '';
+        const tsEl = root.querySelector('.scrubber-timestamp');
+        if (tsEl) tsEl.style.display = '';
+
+        const slider = root.querySelector('.scrubber-slider');
+        if (slider) {
+            slider.max = Math.max(0, total - 1);
+            if (parseInt(slider.value, 10) !== idx) slider.value = idx;
+            slider.disabled = false;
+            if (!slider.dataset.bound) {
+                slider.addEventListener('input', onSliderInput);
+                slider.dataset.bound = '1';
+            }
+        }
+
+        root.querySelectorAll('[data-scrubber-action]').forEach(btn => {
+            const action = btn.getAttribute('data-scrubber-action');
+            btn.disabled = false;
+            if (action === 'play') {
+                btn.textContent = ctl.playing ? '❚❚' : '▶';
+                btn.classList.toggle('is-playing', ctl.playing);
+            }
+            if (!btn.dataset.bound) {
+                btn.addEventListener('click', onScrubberButton);
+                btn.dataset.bound = '1';
+            }
+        });
+
+        const counter = root.querySelector('.scrubber-counter');
+        if (counter) counter.textContent = `${idx + 1} of ${total}`;
+
+        if (tsEl) tsEl.textContent = current ? `Valid: ${current.valid_time}` : '–';
+    });
+}
+
+function onSliderInput(e) {
+    const ctl = loopController;
+    if (!ctl) return;
+    const idx = parseInt(e.target.value, 10);
+    applyFrameByLoadedIndex(idx);
+}
+
+function onScrubberButton(e) {
+    const ctl = loopController;
+    if (!ctl) return;
+    const loaded = getLoadedFrames(ctl);
+    if (loaded.length < 2) return;
+    const action = e.currentTarget.getAttribute('data-scrubber-action');
+    const cur = loaded.findIndex(f => f.file_id === ctl.currentFileId);
+    const baseIdx = cur === -1 ? loaded.length - 1 : cur;
+    if (action === 'prev') {
+        applyFrameByLoadedIndex(wrapIndex(baseIdx - 1, loaded.length));
+    } else if (action === 'next') {
+        applyFrameByLoadedIndex(wrapIndex(baseIdx + 1, loaded.length));
+    } else if (action === 'play') {
+        togglePlay();
+    }
+}
+
+function wrapIndex(i, n) {
+    if (!n) return 0;
+    return ((i % n) + n) % n;
+}
+
+function togglePlay() {
+    const ctl = loopController;
+    if (!ctl) return;
+    const loaded = getLoadedFrames(ctl);
+    if (loaded.length < 2) return;
+    if (ctl.playing) {
+        ctl.playing = false;
+        if (ctl.playTimerId) clearInterval(ctl.playTimerId);
+        ctl.playTimerId = null;
+    } else {
+        ctl.playing = true;
+        ctl.playTimerId = setInterval(() => {
+            if (!loopController) return;
+            const lf = getLoadedFrames(loopController);
+            if (lf.length < 2) return;
+            const cur = lf.findIndex(f => f.file_id === loopController.currentFileId);
+            const baseIdx = cur === -1 ? lf.length - 1 : cur;
+            applyFrameByLoadedIndex(wrapIndex(baseIdx + 1, lf.length));
+        }, 600);
+    }
+    renderScrubber();
+}
+
+function applyFrameByLoadedIndex(idx) {
+    const ctl = loopController;
+    if (!ctl) return;
+    const loaded = getLoadedFrames(ctl);
+    if (idx < 0 || idx >= loaded.length) return;
+    const frame = loaded[idx];
+    ctl.currentFileId = frame.file_id;
+    if (ctl.mode === 'analyst') {
+        if (interactiveHodograph) {
+            interactiveHodograph.setData(frame.payload, true);
+        }
+    } else {
+        const payload = frame.payload;
+        ['hodographDisplay', 'mobileHodographDisplay'].forEach(id => {
+            const container = document.getElementById(id);
+            if (!container) return;
+            let img = container.querySelector('img');
+            if (!img) {
+                container.innerHTML = '';
+                img = document.createElement('img');
+                img.alt = 'Hodograph';
+                container.appendChild(img);
+            }
+            img.src = `data:image/png;base64,${payload.image}`;
+        });
+    }
+    renderScrubber();
+}
+
 // Reset application
 async function resetApplication() {
     try {
         showLoading('Resetting application...');
-        
+
+        // Tear down loop scrubber and any in-flight prefetches first.
+        teardownLoopController();
+        interactiveHodograph = null;
+
         // Reset API data
         await fetch('/api/reset');
-        
+
         // Reset UI
         selectedSite = null;
         metarData = null;

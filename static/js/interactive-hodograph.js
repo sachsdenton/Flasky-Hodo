@@ -151,11 +151,14 @@ class InteractiveHodograph {
         }
     }
 
-    setData(data) {
+    setData(data, preserveView = false) {
         this.data = data;
-        this.scale = 1.0;
-        this.offsetX = 0;
-        this.offsetY = 0;
+        if (!preserveView) {
+            this.scale = 1.0;
+            this.offsetX = 0;
+            this.offsetY = 0;
+        }
+        this.hoveredPoint = null;
         this.render();
     }
 

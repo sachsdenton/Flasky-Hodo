@@ -39,6 +39,22 @@ A Flask-based meteorological hodograph analysis tool that displays NEXRAD radar 
   - Reset View button to return to default zoom/pan
   - `static/js/interactive-hodograph.js` - Canvas renderer class
   - `/api/wind-profile-data` - JSON endpoint for raw profile data (used by interactive mode)
+- **VAD Loop & Scrubber**: After the latest hodograph renders the app prefetches
+  the previous 6 VAD scans for the same site and exposes a scrubber strip
+  (slider, play/pause, prev/next, timestamp, frame counter) below the
+  hodograph. Works in both Analyst (canvas data swap, zoom/pan preserved) and
+  Standard (matplotlib image swap) modes. Storm motion and METAR inputs are
+  reused for every frame. Failed frames are skipped silently. The scrubber is
+  torn down on Reset, on a new site selection, and on Analyst↔Standard toggle.
+  - `nexrad_fetcher.fetch_recent(site_id, count=7)` — parallel download with
+    on-disk + 5 min in-memory cache
+  - `nexrad_fetcher.get_frame_path(site_id, file_id)` — resolves a cached frame
+  - `/api/vad-history/<site_id>` — ordered metadata `{file_id, valid_time}`
+  - `/api/wind-profile-frame/<site_id>/<file_id>` — JSON payload (Analyst)
+  - `/api/hodograph-frame/<site_id>/<file_id>` — base64 PNG (Standard)
+  - In-memory `_frame_payload_cache` keyed by
+    `(mode, site_id, file_id, storm_motion, metar, show_half_km)`; cleared on
+    `/api/reset`
 - Active NWS tornado/severe thunderstorm warning overlay
 
 ## Running
