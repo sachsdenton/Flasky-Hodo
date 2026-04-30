@@ -582,16 +582,19 @@ async function generateCompleteAnalysis() {
             }
         }
         
-        // Step 3: Get storm motion if provided
+        // Step 3: Get storm motion if provided. Compass directions wrap, so
+        // accept any numeric direction and normalize to [0, 360).
         let stormInfo = '';
-        const stormDirection = parseFloat(document.getElementById('stormDirection').value);
+        const rawStormDirection = parseFloat(document.getElementById('stormDirection').value);
         const stormSpeed = parseFloat(document.getElementById('stormSpeed').value);
-        
-        if (!isNaN(stormDirection) && !isNaN(stormSpeed) && 
-            stormDirection >= 0 && stormDirection <= 360 && 
+
+        if (!isNaN(rawStormDirection) && !isNaN(stormSpeed) &&
             stormSpeed >= 0 && stormSpeed <= 100) {
+            const stormDirection = ((rawStormDirection % 360) + 360) % 360;
             stormMotion = { direction: stormDirection, speed: stormSpeed };
             stormInfo = `Storm Motion: ${stormSpeed}kts @ ${stormDirection}°`;
+        } else if (!isNaN(rawStormDirection) || !isNaN(stormSpeed)) {
+            showMessage('Storm motion ignored: enter a numeric direction and a speed between 0–100 kt.', 'warning');
         }
         
         showLoading('Generating hodograph...');
