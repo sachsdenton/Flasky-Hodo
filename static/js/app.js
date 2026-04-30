@@ -801,8 +801,14 @@ async function startLoopController(opts) {
         valid_time: f.valid_time,
         payload: null
     }));
-    // The rendered hodograph corresponds to the newest scan in the manifest.
-    ctl.currentFileId = ctl.frames[ctl.frames.length - 1].file_id;
+    // The rendered hodograph should land on the newest scan in the manifest.
+    const newestFrame = ctl.frames[ctl.frames.length - 1];
+    ctl.currentFileId = newestFrame.file_id;
+    // The initial main render came from a separate code path and may not
+    // exactly match this manifest's newest scan. We swap the display over to
+    // the manifest's newest payload as soon as it arrives so the slider's
+    // "latest" position and the rendered hodograph stay in sync.
+    ctl.displaySyncedToLoop = false;
 
     // Prefetch frame payloads in parallel
     const frameUrl = (fileId) => buildFramePayloadUrl(ctl, fileId);
@@ -812,6 +818,18 @@ async function startLoopController(opts) {
             if (ctl.aborted || loopController !== ctl) return;
             if (payload && !payload.error) {
                 frame.payload = payload;
+                if (frame === newestFrame && !ctl.displaySyncedToLoop) {
+                    // Snap the display to the newest frame as soon as it
+                    // loads. This both updates the visible hodograph and
+                    // re-renders the scrubber.
+                    ctl.displaySyncedToLoop = true;
+                    const loaded = getLoadedFrames(ctl);
+                    const idx = loaded.findIndex(f => f.file_id === frame.file_id);
+                    if (idx !== -1) {
+                        applyFrameByLoadedIndex(idx);
+                        return;
+                    }
+                }
                 // Re-evaluate visibility: as soon as we cross the 2-loaded
                 // threshold, the scrubber pops in.
                 renderScrubber();
@@ -828,6 +846,14 @@ async function startLoopController(opts) {
             showLoadingIndicator(loaded.length === 0
                 ? 'No additional frames available'
                 : 'Only one frame available');
+            return;
+        }
+        // If the newest frame failed but other frames loaded, fall back to
+        // the newest frame we *do* have so the user still lands on the most
+        // recent available scan.
+        if (!ctl.displaySyncedToLoop) {
+            ctl.displaySyncedToLoop = true;
+            applyFrameByLoadedIndex(loaded.length - 1);
         } else {
             renderScrubber();
         }
