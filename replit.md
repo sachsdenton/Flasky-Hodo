@@ -47,7 +47,12 @@ A Flask-based meteorological hodograph analysis tool that displays NEXRAD radar 
   reused for every frame. Failed frames are skipped silently. The scrubber is
   torn down on Reset, on a new site selection, and on Analyst↔Standard toggle.
   - `nexrad_fetcher.fetch_recent(site_id, count=7)` — parallel download with
-    on-disk + 5 min in-memory cache
+    on-disk + 5 min in-memory cache. Uses HTTPS against
+    `tgftp.nws.noaa.gov` (~6× faster than the legacy FTP path) and lists
+    the site directory **once**, reusing filenames for direct parallel
+    GETs through a pooled `requests.Session` so each worker does a single
+    round trip. Cold-cache load for 7 frames: ~0.6s downloads + ~1.2s
+    matplotlib renders ≈ 2s end-to-end.
   - `nexrad_fetcher.get_frame_path(site_id, file_id)` — resolves a cached frame
   - `/api/vad-history/<site_id>` — ordered metadata `{file_id, valid_time}`
   - `/api/wind-profile-frame/<site_id>/<file_id>` — JSON payload (Analyst)
