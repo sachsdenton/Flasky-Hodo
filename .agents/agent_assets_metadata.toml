@@ -1,0 +1,20 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "X5NlqJ_ZOA1yaB05jBV4_"
+uri = "file://attached_assets/screenshots/loop_frame_check.png"
+type = "image"
+title = "Rendered loop frame (Standard mode)"
+
+[[outputs]]
+id = "AKUNo61v3-clRwt1YDNs7"
+uri = "file://attached_assets/screenshots/main_render.png"
+type = "image"
+title = "Main hodograph"
+
+[[outputs]]
+id = "QJJ0yS9F3RiqDhH6qYOhJ"
+uri = "file://attached_assets/screenshots/loop_render.png"
+type = "image"
+title = "Loop frame hodograph (same site, different scan)"
