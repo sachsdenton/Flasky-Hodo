@@ -592,10 +592,9 @@ def _build_hodograph_image_payload(wp, site_id, plot_type, show_half_km,
     ax.legend(loc='upper right', fontsize=9)
 
     img_buffer = io.BytesIO()
-    plt.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
+    fig.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
     img_buffer.seek(0)
     img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
-    plt.close()
 
     # Build the same parameters dict for the Standard mode response
     parameters = {}
@@ -935,4 +934,4 @@ if __name__ == '__main__':
     os.makedirs("temp_data", exist_ok=True)
     
     # Run the app
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)

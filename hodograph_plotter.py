@@ -1,6 +1,8 @@
+import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.patches import Circle
 import numpy as np
-import streamlit as st
 from typing import Tuple, Optional
 from utils import calculate_wind_components
 from datetime import datetime
@@ -28,11 +30,10 @@ class HodographPlotter:
             site_name: Location of the radar site (city, state)
             valid_time: Valid time of the data
         """
-        # Close any existing figures
-        plt.close('all')
-
-        # Create a figure with more vertical space for title and labels
-        self.fig, self.ax = plt.subplots(figsize=(8, 9))
+        # Use the OO API instead of pyplot so concurrent requests don't
+        # stomp on each other's "current figure" global state.
+        self.fig = Figure(figsize=(8, 9))
+        self.ax = self.fig.add_subplot(1, 1, 1)
 
         # Add title with site information and time if provided
         title_parts = []
@@ -60,7 +61,7 @@ class HodographPlotter:
             if show_speed_rings:
                 speed_rings = list(range(10, self.max_speed + 1, 10))
                 for speed in speed_rings:
-                    circle = plt.Circle((0, 0), speed, fill=False, color='gray', linestyle='--', alpha=0.5)
+                    circle = Circle((0, 0), speed, fill=False, color='gray', linestyle='--', alpha=0.5)
                     self.ax.add_artist(circle)
 
             self.ax.set_xlim(-display_max, display_max)
@@ -112,7 +113,7 @@ class HodographPlotter:
 
         if height_colors:
             # Create color gradient based on height
-            colors = plt.cm.viridis(heights / np.max(heights))
+            colors = matplotlib.cm.viridis(heights / np.max(heights))
 
             # Plot segments with color gradient
             for i in range(len(u_comp) - 1):
@@ -236,7 +237,6 @@ class HodographPlotter:
             filename: Output filename
         """
         self.fig.savefig(filename, bbox_inches='tight', dpi=300)
-        plt.close(self.fig)  # Close after saving
 
     def get_plot(self) -> Tuple[plt.Figure, plt.Axes]:
         """

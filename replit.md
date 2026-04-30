@@ -55,6 +55,12 @@ A Flask-based meteorological hodograph analysis tool that displays NEXRAD radar 
   - In-memory `_frame_payload_cache` keyed by
     `(mode, site_id, file_id, storm_motion, metar, show_half_km)`; cleared on
     `/api/reset`
+  - **Thread-safety**: Flask runs with `threaded=True` so the parallel
+    frame prefetches from the browser are served concurrently.
+    `HodographPlotter` and the Standard-mode image builder use matplotlib's
+    OO API (`Figure()`, `Circle()`, `fig.savefig()`) instead of the global
+    `pyplot` state — `plt.close('all')` from one in-flight render no longer
+    blanks out another thread's figure.
 - Active NWS tornado/severe thunderstorm warning overlay
 
 ## Running

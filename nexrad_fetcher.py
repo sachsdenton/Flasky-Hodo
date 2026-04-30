@@ -162,8 +162,10 @@ class NEXRADFetcher:
                 print(f"Skipping VAD frame for {site_id} at {ft}: {e}")
                 return None
 
+        # Use as many workers as files so all downloads start immediately.
         results: List[Dict[str, Any]] = []
-        with ThreadPoolExecutor(max_workers=4) as ex:
+        max_workers = max(1, min(len(file_list), 8))
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
             for r in ex.map(_download_one, file_list):
                 if r is not None:
                     results.append(r)
