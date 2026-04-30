@@ -26,6 +26,11 @@ from warning_utils import fetch_active_warnings
 app = Flask(__name__)
 CORS(app)
 
+try:
+    app.json.allow_nan = False
+except AttributeError:
+    pass
+
 # Global variables for caching
 wind_profile = WindProfile()
 nexrad_fetcher = NEXRADFetcher()
@@ -155,6 +160,22 @@ def get_metar_data(station_id):
 # Shared per-frame computation helpers
 # ---------------------------------------------------------------------------
 
+def _sanitize_for_json(value):
+    """Recursively replace NaN / Infinity values with None so the result is
+    valid JSON (Flask's default jsonify emits the literal ``NaN`` which
+    browsers reject)."""
+    import math
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return None
+        return value
+    if isinstance(value, dict):
+        return {k: _sanitize_for_json(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_sanitize_for_json(v) for v in value]
+    return value
+
+
 def _build_wind_profile_payload(wp, site_id, storm_direction, storm_speed,
                                  metar_direction, metar_speed, metar_station):
     """Build the JSON payload returned by the wind-profile endpoints.
@@ -261,7 +282,7 @@ def _build_wind_profile_payload(wp, site_id, storm_direction, storm_speed,
         except Exception as e:
             print(f"Error computing parameters: {e}")
 
-    return {
+    return _sanitize_for_json({
         'u_components': u_components,
         'v_components': v_components,
         'heights': [float(h) for h in wp.heights],
@@ -272,7 +293,7 @@ def _build_wind_profile_payload(wp, site_id, storm_direction, storm_speed,
         'site_name': site.name if site else '',
         'valid_time': valid_time,
         'parameters': parameters
-    }
+    })
 
 
 def _build_hodograph_image_payload(wp, site_id, plot_type, show_half_km,
@@ -696,12 +717,12 @@ def _build_hodograph_image_payload(wp, site_id, plot_type, show_half_km,
         if hasattr(vt, 'strftime'):
             valid_time_str = vt.strftime('%Y-%m-%d %H:%M UTC')
 
-    return {
+    return _sanitize_for_json({
         'image': img_base64,
         'parameters': parameters,
         'valid_time': valid_time_str,
         'success': True
-    }
+    })
 
 
 def _load_wind_profile_from_path(file_path: str) -> Optional[WindProfile]:
