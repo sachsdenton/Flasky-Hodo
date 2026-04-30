@@ -20,7 +20,8 @@ document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
     setupTabNavigation();
     loadWarnings();
-    
+    setupScrubberKeyboardShortcuts();
+
     // Set initial tab state based on screen size
     if (window.innerWidth <= 1024) {
         switchMobileTab('controls');
@@ -29,6 +30,35 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle window resize for responsive layout
     window.addEventListener('resize', handleResize);
 });
+
+// Keyboard shortcuts for the VAD loop scrubber:
+//   ","  → previous frame
+//   "."  → next frame
+// Both wrap around at the ends, matching the prev/next button behavior.
+function setupScrubberKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== ',' && e.key !== '.') return;
+        // Don't hijack typing in form fields (e.g. METAR/storm inputs).
+        const t = e.target;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' ||
+                  t.tagName === 'SELECT' || t.isContentEditable)) {
+            return;
+        }
+        // Ignore modifier-key chords so OS shortcuts (Cmd-., etc.) still work.
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+        const ctl = loopController;
+        if (!ctl) return;
+        const loaded = getLoadedFrames(ctl);
+        if (loaded.length < 2) return;
+
+        const cur = loaded.findIndex(f => f.file_id === ctl.currentFileId);
+        const baseIdx = cur === -1 ? loaded.length - 1 : cur;
+        const delta = e.key === '.' ? 1 : -1;
+        applyFrameByLoadedIndex(wrapIndex(baseIdx + delta, loaded.length));
+        e.preventDefault();
+    });
+}
 
 // Handle window resize events
 function handleResize() {
