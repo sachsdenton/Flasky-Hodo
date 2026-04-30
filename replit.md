@@ -23,6 +23,7 @@ A Flask-based meteorological hodograph analysis tool that displays NEXRAD radar 
 - `templates/index.html` - Main HTML template
 - `static/js/app.js` - Frontend JavaScript
 - `static/css/style.css` - Styles
+- `archive.py` - Disk-backed archive store for saved VAD loops
 
 ## Features
 - Interactive radar site selection on map
@@ -67,6 +68,23 @@ A Flask-based meteorological hodograph analysis tool that displays NEXRAD radar 
     `pyplot` state — `plt.close('all')` from one in-flight render no longer
     blanks out another thread's figure.
 - Active NWS tornado/severe thunderstorm warning overlay
+- **Archives**: A 💾 Save button on the scrubber writes the currently-loaded
+  loop frames to `data/archives/{SITE}/{YYYY-MM-DD}_{HHMM}Z_VAD[_{METAR}]/`
+  along with a `manifest.json` capturing site, METAR, storm motion, and the
+  per-frame valid times. The Archives tab lists saved loops grouped by site
+  and lets the user Load (replays the loop with the original METAR/storm
+  motion in either Analyst or Standard mode) or Delete them.
+  - `archive.py` — `save_archive`, `list_archives`, `get_archive`,
+    `get_archive_frame_path`, `delete_archive` with a coarse lock and
+    path-traversal guards on `site_id`/`archive_id`.
+  - `/api/archive/save`, `/api/archive/list`, `/api/archive/load`,
+    `/api/archive/<site>/<id>` (DELETE),
+    `/api/archive-history/<site>/<id>`,
+    `/api/archive/wind-profile-frame/<site>/<id>/<file_id>`,
+    `/api/archive/hodograph-frame/<site>/<id>/<file_id>`.
+  - The Standard/Analyst frame builders are reused for archive playback;
+    `_frame_payload_cache` keys include the archive id so live and archived
+    payloads don't collide.
 
 ## Running
 ```bash

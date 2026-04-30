@@ -22,6 +22,7 @@ from params import compute_bunkers, compute_srh, compute_shear_mag
 from map_component import load_metar_sites, calculate_distance
 from nexrad_fetcher import NEXRADFetcher
 from warning_utils import fetch_active_warnings
+import archive
 
 app = Flask(__name__)
 CORS(app)
@@ -913,6 +914,242 @@ def get_hodograph_frame(site_id, file_id):
         if 'error' in payload:
             return jsonify(payload), 400
 
+        payload['file_id'] = file_id
+        _frame_cache_set(cache_key, payload)
+        return jsonify(payload)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Archive (saved-loop) endpoints
+# ---------------------------------------------------------------------------
+
+def _archive_history_payload(manifest):
+    """Shape an archive manifest like /api/vad-history (newest-first)."""
+    frames = list(manifest.get('frames', []))
+    # Manifest is stored oldest-first; the loop UI expects newest-first to
+    # mirror the live /api/vad-history shape.
+    frames.sort(key=lambda f: f.get('valid_time', ''), reverse=True)
+    return {
+        'site_id': manifest['site_id'],
+        'archive_id': manifest['archive_id'],
+        'frames': [
+            {'file_id': f['file_id'], 'valid_time': f['valid_time']}
+            for f in frames
+        ]
+    }
+
+
+@app.route('/api/archive/save', methods=['POST'])
+def archive_save():
+    """Persist the currently-loaded VAD loop to disk for later replay."""
+    try:
+        body = request.get_json(silent=True) or {}
+        site_id = (body.get('site_id') or '').upper()
+        file_ids = body.get('file_ids') or []
+        metar = body.get('metar')
+        storm_motion = body.get('storm_motion')
+
+        if not site_id or not file_ids:
+            return jsonify({'error': 'site_id and file_ids are required'}), 400
+
+        # Resolve each requested file_id back to a cached file on disk and
+        # the corresponding valid_time. The fetcher's in-memory history
+        # cache holds parsed timestamps; if the cache has been evicted we
+        # fall back to parsing the file_id (which is a 'YYYYMMDDHHMM' tag)
+        # so we still produce a valid manifest.
+        from nexrad_fetcher import _history_cache as _hc
+        history_prefix = f"history_{site_id}_"
+
+        def _lookup_valid_time(fid: str):
+            for ck, frame_list in _hc.items():
+                if not ck.startswith(history_prefix):
+                    continue
+                for fr in frame_list:
+                    if fr['file_id'] == fid:
+                        return fr['valid_time']
+            try:
+                return datetime.strptime(fid, '%Y%m%d%H%M')
+            except ValueError:
+                return None
+
+        frames = []
+        for fid in file_ids:
+            fid = str(fid)
+            path = nexrad_fetcher.get_frame_path(site_id, fid)
+            if not path:
+                continue
+            valid_time = _lookup_valid_time(fid)
+            if valid_time is None:
+                continue
+            frames.append({
+                'file_id': fid,
+                'valid_time': valid_time,
+                'cached_path': path,
+            })
+
+        if not frames:
+            return jsonify({'error': 'No cached frames available to save'}), 400
+
+        manifest = archive.save_archive(site_id, frames, metar, storm_motion)
+        return jsonify({'success': True, 'manifest': manifest})
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/archive/list')
+def archive_list():
+    """List every saved archive grouped by site."""
+    try:
+        return jsonify({'sites': archive.list_archives()})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/archive/load', methods=['POST'])
+def archive_load():
+    """Load the newest scan from an archive into the global wind_profile.
+
+    The frontend uses the returned metadata to populate the input fields
+    (site / METAR / storm motion) and then drives the loop scrubber via
+    the archive-aware history/frame endpoints below.
+    """
+    global wind_profile
+    try:
+        body = request.get_json(silent=True) or {}
+        site_id = (body.get('site_id') or '').upper()
+        archive_id = body.get('archive_id') or ''
+        manifest = archive.get_archive(site_id, archive_id)
+        if not manifest:
+            return jsonify({'error': 'Archive not found'}), 404
+
+        frames = list(manifest.get('frames', []))
+        if not frames:
+            return jsonify({'error': 'Archive has no frames'}), 400
+        # Newest-first
+        frames.sort(key=lambda f: f.get('valid_time', ''), reverse=True)
+        newest = frames[0]
+        path = archive.get_archive_frame_path(site_id, archive_id, newest['file_id'])
+        if not path:
+            return jsonify({'error': 'Newest frame missing on disk'}), 500
+
+        wp = _load_wind_profile_from_path(path)
+        if wp is None:
+            return jsonify({'error': 'Failed to load archived VAD'}), 500
+        wind_profile = wp
+
+        site = get_site_by_id(site_id)
+        return jsonify({
+            'success': True,
+            'site_id': site_id,
+            'site_name': site.name if site else site_id,
+            'archive_id': archive_id,
+            'metar': manifest.get('metar'),
+            'storm_motion': manifest.get('storm_motion'),
+            'newest_valid_time': newest.get('valid_time'),
+            'frame_count': len(frames),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/archive/<site_id>/<archive_id>', methods=['DELETE'])
+def archive_delete(site_id, archive_id):
+    try:
+        ok = archive.delete_archive(site_id, archive_id)
+        if not ok:
+            return jsonify({'error': 'Archive not found'}), 404
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/archive-history/<site_id>/<archive_id>')
+def archive_history(site_id, archive_id):
+    """Per-archive equivalent of /api/vad-history (newest-first frame list)."""
+    try:
+        manifest = archive.get_archive(site_id, archive_id)
+        if not manifest:
+            return jsonify({'error': 'Archive not found'}), 404
+        return jsonify(_archive_history_payload(manifest))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/archive/wind-profile-frame/<site_id>/<archive_id>/<file_id>')
+def archive_wind_profile_frame(site_id, archive_id, file_id):
+    """Per-frame wind profile JSON sourced from an archive."""
+    try:
+        site_id = site_id.upper()
+        storm_direction, storm_speed, metar_direction, metar_speed, metar_station = _common_request_motion_inputs()
+
+        cache_key = (
+            'archive_wind_profile', site_id, archive_id, file_id,
+            storm_direction, storm_speed,
+            metar_direction, metar_speed, metar_station,
+            None
+        )
+        cached = _frame_cache_get(cache_key)
+        if cached is not None:
+            return jsonify(cached)
+
+        path = archive.get_archive_frame_path(site_id, archive_id, file_id)
+        if not path:
+            return jsonify({'error': 'Archived frame not available'}), 404
+
+        wp = _load_wind_profile_from_path(path)
+        if wp is None:
+            return jsonify({'error': 'Failed to load frame'}), 500
+
+        payload = _build_wind_profile_payload(
+            wp, site_id, storm_direction, storm_speed,
+            metar_direction, metar_speed, metar_station
+        )
+        if 'error' in payload:
+            return jsonify(payload), 400
+        payload['file_id'] = file_id
+        _frame_cache_set(cache_key, payload)
+        return jsonify(payload)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/archive/hodograph-frame/<site_id>/<archive_id>/<file_id>')
+def archive_hodograph_frame(site_id, archive_id, file_id):
+    """Per-frame hodograph image (Standard mode) sourced from an archive."""
+    try:
+        site_id = site_id.upper()
+        show_half_km = request.args.get('show_half_km', 'true').lower() == 'true'
+        storm_direction, storm_speed, metar_direction, metar_speed, metar_station = _common_request_motion_inputs()
+
+        cache_key = (
+            'archive_hodograph', site_id, archive_id, file_id,
+            storm_direction, storm_speed,
+            metar_direction, metar_speed, metar_station,
+            show_half_km
+        )
+        cached = _frame_cache_get(cache_key)
+        if cached is not None:
+            return jsonify(cached)
+
+        path = archive.get_archive_frame_path(site_id, archive_id, file_id)
+        if not path:
+            return jsonify({'error': 'Archived frame not available'}), 404
+
+        wp = _load_wind_profile_from_path(path)
+        if wp is None:
+            return jsonify({'error': 'Failed to load frame'}), 500
+
+        payload = _build_hodograph_image_payload(
+            wp, site_id, 'Standard', show_half_km,
+            storm_direction, storm_speed, metar_direction, metar_speed, metar_station,
+            fetch_metar_obs_time=False
+        )
+        if 'error' in payload:
+            return jsonify(payload), 400
         payload['file_id'] = file_id
         _frame_cache_set(cache_key, payload)
         return jsonify(payload)

@@ -455,6 +455,12 @@ function setupEventListeners() {
             warningLayers = [];
         }
     });
+
+    // Archives panel refresh button
+    const archivesRefreshBtn = document.getElementById('archivesRefreshBtn');
+    if (archivesRefreshBtn) {
+        archivesRefreshBtn.addEventListener('click', loadArchivesList);
+    }
 }
 
 // Setup tab navigation
@@ -505,8 +511,11 @@ function switchTab(tabName) {
         }, 300);
     } else if (tabName === 'hodograph') {
         document.getElementById('hodographPane').classList.add('active');
+    } else if (tabName === 'archives') {
+        document.getElementById('archivesPane').classList.add('active');
+        loadArchivesList();
     }
-    
+
     currentTab = tabName;
 }
 
@@ -795,6 +804,10 @@ async function startLoopController(opts) {
         stormMotion: opts.stormMotion,
         metarData: opts.metarData,
         showHalfKm: !!opts.showHalfKm,
+        // 'live' loops fetch from the upstream NEXRAD listing; 'archive'
+        // loops replay a previously-saved snapshot from local storage.
+        source: opts.source || 'live',
+        archiveId: opts.archiveId || null,
         // All frames from the manifest (oldest first). `payload` is filled
         // in as prefetches resolve; failed frames keep payload === null.
         frames: [],
@@ -808,15 +821,23 @@ async function startLoopController(opts) {
 
     // Phase 1: only show the loading indicator. Controls stay hidden until
     // we have at least 2 successfully loaded frames.
-    showLoadingIndicator('Loading recent frames…');
+    showLoadingIndicator(ctl.source === 'archive'
+        ? 'Loading archived frames…'
+        : 'Loading recent frames…');
+
+    const historyUrl = ctl.source === 'archive'
+        ? `/api/archive-history/${opts.siteId}/${ctl.archiveId}`
+        : `/api/vad-history/${opts.siteId}?count=7`;
 
     let manifest;
     try {
-        const resp = await fetch(`/api/vad-history/${opts.siteId}?count=7`);
+        const resp = await fetch(historyUrl);
         manifest = await resp.json();
     } catch (e) {
         if (ctl.aborted) return;
-        showLoadingIndicator('Recent frames unavailable');
+        showLoadingIndicator(ctl.source === 'archive'
+            ? 'Archive unavailable'
+            : 'Recent frames unavailable');
         return;
     }
     if (ctl.aborted || loopController !== ctl) return;
@@ -908,11 +929,16 @@ function buildFramePayloadUrl(ctl, fileId) {
             params.append('metar_station', ctl.metarData.station_id);
         }
     }
+    const isArchive = ctl.source === 'archive';
     if (ctl.mode === 'standard') {
         params.append('show_half_km', ctl.showHalfKm);
-        return `/api/hodograph-frame/${ctl.siteId}/${fileId}?${params.toString()}`;
+        return isArchive
+            ? `/api/archive/hodograph-frame/${ctl.siteId}/${ctl.archiveId}/${fileId}?${params.toString()}`
+            : `/api/hodograph-frame/${ctl.siteId}/${fileId}?${params.toString()}`;
     }
-    return `/api/wind-profile-frame/${ctl.siteId}/${fileId}?${params.toString()}`;
+    return isArchive
+        ? `/api/archive/wind-profile-frame/${ctl.siteId}/${ctl.archiveId}/${fileId}?${params.toString()}`
+        : `/api/wind-profile-frame/${ctl.siteId}/${fileId}?${params.toString()}`;
 }
 
 function showLoadingIndicator(text) {
@@ -994,6 +1020,11 @@ function renderScrubber() {
                 btn.textContent = ctl.playing ? '❚❚' : '▶';
                 btn.classList.toggle('is-playing', ctl.playing);
             }
+            if (action === 'save') {
+                // Archive replays are already saved — hide the button so
+                // users don't pile up duplicate entries.
+                btn.style.display = ctl.source === 'archive' ? 'none' : '';
+            }
             if (!btn.dataset.bound) {
                 btn.addEventListener('click', onScrubberButton);
                 btn.dataset.bound = '1';
@@ -1017,9 +1048,17 @@ function onSliderInput(e) {
 function onScrubberButton(e) {
     const ctl = loopController;
     if (!ctl) return;
+    const action = e.currentTarget.getAttribute('data-scrubber-action');
+
+    // Save is the one action that doesn't require ≥2 loaded frames; it
+    // captures whatever's currently in memory.
+    if (action === 'save') {
+        saveCurrentLoop();
+        return;
+    }
+
     const loaded = getLoadedFrames(ctl);
     if (loaded.length < 2) return;
-    const action = e.currentTarget.getAttribute('data-scrubber-action');
     const cur = loaded.findIndex(f => f.file_id === ctl.currentFileId);
     const baseIdx = cur === -1 ? loaded.length - 1 : cur;
     if (action === 'prev') {
@@ -1086,6 +1125,278 @@ function applyFrameByLoadedIndex(idx) {
         });
     }
     renderScrubber();
+}
+
+// =====================================================================
+// Archives — save, list, load, delete
+// =====================================================================
+
+async function saveCurrentLoop() {
+    const ctl = loopController;
+    if (!ctl || ctl.source === 'archive') return;
+    // Save every frame whose payload successfully prefetched. The server
+    // skips any whose raw VAD file is no longer in the on-disk cache.
+    const fileIds = getLoadedFrames(ctl).map(f => f.file_id);
+    if (fileIds.length === 0) {
+        showMessage('No loaded frames to save yet.', 'warning');
+        return;
+    }
+
+    const body = {
+        site_id: ctl.siteId,
+        file_ids: fileIds,
+        metar: ctl.metarData ? {
+            station: ctl.metarData.station_id || null,
+            direction: ctl.metarData.direction,
+            speed: ctl.metarData.speed,
+        } : null,
+        storm_motion: ctl.stormMotion ? {
+            direction: ctl.stormMotion.direction,
+            speed: ctl.stormMotion.speed,
+        } : null,
+    };
+
+    // Disable the save buttons during the round-trip so double-clicks
+    // can't queue duplicate POSTs.
+    const saveBtns = document.querySelectorAll('[data-scrubber-action="save"]');
+    saveBtns.forEach(b => { b.disabled = true; });
+    try {
+        const resp = await fetch('/api/archive/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.error) {
+            showMessage('Save failed: ' + (data.error || resp.statusText), 'error');
+            return;
+        }
+        const id = data.manifest && data.manifest.archive_id;
+        const count = data.manifest && data.manifest.frames ? data.manifest.frames.length : fileIds.length;
+        showMessage(`Saved ${count} frame${count === 1 ? '' : 's'} as ${id}`, 'success');
+    } catch (err) {
+        showMessage('Save failed: ' + err.message, 'error');
+    } finally {
+        saveBtns.forEach(b => { b.disabled = false; });
+    }
+}
+
+async function loadArchivesList() {
+    const tree = document.getElementById('archivesTree');
+    if (!tree) return;
+    tree.innerHTML = '<p class="archives-empty">Loading archives…</p>';
+    try {
+        const resp = await fetch('/api/archive/list');
+        const data = await resp.json();
+        if (!resp.ok || data.error) {
+            tree.innerHTML = `<p class="archives-empty">Error: ${data.error || resp.statusText}</p>`;
+            return;
+        }
+        renderArchivesTree(data.sites || []);
+    } catch (err) {
+        tree.innerHTML = `<p class="archives-empty">Error: ${err.message}</p>`;
+    }
+}
+
+function renderArchivesTree(sites) {
+    const tree = document.getElementById('archivesTree');
+    if (!tree) return;
+    if (!sites.length) {
+        tree.innerHTML = '<p class="archives-empty">No saved loops yet. Generate a hodograph and click 💾 Save to archive one.</p>';
+        return;
+    }
+
+    tree.innerHTML = '';
+    for (const site of sites) {
+        const siteEl = document.createElement('div');
+        siteEl.className = 'archive-site';
+
+        const header = document.createElement('div');
+        header.className = 'archive-site-header';
+        header.innerHTML = `
+            <span>${escapeHtml(site.site_id)}</span>
+            <span class="archive-site-count">${site.archives.length} loop${site.archives.length === 1 ? '' : 's'}</span>
+        `;
+        header.addEventListener('click', () => siteEl.classList.toggle('is-collapsed'));
+        siteEl.appendChild(header);
+
+        const body = document.createElement('div');
+        body.className = 'archive-site-body';
+        for (const archive of site.archives) {
+            body.appendChild(renderArchiveEntry(site.site_id, archive));
+        }
+        siteEl.appendChild(body);
+        tree.appendChild(siteEl);
+    }
+}
+
+function renderArchiveEntry(siteId, manifest) {
+    const entry = document.createElement('div');
+    entry.className = 'archive-entry';
+
+    const main = document.createElement('div');
+    main.className = 'archive-entry-main';
+
+    const title = document.createElement('div');
+    title.className = 'archive-entry-title';
+    title.textContent = manifest.archive_id;
+    main.appendChild(title);
+
+    const meta = document.createElement('div');
+    meta.className = 'archive-entry-meta';
+    const parts = [
+        `${manifest.frames ? manifest.frames.length : 0} frames`,
+        `valid ${manifest.newest_valid_time || '—'}`,
+    ];
+    if (manifest.metar && manifest.metar.station) {
+        parts.push(`METAR ${escapeHtml(manifest.metar.station)} ${manifest.metar.speed}@${manifest.metar.direction}`);
+    }
+    if (manifest.storm_motion) {
+        parts.push(`Storm ${manifest.storm_motion.speed}@${manifest.storm_motion.direction}`);
+    }
+    meta.innerHTML = parts.map(p => `<span>${p}</span>`).join('');
+    main.appendChild(meta);
+
+    entry.appendChild(main);
+
+    const actions = document.createElement('div');
+    actions.className = 'archive-entry-actions';
+
+    const loadBtn = document.createElement('button');
+    loadBtn.type = 'button';
+    loadBtn.className = 'archive-load-btn';
+    loadBtn.textContent = 'Load';
+    loadBtn.addEventListener('click', () => loadArchiveById(siteId, manifest.archive_id));
+    actions.appendChild(loadBtn);
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'archive-delete-btn';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', async () => {
+        if (!confirm(`Delete archive ${manifest.archive_id}?`)) return;
+        try {
+            const resp = await fetch(`/api/archive/${siteId}/${manifest.archive_id}`, {method: 'DELETE'});
+            const data = await resp.json();
+            if (!resp.ok || data.error) {
+                showMessage('Delete failed: ' + (data.error || resp.statusText), 'error');
+                return;
+            }
+            showMessage('Archive deleted.', 'success');
+            loadArchivesList();
+        } catch (err) {
+            showMessage('Delete failed: ' + err.message, 'error');
+        }
+    });
+    actions.appendChild(delBtn);
+
+    entry.appendChild(actions);
+    return entry;
+}
+
+async function loadArchiveById(siteId, archiveId) {
+    showLoading('Loading archive…');
+    try {
+        const resp = await fetch('/api/archive/load', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({site_id: siteId, archive_id: archiveId}),
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.error) {
+            hideLoading();
+            showMessage('Load failed: ' + (data.error || resp.statusText), 'error');
+            return;
+        }
+
+        // Populate the input fields so the user can see what was archived.
+        const site = await ensureSiteSelected(siteId, data.site_name);
+        document.getElementById('metarStation').value =
+            (data.metar && data.metar.station) ? data.metar.station : '';
+        if (data.storm_motion) {
+            document.getElementById('stormDirection').value = data.storm_motion.direction;
+            document.getElementById('stormSpeed').value = data.storm_motion.speed;
+            stormMotion = {
+                direction: data.storm_motion.direction,
+                speed: data.storm_motion.speed,
+            };
+        } else {
+            document.getElementById('stormDirection').value = '';
+            document.getElementById('stormSpeed').value = '';
+            stormMotion = null;
+        }
+        metarData = data.metar ? {
+            station_id: data.metar.station || null,
+            direction: data.metar.direction,
+            speed: data.metar.speed,
+        } : null;
+
+        // Tear down any existing loop and start an archive-mode one.
+        teardownLoopController();
+        interactiveHodograph = null;
+
+        // Switch to the hodograph tab and prepare the display container.
+        document.getElementById('hodographTab').disabled = false;
+        document.getElementById('mobileHodographTab').disabled = false;
+        switchTab('hodograph');
+        switchMobileTab('hodograph');
+
+        const isAnalyst = document.getElementById('analystMode').checked;
+        const display = document.getElementById('hodographDisplay');
+        if (isAnalyst) {
+            display.innerHTML = '<div id="interactiveHodographContainer"></div>';
+            const container = document.getElementById('interactiveHodographContainer');
+            interactiveHodograph = new InteractiveHodograph(container);
+            interactiveHodograph.features.halfKmMarkers = document.getElementById('showHalfKm').checked;
+            interactiveHodograph.features.speedRings = document.getElementById('showSpeedRings').checked;
+            interactiveHodograph.features.heightMarkers = document.getElementById('showHeightMarkers').checked;
+            interactiveHodograph.features.srhShading = document.getElementById('showSRH').checked;
+            interactiveHodograph.features.shearVector = document.getElementById('showShearVector').checked;
+            interactiveHodograph.features.criticalAngle = document.getElementById('showCriticalAngle').checked;
+            interactiveHodograph.features.stormMotionMarker = document.getElementById('showStormMotionMarker').checked;
+            interactiveHodograph.features.surfaceWindMarker = document.getElementById('showSurfaceWindMarker').checked;
+            interactiveHodograph.features.paramText = document.getElementById('showParamText').checked;
+            if (stormMotion) interactiveHodograph.setStormMotion(stormMotion.direction, stormMotion.speed);
+            if (metarData) interactiveHodograph.setMetar(metarData.direction, metarData.speed);
+        } else {
+            display.innerHTML = '<p>Loading archived hodograph…</p>';
+        }
+
+        startLoopController({
+            mode: isAnalyst ? 'analyst' : 'standard',
+            source: 'archive',
+            archiveId: archiveId,
+            siteId: siteId,
+            stormMotion: stormMotion,
+            metarData: metarData,
+            showHalfKm: document.getElementById('showHalfKm').checked,
+        });
+
+        hideLoading();
+        showMessage(`Loaded archive ${archiveId}`, 'success');
+    } catch (err) {
+        hideLoading();
+        showMessage('Load failed: ' + err.message, 'error');
+    }
+}
+
+// Make sure the sidebar reflects the archived site even if the user never
+// clicked it on the map. Returns the (possibly newly-set) selectedSite.
+async function ensureSiteSelected(siteId, siteName) {
+    if (selectedSite && selectedSite.id === siteId) return selectedSite;
+    selectedSite = {id: siteId, name: siteName || siteId};
+    const info = document.getElementById('siteInfo');
+    if (info) {
+        info.innerHTML = `<p><strong>${escapeHtml(siteId)}</strong>${siteName ? ' — ' + escapeHtml(siteName) : ''}</p>`;
+    }
+    document.getElementById('plotHodographBtn').disabled = false;
+    return selectedSite;
+}
+
+function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
 }
 
 // Reset application

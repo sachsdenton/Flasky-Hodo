@@ -110,6 +110,7 @@
                     <div class="tab-nav">
                         <button class="tab-btn active" data-tab="map">Map View</button>
                         <button class="tab-btn" data-tab="hodograph" id="hodographTab" disabled>Hodograph Analysis</button>
+                        <button class="tab-btn" data-tab="archives" id="archivesTab">Archives</button>
                     </div>
 
                     <!-- Desktop Tab Content -->
@@ -137,11 +138,25 @@
                                         <button type="button" class="scrubber-btn" data-scrubber-action="next" title="Next frame">⟩</button>
                                         <input type="range" class="scrubber-slider" min="0" max="0" step="1" value="0" />
                                         <span class="scrubber-counter">–</span>
+                                        <button type="button" class="scrubber-btn scrubber-save-btn" data-scrubber-action="save" title="Save loop to archive">💾 Save</button>
                                     </div>
                                     <div class="scrubber-timestamp">–</div>
                                 </div>
                                 <div class="hodograph-info-box" id="hodographInfoBox" style="display:none;"></div>
                                 <div class="parameters-display" id="parametersDisplay"></div>
+                            </div>
+                        </div>
+
+                        <!-- Archives Tab -->
+                        <div class="tab-pane" id="archivesPane">
+                            <div class="archives-view">
+                                <div class="archives-header">
+                                    <h3>Saved VAD Loops</h3>
+                                    <button type="button" id="archivesRefreshBtn" class="btn btn-secondary btn-sm">Refresh</button>
+                                </div>
+                                <div class="archives-tree" id="archivesTree">
+                                    <p class="archives-empty">Loading archives…</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -170,6 +185,7 @@
                                 <button type="button" class="scrubber-btn" data-scrubber-action="next" title="Next frame">⟩</button>
                                 <input type="range" class="scrubber-slider" min="0" max="0" step="1" value="0" />
                                 <span class="scrubber-counter">–</span>
+                                <button type="button" class="scrubber-btn scrubber-save-btn" data-scrubber-action="save" title="Save loop to archive">💾</button>
                             </div>
                             <div class="scrubber-timestamp">–</div>
                         </div>
