@@ -794,11 +794,14 @@ input[type="number"]:focus {
         display: none !important;
     }
 }
-/* ===== Save button on the loop scrubber ================================= */
-.scrubber-save-btn {
+/* ===== Save Loop button in the upper tab header ========================= */
+.tab-nav .header-save-btn {
     margin-left: auto;
-    padding: 0.25rem 0.6rem;
+    align-self: center;
+    margin-right: 0.75rem;
+    padding: 0.4rem 0.9rem;
     font-size: 0.85rem;
+    font-weight: 600;
     background: #2c7d40;
     color: #fff;
     border: 1px solid #1f5c2e;
@@ -806,8 +809,23 @@ input[type="number"]:focus {
     cursor: pointer;
     white-space: nowrap;
 }
-.scrubber-save-btn:hover { background: #38a052; }
-.scrubber-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.tab-nav .header-save-btn:hover { background: #38a052; }
+.tab-nav .header-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.mobile-tab-nav .header-save-btn {
+    margin-left: auto;
+    align-self: center;
+    margin-right: 0.5rem;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.95rem;
+    background: #2c7d40;
+    color: #fff;
+    border: 1px solid #1f5c2e;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.mobile-tab-nav .header-save-btn:hover { background: #38a052; }
+.mobile-tab-nav .header-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ===== Archives tab ===================================================== */
 .archives-view {

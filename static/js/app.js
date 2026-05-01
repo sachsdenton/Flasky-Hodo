@@ -793,6 +793,25 @@ function teardownLoopController() {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
+    updateHeaderSaveButtons();
+}
+
+// Show/hide the Save Loop buttons in the desktop and mobile tab headers.
+// Visible only for live loops; hidden when there's no loop or when replaying
+// an archive (since archives are already saved).
+function updateHeaderSaveButtons() {
+    const ctl = loopController;
+    const visible = !!(ctl && ctl.source !== 'archive');
+    ['headerSaveBtn', 'mobileHeaderSaveBtn'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.style.display = visible ? '' : 'none';
+        btn.disabled = false;
+        if (!btn.dataset.bound) {
+            btn.addEventListener('click', onScrubberButton);
+            btn.dataset.bound = '1';
+        }
+    });
 }
 
 async function startLoopController(opts) {
@@ -818,6 +837,7 @@ async function startLoopController(opts) {
         prefetchDone: false
     };
     loopController = ctl;
+    updateHeaderSaveButtons();
 
     // Phase 1: only show the loading indicator. Controls stay hidden until
     // we have at least 2 successfully loaded frames.
@@ -1019,11 +1039,6 @@ function renderScrubber() {
             if (action === 'play') {
                 btn.textContent = ctl.playing ? '❚❚' : '▶';
                 btn.classList.toggle('is-playing', ctl.playing);
-            }
-            if (action === 'save') {
-                // Archive replays are already saved — hide the button so
-                // users don't pile up duplicate entries.
-                btn.style.display = ctl.source === 'archive' ? 'none' : '';
             }
             if (!btn.dataset.bound) {
                 btn.addEventListener('click', onScrubberButton);

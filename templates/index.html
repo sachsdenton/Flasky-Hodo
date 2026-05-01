@@ -20,6 +20,7 @@
                 <button class="mobile-tab-btn active" data-tab="controls">Controls</button>
                 <button class="mobile-tab-btn" data-tab="map">Map</button>
                 <button class="mobile-tab-btn" data-tab="hodograph" id="mobileHodographTab" disabled>Analysis</button>
+                <button type="button" id="mobileHeaderSaveBtn" class="header-save-btn" data-scrubber-action="save" title="Save loop to archive" style="display:none;">💾</button>
             </div>
 
             <!-- Desktop Layout / Mobile Tab Content -->
@@ -111,6 +112,7 @@
                         <button class="tab-btn active" data-tab="map">Map View</button>
                         <button class="tab-btn" data-tab="hodograph" id="hodographTab" disabled>Hodograph Analysis</button>
                         <button class="tab-btn" data-tab="archives" id="archivesTab">Archives</button>
+                        <button type="button" id="headerSaveBtn" class="header-save-btn" data-scrubber-action="save" title="Save loop to archive" style="display:none;">💾 Save Loop</button>
                     </div>
 
                     <!-- Desktop Tab Content -->
@@ -138,7 +140,6 @@
                                         <button type="button" class="scrubber-btn" data-scrubber-action="next" title="Next frame">⟩</button>
                                         <input type="range" class="scrubber-slider" min="0" max="0" step="1" value="0" />
                                         <span class="scrubber-counter">–</span>
-                                        <button type="button" class="scrubber-btn scrubber-save-btn" data-scrubber-action="save" title="Save loop to archive">💾 Save</button>
                                     </div>
                                     <div class="scrubber-timestamp">–</div>
                                 </div>
@@ -185,7 +186,6 @@
                                 <button type="button" class="scrubber-btn" data-scrubber-action="next" title="Next frame">⟩</button>
                                 <input type="range" class="scrubber-slider" min="0" max="0" step="1" value="0" />
                                 <span class="scrubber-counter">–</span>
-                                <button type="button" class="scrubber-btn scrubber-save-btn" data-scrubber-action="save" title="Save loop to archive">💾</button>
                             </div>
                             <div class="scrubber-timestamp">–</div>
                         </div>
