@@ -367,10 +367,19 @@ async function loadWarnings() {
                     }
                 });
                 
+                // Storm motion (parsed server-side from the warning's
+                // TIME...MOT...LOC footer). Direction is the bearing the
+                // storm is coming FROM in degrees, speed is in knots.
+                let stormMotionHtml = '';
+                const sm = warning.storm_motion;
+                if (sm && sm.direction_degrees != null && sm.speed_knots != null) {
+                    stormMotionHtml = `<br><strong>Storm Motion:</strong> ${sm.direction_degrees}° at ${sm.speed_knots} kt`;
+                }
+
                 layer.bindPopup(`
                     <b>${event}</b><br>
                     <strong>Area:</strong> ${areaDesc}<br>
-                    <strong>Headline:</strong> ${headline}
+                    <strong>Headline:</strong> ${headline}${stormMotionHtml}
                 `);
                 
                 layer.addTo(map);

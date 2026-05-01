@@ -134,7 +134,18 @@ def extract_storm_motion(description: str, event_motion_description: Optional[st
             return motion_info
     
     # Fallback to original description parsing if eventMotionDescription doesn't contain what we need
-    
+
+    # Canonical NWS warning footer:
+    #   TIME...MOT...LOC HHMMZ DDDDEG SSKT LAT1 LON1 [LAT2 LON2 ...]
+    # The DEG value here is already the direction the storm is coming FROM
+    # (meteorological convention), so no flip is needed.
+    timelocmot_pattern = r"TIME\.{2,3}MOT\.{2,3}LOC\s+\d{3,4}Z\s+(\d{1,3})DEG\s+(\d{1,3})KT"
+    match = re.search(timelocmot_pattern, description, re.IGNORECASE)
+    if match:
+        motion_info["direction_degrees"] = int(match.group(1)) % 360
+        motion_info["speed_knots"] = int(match.group(2))
+        return motion_info
+
     # Common patterns for storm motion in NWS warnings
     # Pattern for "MOVING EAST AT 30 MPH" format
     direction_pattern = r"MOVING\s+([A-Z]+(?:\s+[A-Z]+)?)\s+AT\s+(\d+)\s+MPH"
