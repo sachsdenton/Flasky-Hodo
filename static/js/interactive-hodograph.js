@@ -578,10 +578,25 @@ class InteractiveHodograph {
         if (srhItems.length > 0) html += `<div class="info-row">${srhItems.join('')}</div>`;
 
         const motionItems = [];
-        if (params && params.bunkers_rm) motionItems.push(`<span class="info-item"><strong>Bunkers RM:</strong> ${params.bunkers_rm.direction.toFixed(0)}°/${params.bunkers_rm.speed.toFixed(0)}kt</span>`);
-        if (params && params.bunkers_lm) motionItems.push(`<span class="info-item"><strong>Bunkers LM:</strong> ${params.bunkers_lm.direction.toFixed(0)}°/${params.bunkers_lm.speed.toFixed(0)}kt</span>`);
-        if (params && params.mean_wind) motionItems.push(`<span class="info-item"><strong>Mean Wind:</strong> ${params.mean_wind.direction.toFixed(0)}°/${params.mean_wind.speed.toFixed(0)}kt</span>`);
-        if (params && params.deviant_tornado) motionItems.push(`<span class="info-item"><strong>DTM:</strong> ${params.deviant_tornado.direction.toFixed(0)}°/${params.deviant_tornado.speed.toFixed(0)}kt</span>`);
+        const fmtMotion = (label, vec) => {
+            // The backend returns the field with null direction/speed when
+            // there aren't enough wind levels to compute it (e.g. shallow VAD
+            // profiles that don't reach 6 km). Skip those silently instead
+            // of throwing when calling .toFixed on null.
+            if (!vec) return null;
+            const d = vec.direction, s = vec.speed;
+            if (d == null || s == null || !isFinite(d) || !isFinite(s)) return null;
+            return `<span class="info-item"><strong>${label}:</strong> ${d.toFixed(0)}°/${s.toFixed(0)}kt</span>`;
+        };
+        if (params) {
+            const items = [
+                fmtMotion('Bunkers RM', params.bunkers_rm),
+                fmtMotion('Bunkers LM', params.bunkers_lm),
+                fmtMotion('Mean Wind', params.mean_wind),
+                fmtMotion('DTM', params.deviant_tornado),
+            ].filter(Boolean);
+            motionItems.push(...items);
+        }
         if (motionItems.length > 0) html += `<div class="info-row">${motionItems.join('')}</div>`;
 
         infoBox.innerHTML = html;
