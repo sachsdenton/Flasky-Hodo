@@ -1,0 +1,47 @@
+{
+  "site_id": "KBRO",
+  "archive_id": "2026-05-01_0004Z_VAD_KMFE",
+  "saved_at": "2026-05-01 00:12:44 UTC",
+  "newest_valid_time": "2026-05-01 00:04 UTC",
+  "metar": {
+    "station": "KMFE",
+    "direction": 130,
+    "speed": 14
+  },
+  "storm_motion": {
+    "direction": 265,
+    "speed": 12
+  },
+  "frames": [
+    {
+      "file_id": "202604302328",
+      "valid_time": "2026-04-30 23:28 UTC",
+      "filename": "KBRO_SDUS34_NVWBRO_202604302328"
+    },
+    {
+      "file_id": "202604302335",
+      "valid_time": "2026-04-30 23:35 UTC",
+      "filename": "KBRO_SDUS34_NVWBRO_202604302335"
+    },
+    {
+      "file_id": "202604302343",
+      "valid_time": "2026-04-30 23:43 UTC",
+      "filename": "KBRO_SDUS34_NVWBRO_202604302343"
+    },
+    {
+      "file_id": "202604302350",
+      "valid_time": "2026-04-30 23:50 UTC",
+      "filename": "KBRO_SDUS34_NVWBRO_202604302350"
+    },
+    {
+      "file_id": "202604302357",
+      "valid_time": "2026-04-30 23:57 UTC",
+      "filename": "KBRO_SDUS34_NVWBRO_202604302357"
+    },
+    {
+      "file_id": "202605010004",
+      "valid_time": "2026-05-01 00:04 UTC",
+      "filename": "KBRO_SDUS34_NVWBRO_202605010004"
+    }
+  ]
+}

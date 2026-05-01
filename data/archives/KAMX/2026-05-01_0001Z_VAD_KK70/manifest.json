@@ -1,0 +1,47 @@
+{
+  "site_id": "KAMX",
+  "archive_id": "2026-05-01_0001Z_VAD_KK70",
+  "saved_at": "2026-05-01 00:10:57 UTC",
+  "newest_valid_time": "2026-05-01 00:01 UTC",
+  "metar": {
+    "station": "KK70",
+    "direction": 0,
+    "speed": 0
+  },
+  "storm_motion": {
+    "direction": 267,
+    "speed": 17
+  },
+  "frames": [
+    {
+      "file_id": "202604302317",
+      "valid_time": "2026-04-30 23:17 UTC",
+      "filename": "KMFL_SDUS32_NVWAMX_202604302317"
+    },
+    {
+      "file_id": "202604302326",
+      "valid_time": "2026-04-30 23:26 UTC",
+      "filename": "KMFL_SDUS32_NVWAMX_202604302326"
+    },
+    {
+      "file_id": "202604302334",
+      "valid_time": "2026-04-30 23:34 UTC",
+      "filename": "KMFL_SDUS32_NVWAMX_202604302334"
+    },
+    {
+      "file_id": "202604302343",
+      "valid_time": "2026-04-30 23:43 UTC",
+      "filename": "KMFL_SDUS32_NVWAMX_202604302343"
+    },
+    {
+      "file_id": "202604302352",
+      "valid_time": "2026-04-30 23:52 UTC",
+      "filename": "KMFL_SDUS32_NVWAMX_202604302352"
+    },
+    {
+      "file_id": "202605010001",
+      "valid_time": "2026-05-01 00:01 UTC",
+      "filename": "KMFL_SDUS32_NVWAMX_202605010001"
+    }
+  ]
+}
